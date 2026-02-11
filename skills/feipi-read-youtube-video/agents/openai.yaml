@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: "YouTube 下载（中文）"
+  short_description: "下载 YouTube 视频/音频并输出可验证结果。"
+  default_prompt: "请使用 feipi-read-youtube-video：先确认 URL 和输出目录，先 dryrun 验证，再按 video/audio 模式执行下载，并汇报验证结果。"
