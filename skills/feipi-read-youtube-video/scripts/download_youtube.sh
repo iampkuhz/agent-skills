@@ -90,21 +90,7 @@ run_yt_dlp() {
 
   if ! "${cmd[@]}" 2>"$err_file"; then
     if rg -qi "confirm you're not a bot|Sign in to confirm|403 Forbidden|HTTP Error 429" "$err_file"; then
-      echo "检测到可能的 YouTube bot/风控拦截。" >&2
-      echo "处理建议:" >&2
-      echo "1) 临时方式（推荐先试）:" >&2
-      echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
-      echo "2) 持久方式（二选一）:" >&2
-      echo "   - $CODEX_HOME_DIR/skills-config/feipi-read-youtube-video.env" >&2
-      echo "   - $HOME/.config/feipi-read-youtube-video/.env" >&2
-      echo "3) 也可显式指定配置文件:" >&2
-      echo "   export AGENT_SKILL_ENV_FILE='/your/path/feipi-read-youtube-video.env'" >&2
-      echo "4) 配置后先执行 dryrun，再重试下载" >&2
-      if [[ -n "$LOADED_ENV_FILE" ]]; then
-        echo "当前已加载配置文件: $LOADED_ENV_FILE" >&2
-      else
-        echo "当前未加载任何配置文件。" >&2
-      fi
+      print_bot_guidance
     fi
 
     cat "$err_file" >&2
@@ -114,6 +100,24 @@ run_yt_dlp() {
 
   rm -f "$err_file"
   return 0
+}
+
+print_bot_guidance() {
+  echo "检测到可能的 YouTube bot/风控拦截。" >&2
+  echo "处理建议:" >&2
+  echo "1) 临时方式（推荐先试）:" >&2
+  echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
+  echo "2) 持久方式（二选一）:" >&2
+  echo "   - $CODEX_HOME_DIR/skills-config/feipi-read-youtube-video.env" >&2
+  echo "   - $HOME/.config/feipi-read-youtube-video/.env" >&2
+  echo "3) 也可显式指定配置文件:" >&2
+  echo "   export AGENT_SKILL_ENV_FILE='/your/path/feipi-read-youtube-video.env'" >&2
+  echo "4) 配置后先执行 dryrun，再重试下载" >&2
+  if [[ -n "$LOADED_ENV_FILE" ]]; then
+    echo "当前已加载配置文件: $LOADED_ENV_FILE" >&2
+  else
+    echo "当前未加载任何配置文件。" >&2
+  fi
 }
 
 subtitle_to_text() {
@@ -139,21 +143,52 @@ subtitle_to_text() {
 
 run_subtitle_mode() {
   local marker subtitle_file text_file
+  local -a langs
+  local lang err_file
+  local bot_hit=0
+  local any_try=0
   marker="$(mktemp "$OUT_DIR/.subtitle-marker.XXXXXX")"
 
-  # 优先中文字幕，回退英文字幕；含自动字幕。
-  run_yt_dlp \
-    --skip-download \
-    --write-subs \
-    --write-auto-subs \
-    --sub-langs "zh.*,zh-Hans,zh-Hant,en.*,en" \
-    --sub-format "vtt/srt/best" \
-    "$URL"
+  # 只下载一个字幕：先尝试中文，再回退英文。
+  # 关闭自动字幕，避免触发多语言/多变体下载。
+  langs=(zh en)
+  for lang in "${langs[@]}"; do
+    any_try=1
+    err_file="$(mktemp)"
+
+    cmd=(yt-dlp "${COMMON_ARGS[@]}")
+    if [[ ${#AUTH_ARGS[@]} -gt 0 ]]; then
+      cmd+=("${AUTH_ARGS[@]}")
+    fi
+    cmd+=(
+      --skip-download
+      --write-subs
+      --no-write-auto-subs
+      --sub-langs "$lang"
+      --sub-format "vtt/srt/best"
+      "$URL"
+    )
+
+    if ! "${cmd[@]}" 2>"$err_file"; then
+      if rg -qi "confirm you're not a bot|Sign in to confirm|403 Forbidden|HTTP Error 429|Too Many Requests" "$err_file"; then
+        bot_hit=1
+      fi
+    fi
+    rm -f "$err_file"
+
+    subtitle_file="$(find "$OUT_DIR" -type f \( -name '*.vtt' -o -name '*.srt' \) -newer "$marker" | sort | head -n1 || true)"
+    if [[ -n "$subtitle_file" ]]; then
+      break
+    fi
+  done
 
   subtitle_file="$(find "$OUT_DIR" -type f \( -name '*.vtt' -o -name '*.srt' \) -newer "$marker" | sort | head -n1 || true)"
   rm -f "$marker"
 
   if [[ -z "$subtitle_file" ]]; then
+    if [[ "$any_try" -eq 1 && "$bot_hit" -eq 1 ]]; then
+      print_bot_guidance
+    fi
     echo "未获取到字幕文件（vtt/srt）。" >&2
     return 1
   fi
