@@ -9,6 +9,26 @@ description: 用于创建或更新 Codex/Claude 风格 skills 的中文高质量
 
 以最小上下文成本，产出可发现、可执行、可验证、可迭代的高质量 skills。
 
+## 仓库落地硬约束（创建/更新 skill 必须满足）
+
+1. 命名约束
+- skill 目录名必须匹配：`^[a-z0-9-]{1,64}$`。
+
+2. 中文维护约束
+- `SKILL.md` 的 `description` 与正文使用中文。
+- `agents/openai.yaml` 的 `display_name`、`short_description`、`default_prompt` 使用中文。
+- `references/` 默认中文（如保留英文原文，需附中文摘要）。
+- 脚本与配置注释统一中文。
+
+3. 测试结构约束
+- 每个 skill 必须提供统一测试入口：`skills/<name>/scripts/test.sh`。
+- 每个 skill 的测试数据默认放在：`skills/<name>/references/test_cases.txt`。
+- 仓库级统一通过 `make test SKILL=<name>` 调度，不依赖非标准脚本名。
+
+4. 校验约束
+- 新建或修改 skill 后，必须执行：`make validate DIR=skills/<name>`。
+
+
 ## 目录标准
 
 每个 skill 推荐结构：
@@ -51,6 +71,13 @@ description: 用于创建或更新 Codex/Claude 风格 skills 的中文高质量
 
 5. 中文维护
 - 面向维护者字段使用中文：`description`、正文、`agents/openai.yaml` 关键字段。
+
+6. 环境变量最小化
+- 默认只保留必要环境变量，优先 0~1 个；其余参数写成脚本内常量。
+- 环境变量命名使用业务语义，避免工具绑定前缀（如优先 `AGENT_*`，避免 `YTDLP_*`）。
+- 所有可调参数必须集中放在脚本顶部“可调参数区”，并配中文注释说明用途与修改方式。
+- 每次新增/修改环境变量时，必须同步更新 `.env.example` 与对应 `SKILL.md` 的参数说明。
+
 
 ## Frontmatter 规范
 
