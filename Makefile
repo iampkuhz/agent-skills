@@ -8,8 +8,6 @@ SHELL := /bin/bash
 SKILL ?=
 RESOURCES ?=
 DIR ?=
-AGENTS ?= codex,qoder,claude
-FORCE ?=
 CONFIG ?=
 OUTPUT ?=
 
@@ -31,13 +29,11 @@ validate:
 list:
 	@find skills -maxdepth 1 -mindepth 1 -type d | sort
 
-# 将仓库 `skills/` 下各 skill 软链接到常见 agent 工具目录。
+# 将仓库 `skills/` 下各 skill 软链接到 `$CODEX_HOME/skills`（默认 `~/.codex/skills`）。
 # 示例：
 # - make install-links
-# - make install-links AGENTS=codex,claude
-# - make install-links FORCE=1
 install-links:
-	./scripts/install_skills_links.sh --agents "$(AGENTS)" $(if $(filter 1 true yes,$(FORCE)),--force,)
+	./scripts/install_skills_links.sh
 
 # 统一执行 skill 测试入口。
 # 示例：

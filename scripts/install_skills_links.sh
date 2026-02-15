@@ -5,46 +5,23 @@ set -euo pipefail
 # 默认目标目录：$CODEX_HOME/skills（若未设置 CODEX_HOME，则使用 ~/.codex/skills）
 #
 # 用法：
-#   scripts/install_skills_links.sh [--force] [--dry-run]
-#
-# 参数：
-#   --force   : 目标已存在时强制覆盖（先删除再创建链接）
-#   --dry-run : 仅打印将执行的操作，不实际修改文件
+#   scripts/install_skills_links.sh
 
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/install_skills_links.sh [--force] [--dry-run]
+  scripts/install_skills_links.sh
 
 说明:
   把仓库内 skills/* 安装到 $CODEX_HOME/skills（默认 ~/.codex/skills）。
 USAGE
 }
 
-FORCE=0
-DRY_RUN=0
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --force)
-      FORCE=1
-      shift
-      ;;
-    --dry-run)
-      DRY_RUN=1
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "未知参数: $1" >&2
-      usage
-      exit 1
-      ;;
-  esac
-done
+if [[ $# -ne 0 ]]; then
+  echo "本脚本不接受任何参数。" >&2
+  usage
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -57,16 +34,7 @@ if [[ ! -d "$SRC_ROOT" ]]; then
   exit 1
 fi
 
-# 统一执行入口，支持 dry-run
-run_cmd() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "[DRY-RUN] $*"
-  else
-    "$@"
-  fi
-}
-
-run_cmd mkdir -p "$DEST_ROOT"
+mkdir -p "$DEST_ROOT"
 
 echo "源目录: $SRC_ROOT"
 echo "目标目录: $DEST_ROOT"
@@ -82,31 +50,18 @@ for src in "$SRC_ROOT"/*; do
   dest="$DEST_ROOT/$name"
 
   if [[ -L "$dest" ]]; then
-    # 若已是指向同一路径的链接则跳过
+    # 若已是指向同一路径的链接则跳过。
     current_target="$(readlink "$dest")"
     if [[ "$current_target" == "$src" ]]; then
       echo "已存在且正确，跳过: $name"
       continue
     fi
-
-    if [[ "$FORCE" -eq 1 ]]; then
-      run_cmd rm -f "$dest"
-    else
-      echo "已存在不同链接，跳过: $name -> $current_target"
-      echo "如需覆盖请使用 --force"
-      continue
-    fi
+    rm -f "$dest"
   elif [[ -e "$dest" ]]; then
-    if [[ "$FORCE" -eq 1 ]]; then
-      run_cmd rm -rf "$dest"
-    else
-      echo "目标已存在且不是链接，跳过: $dest"
-      echo "如需覆盖请使用 --force"
-      continue
-    fi
+    rm -rf "$dest"
   fi
 
-  run_cmd ln -s "$src" "$dest"
+  ln -s "$src" "$dest"
   echo "已安装: $name"
 done
 
