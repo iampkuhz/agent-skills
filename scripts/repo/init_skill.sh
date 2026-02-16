@@ -10,11 +10,11 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/init_skill.sh <skill-name> [--resources scripts,references,assets]
+  scripts/repo/init_skill.sh <skill-name> [--resources scripts,references,assets]
 
 示例:
-  scripts/init_skill.sh feipi-coding-react
-  scripts/init_skill.sh gen-api-tests --resources scripts,references
+  scripts/repo/init_skill.sh feipi-coding-react
+  scripts/repo/init_skill.sh gen-api-tests --resources scripts,references
 USAGE
 }
 
@@ -22,6 +22,11 @@ if [[ $# -lt 1 ]]; then
   usage
   exit 1
 fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SKILLS_ROOT="$REPO_ROOT/skills"
+TEMPLATES_ROOT="$REPO_ROOT/templates"
 
 SKILL_NAME="$1"
 shift
@@ -82,7 +87,7 @@ if ! printf "%s\n" "$ALLOWED_ACTIONS" | tr ' ' '\n' | rg -qx "$ACTION"; then
   exit 1
 fi
 
-ROOT_DIR="skills/$SKILL_NAME"
+ROOT_DIR="$SKILLS_ROOT/$SKILL_NAME"
 if [[ -e "$ROOT_DIR" ]]; then
   echo "目标目录已存在: $ROOT_DIR" >&2
   exit 1
@@ -97,7 +102,7 @@ sed \
   -e "s/{{SKILL_NAME}}/$SKILL_NAME/g" \
   -e "s/{{SKILL_DESCRIPTION}}/$DESCRIPTION/g" \
   -e "s/{{TITLE}}/$TITLE/g" \
-  templates/SKILL.template.md > "$ROOT_DIR/SKILL.md"
+  "$TEMPLATES_ROOT/SKILL.template.md" > "$ROOT_DIR/SKILL.md"
 
 DISPLAY_NAME="$TITLE"
 SHORT_DESCRIPTION="使用中文完成任务，并提供可验证交付证据。"
@@ -107,7 +112,7 @@ sed \
   -e "s/{{DISPLAY_NAME}}/$DISPLAY_NAME/g" \
   -e "s/{{SHORT_DESCRIPTION}}/$SHORT_DESCRIPTION/g" \
   -e "s/{{DEFAULT_PROMPT}}/$DEFAULT_PROMPT/g" \
-  templates/openai.template.yaml > "$ROOT_DIR/agents/openai.yaml"
+  "$TEMPLATES_ROOT/openai.template.yaml" > "$ROOT_DIR/agents/openai.yaml"
 
 if [[ -n "$RESOURCES" ]]; then
   # 根据参数创建可选资源目录。
@@ -125,4 +130,4 @@ if [[ -n "$RESOURCES" ]]; then
   done
 fi
 
-echo "已初始化: $ROOT_DIR"
+echo "已初始化: skills/$SKILL_NAME"

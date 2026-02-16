@@ -5,12 +5,12 @@ set -euo pipefail
 # 默认目标目录：$CODEX_HOME/skills（若未设置 CODEX_HOME，则使用 ~/.codex/skills）
 #
 # 用法：
-#   scripts/install_skills_links.sh
+#   scripts/repo/install_skills_links.sh
 
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/install_skills_links.sh
+  scripts/repo/install_skills_links.sh
 
 说明:
   把仓库内 skills/* 安装到 $CODEX_HOME/skills（默认 ~/.codex/skills）。
@@ -24,7 +24,7 @@ if [[ $# -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SRC_ROOT="$REPO_ROOT/skills"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
 DEST_ROOT="$CODEX_HOME_DIR/skills"

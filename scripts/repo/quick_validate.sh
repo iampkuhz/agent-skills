@@ -10,10 +10,10 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/quick_validate.sh <path-to-skill-folder>
+  scripts/repo/quick_validate.sh <path-to-skill-folder>
 
 示例:
-  scripts/quick_validate.sh skills/feipi-coding-react
+  scripts/repo/quick_validate.sh skills/feipi-coding-react
 USAGE
 }
 
@@ -22,7 +22,14 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-DIR="$1"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DIR_INPUT="$1"
+DIR="$DIR_INPUT"
+
+if [[ ! -d "$DIR" && -d "$REPO_ROOT/$DIR_INPUT" ]]; then
+  DIR="$REPO_ROOT/$DIR_INPUT"
+fi
 
 if [[ ! -d "$DIR" ]]; then
   echo "不是目录: $DIR" >&2

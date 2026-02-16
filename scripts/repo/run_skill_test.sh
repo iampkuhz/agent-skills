@@ -8,11 +8,11 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/run_skill_test.sh <skill-name> [--config <path>] [--output <path>]
+  scripts/repo/run_skill_test.sh <skill-name> [--config <path>] [--output <path>]
 
 示例:
-  scripts/run_skill_test.sh feipi-read-youtube-video
-  scripts/run_skill_test.sh read-youtube-video --output ./tmp/runs
+  scripts/repo/run_skill_test.sh feipi-read-youtube-video
+  scripts/repo/run_skill_test.sh read-youtube-video --output ./tmp/runs
 USAGE
 }
 
@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SKILLS_ROOT="$REPO_ROOT/skills"
 
 resolve_skill_name() {
