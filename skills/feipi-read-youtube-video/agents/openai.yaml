@@ -1,5 +1,5 @@
 version: 1
 interface:
-  display_name: "YouTube 下载（中文）"
-  short_description: "下载 YouTube 视频/音频并输出可验证结果。"
-  default_prompt: "请使用 feipi-read-youtube-video：先确认 URL 和输出目录，先 dryrun 验证，再按 video/audio 模式执行下载，并汇报验证结果。"
+  display_name: "YouTube 下载与转写（中文）"
+  short_description: "下载 YouTube 视频/音频，支持 dryrun、字幕提取和 whisper 转写。"
+  default_prompt: "请使用 feipi-read-youtube-video：先确认 URL、输出目录和目标模式，优先执行 dryrun，再按 video/audio/subtitle/whisper 模式运行脚本，并汇报生成文件与验证结果。"

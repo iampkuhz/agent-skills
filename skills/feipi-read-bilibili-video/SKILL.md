@@ -1,6 +1,6 @@
 ---
 name: feipi-read-bilibili-video
-description: 下载 Bilibili 视频或音频并保存到本地目录。在用户提到 Bilibili 下载、视频转音频、批量保存视频素材、或需要先验证链接可下载时使用。
+description: 用于下载 Bilibili 视频或音频并保存到本地目录，支持 dryrun、字幕提取与 whisper 转写。在需要验证链接可下载、提取音频或批量沉淀视频素材时使用。
 ---
 
 # Bilibili 下载技能（中文）
@@ -98,7 +98,7 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" subtitle
 ```bash
 bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 ```
-说明：先产出 `srt` 再转换为带时间戳 `.txt`。
+说明：先产出 `srt` 再转换为带时间戳 `.txt`。在 macOS 上默认优先使用 MPS（GPU）加速，失败会自动回退 CPU。
 
 ## 失败处理
 

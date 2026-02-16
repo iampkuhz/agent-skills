@@ -1,5 +1,5 @@
 version: 1
 interface:
-  display_name: "技能创建器（中文）"
-  short_description: "用中文创建、校验并迭代高质量 skills。"
-  default_prompt: "请使用 feipi-gen-skills：先探索后规划，再实现与验证；命名必须为 feipi-<action>-<target...>，并输出验证结果与剩余风险。"
+  display_name: "Skill 生成与重构（中文）"
+  short_description: "按仓库规范创建或更新 skill，并产出可验证交付。"
+  default_prompt: "请使用 feipi-gen-skills：先探索任务目标与边界，再规划改动文件；实现时同步更新 SKILL.md 与 agents/openai.yaml；最后执行 make validate 并汇报验证结果与剩余风险。"
