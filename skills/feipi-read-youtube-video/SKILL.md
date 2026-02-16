@@ -88,15 +88,17 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" dryrun
 ```
 说明：`dryrun` 只输出标题和视频 ID，不生成下载文件。适合先验证链接与权限，再执行真实下载。
 
-4. 提取字幕文本（优先中英字幕）：
+4. 提取字幕文本（优先中英字幕，保留时间戳）：
 ```bash
 bash scripts/download_youtube.sh "<youtube_url>" "./downloads" subtitle
 ```
+说明：输出 `.txt` 为时间线格式（如 `- [00:12] ...`），便于后续摘要与观点定位。
 
-5. 强制语音转写（whisper）：
+5. 强制语音转写（whisper，保留时间戳）：
 ```bash
 bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper
 ```
+说明：先产出 `srt` 再转换为带时间戳 `.txt`。
 
 ## 失败处理
 

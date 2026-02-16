@@ -1,0 +1,6 @@
+# 每行格式：<url>
+# 真实视频回放用例
+
+https://www.bilibili.com/video/BV1FbdaYzEP1
+https://www.youtube.com/watch?v=fHGE9KePsMI
+https://www.youtube.com/watch?v=CY5nvPIezAM

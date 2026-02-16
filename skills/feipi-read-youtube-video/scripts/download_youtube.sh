@@ -45,6 +45,8 @@ for f in "${CONFIG_CANDIDATES[@]}"; do
 done
 
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
+AGENT_YT_REMOTE_COMPONENTS="${AGENT_YT_REMOTE_COMPONENTS:-ejs:github}"
+AGENT_YT_EXTRACTOR_ARGS="${AGENT_YT_EXTRACTOR_ARGS:-youtube:player_client=android,web_safari}"
 
 if [[ -z "$URL" ]]; then
   echo "用法: bash scripts/download_youtube.sh <url> [output_dir] [video|audio|dryrun|subtitle|whisper]" >&2
@@ -77,8 +79,14 @@ if [[ -n "$AGENT_CHROME_PROFILE" ]]; then
   AUTH_ARGS+=(--cookies-from-browser "$AGENT_CHROME_PROFILE")
 fi
 
+is_challenge_error() {
+  local err_file="$1"
+  rg -qi "n challenge solving failed|Remote components challenge solver script|Only images are available|Requested format is not available|Sign in to confirm|confirm you're not a bot" "$err_file"
+}
+
 run_yt_dlp() {
   local -a cmd
+  local -a retry_cmd
   local err_file
 
   err_file="$(mktemp)"
@@ -89,6 +97,25 @@ run_yt_dlp() {
   cmd+=("$@")
 
   if ! "${cmd[@]}" 2>"$err_file"; then
+    # YouTube JS challenge 失败时，使用远程组件与提取器参数重试一次。
+    if is_challenge_error "$err_file"; then
+      retry_cmd=(yt-dlp "${COMMON_ARGS[@]}")
+      if [[ ${#AUTH_ARGS[@]} -gt 0 ]]; then
+        retry_cmd+=("${AUTH_ARGS[@]}")
+      fi
+      if [[ -n "$AGENT_YT_REMOTE_COMPONENTS" ]]; then
+        retry_cmd+=(--remote-components "$AGENT_YT_REMOTE_COMPONENTS")
+      fi
+      if [[ -n "$AGENT_YT_EXTRACTOR_ARGS" ]]; then
+        retry_cmd+=(--extractor-args "$AGENT_YT_EXTRACTOR_ARGS")
+      fi
+      retry_cmd+=("$@")
+      if "${retry_cmd[@]}" 2>"$err_file"; then
+        rm -f "$err_file"
+        return 0
+      fi
+    fi
+
     if rg -qi "confirm you're not a bot|Sign in to confirm|403 Forbidden|HTTP Error 429" "$err_file"; then
       print_bot_guidance
     fi
@@ -120,23 +147,63 @@ print_bot_guidance() {
   fi
 }
 
+normalize_timestamp() {
+  local raw="$1"
+  raw="$(echo "$raw" | sed 's/,/./g; s/[[:space:]]//g')"
+  if [[ "$raw" =~ ^([0-9]+):([0-9]{2}):([0-9]{2})(\.[0-9]+)?$ ]]; then
+    printf "%02d:%02d:%02d" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+    return 0
+  fi
+  if [[ "$raw" =~ ^([0-9]+):([0-9]{2})(\.[0-9]+)?$ ]]; then
+    printf "%02d:%02d" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    return 0
+  fi
+  printf "00:00"
+}
+
 subtitle_to_text() {
   local subtitle_file="$1"
   local text_file="$2"
   awk '
-    BEGIN { IGNORECASE=1 }
-    /^[[:space:]]*$/ { print ""; next }
+    BEGIN {
+      IGNORECASE=1
+      current_ts=""
+      last_out_ts=""
+    }
+    /^[[:space:]]*$/ { next }
     /^WEBVTT/ { next }
     /^NOTE/ { next }
     /^[0-9]+$/ { next }
-    /-->/ { next }
+    /-->/ {
+      ts=$1
+      gsub(/,/, ".", ts)
+      gsub(/[[:space:]]/, "", ts)
+      split(ts, a, ":")
+      if (length(a)==3) {
+        current_ts=sprintf("%02d:%02d:%02d", a[1]+0, a[2]+0, int(a[3]))
+      } else if (length(a)==2) {
+        current_ts=sprintf("%02d:%02d", a[1]+0, a[2]+0)
+      } else {
+        current_ts="00:00"
+      }
+      next
+    }
     {
-      gsub(/\r/, "", $0)
-      gsub(/<[^>]*>/, "", $0)
-      gsub(/[[:space:]]+/, " ", $0)
-      sub(/^[[:space:]]+/, "", $0)
-      sub(/[[:space:]]+$/, "", $0)
-      if ($0 != "") print $0
+      line=$0
+      gsub(/\r/, "", line)
+      gsub(/<[^>]*>/, "", line)
+      gsub(/[[:space:]]+/, " ", line)
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line=="") next
+      if (line ~ /^(Kind:|Language:|Source:|Style:)/) next
+      if (current_ts=="") current_ts="00:00"
+      if (current_ts != last_out_ts) {
+        print "- [" current_ts "] " line
+        last_out_ts=current_ts
+      } else {
+        print "  " line
+      }
     }
   ' "$subtitle_file" > "$text_file"
 }
@@ -149,27 +216,20 @@ run_subtitle_mode() {
   local any_try=0
   marker="$(mktemp "$OUT_DIR/.subtitle-marker.XXXXXX")"
 
-  # 只下载一个字幕：先尝试中文，再回退英文。
-  # 关闭自动字幕，避免触发多语言/多变体下载。
+  # 优先中文字幕，再回退英文；包含自动字幕，避免无人工字幕时失败。
   langs=(zh en)
   for lang in "${langs[@]}"; do
     any_try=1
     err_file="$(mktemp)"
 
-    cmd=(yt-dlp "${COMMON_ARGS[@]}")
-    if [[ ${#AUTH_ARGS[@]} -gt 0 ]]; then
-      cmd+=("${AUTH_ARGS[@]}")
-    fi
-    cmd+=(
-      --skip-download
-      --write-subs
-      --no-write-auto-subs
-      --sub-langs "$lang"
-      --sub-format "vtt/srt/best"
-      "$URL"
-    )
-
-    if ! "${cmd[@]}" 2>"$err_file"; then
+    if ! run_yt_dlp \
+      --skip-download \
+      --write-subs \
+      --write-auto-subs \
+      --convert-subs vtt \
+      --sub-langs "$lang" \
+      --sub-format "vtt/srt" \
+      "$URL" 2>"$err_file"; then
       if rg -qi "confirm you're not a bot|Sign in to confirm|403 Forbidden|HTTP Error 429|Too Many Requests" "$err_file"; then
         bot_hit=1
       fi
@@ -227,16 +287,18 @@ run_whisper_mode() {
     --model base \
     --language zh \
     --task transcribe \
-    --output_format txt \
+    --output_format srt \
     --output_dir "$OUT_DIR"
 
   base="$(basename "${audio_file%.*}")"
+  srt_file="$OUT_DIR/$base.srt"
   text_file="$OUT_DIR/$base.txt"
-  if [[ ! -f "$text_file" ]]; then
-    echo "whisper 已执行，但未找到转写结果: $text_file" >&2
+  if [[ ! -f "$srt_file" ]]; then
+    echo "whisper 已执行，但未找到转写结果: $srt_file" >&2
     return 1
   fi
 
+  subtitle_to_text "$srt_file" "$text_file"
   echo "完成: mode=whisper, audio=$audio_file, text=$text_file"
 }
 

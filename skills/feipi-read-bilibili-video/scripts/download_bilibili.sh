@@ -152,19 +152,45 @@ subtitle_to_text() {
   local subtitle_file="$1"
   local text_file="$2"
   awk '
-    BEGIN { IGNORECASE=1 }
-    /^[[:space:]]*$/ { print ""; next }
+    BEGIN {
+      IGNORECASE=1
+      current_ts=""
+      last_out_ts=""
+    }
+    /^[[:space:]]*$/ { next }
     /^WEBVTT/ { next }
     /^NOTE/ { next }
     /^[0-9]+$/ { next }
-    /-->/ { next }
+    /-->/ {
+      ts=$1
+      gsub(/,/, ".", ts)
+      gsub(/[[:space:]]/, "", ts)
+      split(ts, a, ":")
+      if (length(a)==3) {
+        current_ts=sprintf("%02d:%02d:%02d", a[1]+0, a[2]+0, int(a[3]))
+      } else if (length(a)==2) {
+        current_ts=sprintf("%02d:%02d", a[1]+0, a[2]+0)
+      } else {
+        current_ts="00:00"
+      }
+      next
+    }
     {
-      gsub(/\r/, "", $0)
-      gsub(/<[^>]*>/, "", $0)
-      gsub(/[[:space:]]+/, " ", $0)
-      sub(/^[[:space:]]+/, "", $0)
-      sub(/[[:space:]]+$/, "", $0)
-      if ($0 != "") print $0
+      line=$0
+      gsub(/\r/, "", line)
+      gsub(/<[^>]*>/, "", line)
+      gsub(/[[:space:]]+/, " ", line)
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line=="") next
+      if (line ~ /^(Kind:|Language:|Source:|Style:)/) next
+      if (current_ts=="") current_ts="00:00"
+      if (current_ts != last_out_ts) {
+        print "- [" current_ts "] " line
+        last_out_ts=current_ts
+      } else {
+        print "  " line
+      }
     }
   ' "$subtitle_file" > "$text_file"
 }
@@ -198,8 +224,9 @@ run_subtitle_mode() {
       --skip-download
       --write-subs
       --write-auto-subs
+      --convert-subs vtt
       --sub-langs "$lang"
-      --sub-format "vtt/srt/best"
+      --sub-format "vtt/srt"
       "$URL"
     )
 
@@ -231,8 +258,9 @@ run_subtitle_mode() {
         --skip-download
         --write-subs
         --write-auto-subs
+        --convert-subs vtt
         --sub-langs "$lang"
-        --sub-format "vtt/srt/best"
+        --sub-format "vtt/srt"
         "$URL"
       )
 
@@ -273,7 +301,7 @@ run_subtitle_mode() {
 }
 
 run_whisper_mode() {
-  local marker audio_file base text_file
+  local marker audio_file base text_file srt_file
 
   if ! command -v whisper >/dev/null 2>&1; then
     echo "缺少依赖: whisper" >&2
@@ -301,16 +329,18 @@ run_whisper_mode() {
     --model base \
     --language zh \
     --task transcribe \
-    --output_format txt \
+    --output_format srt \
     --output_dir "$OUT_DIR"
 
   base="$(basename "${audio_file%.*}")"
+  srt_file="$OUT_DIR/$base.srt"
   text_file="$OUT_DIR/$base.txt"
-  if [[ ! -f "$text_file" ]]; then
-    echo "whisper 已执行，但未找到转写结果: $text_file" >&2
+  if [[ ! -f "$srt_file" ]]; then
+    echo "whisper 已执行，但未找到转写结果: $srt_file" >&2
     return 1
   fi
 
+  subtitle_to_text "$srt_file" "$text_file"
   echo "完成: mode=whisper, audio=$audio_file, text=$text_file"
 }
 

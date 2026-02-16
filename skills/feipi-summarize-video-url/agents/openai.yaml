@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: "视频 URL 文本总结（中文）"
+  short_description: "提取字幕后生成请求包，交给远程大模型做重点总结。"
+  default_prompt: "请使用 feipi-summarize-video-url：先按来源提取带时间戳文本，生成‘提示词+文本请求包’，再交给远程大模型输出摘要概述与核心观点时间线。禁止套话。"
