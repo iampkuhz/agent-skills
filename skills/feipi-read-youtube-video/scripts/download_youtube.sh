@@ -16,6 +16,16 @@ URL="${1:-}"
 OUT_DIR="${2:-./downloads}"
 MODE="${3:-video}"
 
+# whisper.cpp（Mac 质量优先）固定参数区
+WHISPER_CPP_BIN_DEFAULT="/opt/homebrew/opt/whisper-cpp/bin/whisper-cli"
+WHISPER_MODEL_DIR_DEFAULT="$HOME/Library/Caches/whisper.cpp/models"
+WHISPER_MODEL_FILE_DEFAULT="$WHISPER_MODEL_DIR_DEFAULT/ggml-large-v3-q5_0.bin"
+WHISPER_MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin"
+WHISPER_THREADS=4
+WHISPER_PROCESSORS=1
+WHISPER_BEAM_SIZE=8
+WHISPER_BEST_OF=8
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -258,12 +268,72 @@ run_subtitle_mode() {
   echo "完成: mode=subtitle, subtitle=$subtitle_file, text=$text_file"
 }
 
-run_whisper_mode() {
-  local marker audio_file base text_file
+resolve_whisper_cpp_cli() {
+  if [[ -x "$WHISPER_CPP_BIN_DEFAULT" ]]; then
+    echo "$WHISPER_CPP_BIN_DEFAULT"
+    return 0
+  fi
+  if command -v whisper-cli >/dev/null 2>&1; then
+    command -v whisper-cli
+    return 0
+  fi
+  return 1
+}
 
-  if ! command -v whisper >/dev/null 2>&1; then
-    echo "缺少依赖: whisper" >&2
-    echo "安装示例: pip install -U openai-whisper" >&2
+resolve_metal_resources_dir() {
+  local prefix
+  if command -v brew >/dev/null 2>&1; then
+    prefix="$(brew --prefix whisper-cpp 2>/dev/null || true)"
+    if [[ -n "$prefix" && -d "$prefix/share/whisper-cpp" ]]; then
+      echo "$prefix/share/whisper-cpp"
+      return 0
+    fi
+  fi
+
+  if [[ -d "/opt/homebrew/opt/whisper-cpp/share/whisper-cpp" ]]; then
+    echo "/opt/homebrew/opt/whisper-cpp/share/whisper-cpp"
+    return 0
+  fi
+
+  return 1
+}
+
+print_whisper_cpp_setup_guidance() {
+  echo "whisper.cpp 质量优先模式需要以下环境：" >&2
+  echo "1) 安装 whisper-cpp: brew install whisper-cpp" >&2
+  echo "2) 下载模型（一次性）:" >&2
+  echo "   mkdir -p \"$WHISPER_MODEL_DIR_DEFAULT\"" >&2
+  echo "   curl -L --fail \"$WHISPER_MODEL_URL\" -o \"$WHISPER_MODEL_FILE_DEFAULT\"" >&2
+}
+
+run_whisper_mode() {
+  local marker audio_file base text_file srt_file output_prefix
+  local whisper_cli metal_resources used_device
+  local -a whisper_cpp_args
+  local run_code
+
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "whisper 模式当前仅支持 macOS + whisper.cpp。" >&2
+    return 1
+  fi
+
+  whisper_cli="$(resolve_whisper_cpp_cli || true)"
+  if [[ -z "$whisper_cli" ]]; then
+    echo "缺少依赖: whisper-cli（whisper.cpp）" >&2
+    print_whisper_cpp_setup_guidance
+    return 1
+  fi
+
+  if [[ ! -f "$WHISPER_MODEL_FILE_DEFAULT" ]]; then
+    echo "缺少模型文件: $WHISPER_MODEL_FILE_DEFAULT" >&2
+    print_whisper_cpp_setup_guidance
+    return 1
+  fi
+
+  metal_resources="$(resolve_metal_resources_dir || true)"
+  if [[ -z "$metal_resources" ]]; then
+    echo "未找到 whisper.cpp Metal 资源目录（share/whisper-cpp）。" >&2
+    echo "请确认 whisper-cpp 通过 Homebrew 正常安装。" >&2
     return 1
   fi
 
@@ -283,23 +353,45 @@ run_whisper_mode() {
     return 1
   fi
 
-  whisper "$audio_file" \
-    --model base \
-    --language zh \
-    --task transcribe \
-    --output_format srt \
-    --output_dir "$OUT_DIR"
-
   base="$(basename "${audio_file%.*}")"
-  srt_file="$OUT_DIR/$base.srt"
-  text_file="$OUT_DIR/$base.txt"
+  output_prefix="$OUT_DIR/$base"
+  srt_file="$output_prefix.srt"
+  text_file="$output_prefix.txt"
+  rm -f "$srt_file" "$text_file"
+
+  whisper_cpp_args=(
+    -m "$WHISPER_MODEL_FILE_DEFAULT"
+    -f "$audio_file"
+    -l zh
+    -osrt
+    -of "$output_prefix"
+    -t "$WHISPER_THREADS"
+    -p "$WHISPER_PROCESSORS"
+    -bs "$WHISPER_BEAM_SIZE"
+    -bo "$WHISPER_BEST_OF"
+    -np
+  )
+
+  used_device="metal"
+  set +e
+  GGML_METAL_PATH_RESOURCES="$metal_resources" "$whisper_cli" "${whisper_cpp_args[@]}"
+  run_code=$?
+  set -e
+
+  if [[ $run_code -ne 0 || ! -f "$srt_file" ]]; then
+    echo "Metal 转写失败，回退 CPU 转写。" >&2
+    rm -f "$srt_file"
+    used_device="cpu"
+    "$whisper_cli" "${whisper_cpp_args[@]}" -ng
+  fi
+
   if [[ ! -f "$srt_file" ]]; then
-    echo "whisper 已执行，但未找到转写结果: $srt_file" >&2
+    echo "whisper.cpp 已执行，但未找到转写结果: $srt_file" >&2
     return 1
   fi
 
   subtitle_to_text "$srt_file" "$text_file"
-  echo "完成: mode=whisper, audio=$audio_file, text=$text_file"
+  echo "完成: mode=whisper, engine=whisper.cpp, model=$(basename "$WHISPER_MODEL_FILE_DEFAULT"), device=$used_device, audio=$audio_file, text=$text_file"
 }
 
 case "$MODE" in

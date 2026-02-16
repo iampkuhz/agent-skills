@@ -8,6 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TARGET_SCRIPT="$SCRIPT_DIR/download_youtube.sh"
 DEFAULT_CONFIG="$SKILL_DIR/references/test_cases.txt"
+WHISPER_CPP_BIN_DEFAULT="/opt/homebrew/opt/whisper-cpp/bin/whisper-cli"
+WHISPER_MODEL_FILE_DEFAULT="$HOME/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin"
 
 CONFIG=""
 OUTPUT=""
@@ -76,8 +78,12 @@ if grep -Ev '^[[:space:]]*($|#)' "$CONFIG" | rg -q '\|(video|audio|whisper)[[:sp
 fi
 
 if grep -Ev '^[[:space:]]*($|#)' "$CONFIG" | rg -q '\|whisper[[:space:]]*($|#)'; then
-  if ! command -v whisper >/dev/null 2>&1; then
-    echo "缺少依赖: whisper（whisper 用例需要）" >&2
+  if [[ ! -x "$WHISPER_CPP_BIN_DEFAULT" ]] && ! command -v whisper-cli >/dev/null 2>&1; then
+    echo "缺少依赖: whisper-cli（whisper.cpp，whisper 用例需要）" >&2
+    exit 1
+  fi
+  if [[ ! -f "$WHISPER_MODEL_FILE_DEFAULT" ]]; then
+    echo "缺少模型文件: $WHISPER_MODEL_FILE_DEFAULT（whisper 用例需要）" >&2
     exit 1
   fi
 fi

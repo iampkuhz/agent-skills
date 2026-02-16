@@ -1,6 +1,6 @@
 ---
 name: feipi-read-bilibili-video
-description: 用于下载 Bilibili 视频或音频并保存到本地目录，支持 dryrun、字幕提取与 whisper 转写。在需要验证链接可下载、提取音频或批量沉淀视频素材时使用。
+description: 用于下载 Bilibili 视频或音频并保存到本地目录，支持 dryrun、字幕提取与 whisper.cpp 转写。在需要验证链接可下载、提取音频或批量沉淀视频素材时使用。
 ---
 
 # Bilibili 下载技能（中文）
@@ -27,7 +27,7 @@ description: 用于下载 Bilibili 视频或音频并保存到本地目录，支
 
 1. `yt-dlp`
 2. `ffmpeg`（下载合并高质量视频、音频转码时需要）
-3. `whisper`（`whisper` 模式需要）
+3. `whisper.cpp`（`whisper-cli`，`whisper` 模式需要）
 
 依赖安装入口：
 ```bash
@@ -36,6 +36,20 @@ bash scripts/install_deps.sh
 仅检查：
 ```bash
 bash scripts/install_deps.sh --check
+```
+
+## whisper.cpp 模型约定（质量优先）
+
+1. 固定模型路径（脚本内置）：
+- `/Users/<用户名>/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin`
+2. 模型策略：
+- 默认使用 `large-v3 q5_0`，优先质量，不追求速度。
+3. 一次性下载（如需手动）：
+```bash
+mkdir -p "$HOME/Library/Caches/whisper.cpp/models"
+curl -L --fail \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin" \
+  -o "$HOME/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin"
 ```
 
 ## 环境变量配置（用于应对登录限制）
@@ -98,12 +112,12 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" subtitle
 ```bash
 bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 ```
-说明：先产出 `srt` 再转换为带时间戳 `.txt`。在 macOS 上默认优先使用 MPS（GPU）加速，失败会自动回退 CPU。
+说明：使用 `whisper.cpp` 的 `large-v3-q5_0` 质量优先转写；先尝试 Metal（GPU），失败自动回退 CPU，再把 `srt` 转为带时间戳 `.txt`。
 
 ## 失败处理
 
 1. 缺少依赖
-- 提示安装 `yt-dlp` 与 `ffmpeg`，再重试。
+- 提示安装 `yt-dlp`、`ffmpeg`、`whisper-cpp`，并确保 `q5_0` 模型文件存在。
 
 2. 权限限制 / 风控拦截
 - 先执行 `dryrun`，返回错误摘要给用户。
@@ -116,6 +130,10 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 - 先手工执行 `yt-dlp --skip-download --list-subs "<bilibili_url>"` 查看真实语言标签。
 - 若仅有 `danmaku`，说明缺少标准字幕，建议改用 `whisper` 模式做语音转写。
 - 若日志包含 `Subtitles are only available when logged in`，说明该视频字幕（含部分 AI 字幕）需登录态，需先配置 `AGENT_CHROME_PROFILE` 后重试。
+
+5. `whisper` 模式失败
+- 检查 `whisper-cli` 是否存在（建议 `brew install whisper-cpp`）。
+- 检查模型文件是否存在于 `$HOME/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin`。
 
 ## 验收标准
 

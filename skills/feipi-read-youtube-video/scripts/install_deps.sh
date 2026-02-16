@@ -2,11 +2,16 @@
 set -euo pipefail
 
 # 一键安装/检查 feipi-read-youtube-video 所需依赖
-# 依赖：yt-dlp, ffmpeg, whisper
+# 依赖：yt-dlp, ffmpeg, whisper.cpp(whisper-cli), large-v3-q5_0 模型
 #
 # 用法：
 #   bash scripts/install_deps.sh            # 自动安装缺失依赖（支持 macOS + Homebrew）
 #   bash scripts/install_deps.sh --check    # 仅检查，不安装
+
+WHISPER_CPP_BIN_DEFAULT="/opt/homebrew/opt/whisper-cpp/bin/whisper-cli"
+WHISPER_MODEL_DIR_DEFAULT="$HOME/Library/Caches/whisper.cpp/models"
+WHISPER_MODEL_FILE_DEFAULT="$WHISPER_MODEL_DIR_DEFAULT/ggml-large-v3-q5_0.bin"
+WHISPER_MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin"
 
 usage() {
   cat <<'USAGE'
@@ -51,19 +56,43 @@ install_with_brew() {
   brew list "$pkg" >/dev/null 2>&1 || brew install "$pkg"
 }
 
-install_whisper() {
-  if need_cmd whisper; then
+has_whisper_cpp() {
+  if [[ -x "$WHISPER_CPP_BIN_DEFAULT" ]]; then
     return 0
   fi
-
-  if need_cmd pip3; then
-    pip3 install -U openai-whisper
+  if need_cmd whisper-cli; then
     return 0
   fi
-
-  echo "未找到 pip3，无法自动安装 whisper。" >&2
-  echo "请先安装 Python3/pip3，然后执行: pip3 install -U openai-whisper" >&2
   return 1
+}
+
+install_whisper_cpp() {
+  install_with_brew whisper-cpp
+}
+
+ensure_whisper_model() {
+  local tmp_file
+  if [[ -f "$WHISPER_MODEL_FILE_DEFAULT" ]]; then
+    echo "[OK] whisper 模型: $WHISPER_MODEL_FILE_DEFAULT"
+    return 0
+  fi
+
+  echo "[MISS] whisper 模型: $WHISPER_MODEL_FILE_DEFAULT"
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    return 1
+  fi
+
+  echo "正在下载模型（large-v3 q5_0，首次下载较慢）..."
+  mkdir -p "$WHISPER_MODEL_DIR_DEFAULT"
+  tmp_file="${WHISPER_MODEL_FILE_DEFAULT}.partial.$$"
+  if ! curl -L --fail "$WHISPER_MODEL_URL" -o "$tmp_file"; then
+    rm -f "$tmp_file"
+    echo "[FAIL] whisper 模型下载失败" >&2
+    return 1
+  fi
+  mv "$tmp_file" "$WHISPER_MODEL_FILE_DEFAULT"
+  echo "[OK] whisper 模型下载完成: $WHISPER_MODEL_FILE_DEFAULT"
+  return 0
 }
 
 install_yt_dlp() {
@@ -104,7 +133,25 @@ FAILED=0
 
 check_and_install yt-dlp install_yt_dlp || FAILED=1
 check_and_install ffmpeg install_ffmpeg || FAILED=1
-check_and_install whisper install_whisper || FAILED=1
+
+if has_whisper_cpp; then
+  echo "[OK] whisper-cli"
+else
+  echo "[MISS] whisper-cli"
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    FAILED=1
+  else
+    echo "正在安装 whisper-cpp ..."
+    if install_whisper_cpp && has_whisper_cpp; then
+      echo "[OK] whisper-cli 安装完成"
+    else
+      echo "[FAIL] whisper-cli 安装失败" >&2
+      FAILED=1
+    fi
+  fi
+fi
+
+ensure_whisper_model || FAILED=1
 
 if [[ "$FAILED" -ne 0 ]]; then
   echo "依赖检查/安装未完全通过。" >&2

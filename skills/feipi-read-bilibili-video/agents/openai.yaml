@@ -1,5 +1,5 @@
 version: 1
 interface:
   display_name: "Bilibili 下载与转写（中文）"
-  short_description: "下载 Bilibili 视频/音频，支持 dryrun、字幕提取和 whisper 转写。"
-  default_prompt: "请使用 feipi-read-bilibili-video：先确认 URL、输出目录和目标模式，优先执行 dryrun，再按 video/audio/subtitle/whisper 模式运行脚本，并汇报生成文件与验证结果。"
+  short_description: "下载 Bilibili 视频/音频，支持 dryrun、字幕提取和 whisper.cpp 转写。"
+  default_prompt: "请使用 feipi-read-bilibili-video：先确认 URL、输出目录和目标模式，优先执行 dryrun，再按 video/audio/subtitle/whisper 模式运行脚本。whisper 模式使用 whisper.cpp（large-v3-q5_0，质量优先），并汇报生成文件与验证结果。"
