@@ -45,7 +45,15 @@ bash scripts/lint_layout.sh <input.puml>
 - 跨层流程必须用 edge 串联，流程序号从 `S1` 开始。
 - 详见：`references/component.md`。
 
-5. 图类型 reference 拆分
+5. 渲染后必须做可读性复核
+- 每次生成 `*.svg` 后，必须查看渲染图像本身（image），不能只看 `*.puml` 源码。
+- 若出现 edge 文本重叠、标签遮挡、线条交叉导致难读，视为未完成，不可交付。
+- 必须继续优化直到可读性达标，允许且推荐：
+  - 简化 edge 文案（如仅保留 `S1..Sn`，详细说明移到 `legend`/`note`）
+  - 调整布局与路由（`right/down/up`、`-[hidden]->`、`nodesep/ranksep`）
+  - 必要时拆分为子图，避免单图信息过载
+
+6. 图类型 reference 拆分
 - 不同图类型必须有各自独立 reference 文件。
 - 当前索引见：`references/reference-index.md`。
 - 新图类型按模板新增：`references/diagram-reference-template.md`。
@@ -86,6 +94,7 @@ bash scripts/generate_plantuml.sh --type component --requirement "<需求>" --ou
 bash scripts/check_plantuml.sh ./tmp/diagram.puml --svg-output ./tmp/diagram.svg
 ```
 - 若报语法错误，修复后重跑，直到 `syntax_result=ok`。
+- 语法通过后必须做图像复核：检查是否存在文字重叠/遮挡；若有则继续迭代优化再重跑校验。
 
 ## 标准命令
 
@@ -104,12 +113,17 @@ bash scripts/check_plantuml.sh ./tmp/diagram.puml
 bash scripts/lint_layout.sh ./tmp/diagram.puml
 ```
 
-4. 运行 skill 测试
+4. 渲染后转图片并人工复核（推荐）
+```bash
+rsvg-convert ./tmp/diagram.svg -o ./tmp/diagram.png
+```
+
+5. 运行 skill 测试
 ```bash
 make test SKILL=feipi-gen-plantuml-code
 ```
 
-5. 直接调用测试脚本并覆盖候选列表（可选）
+6. 直接调用测试脚本并覆盖候选列表（可选）
 ```bash
 bash scripts/test.sh \
   --config references/test_cases.txt \
@@ -123,7 +137,8 @@ bash scripts/test.sh \
 2. `scripts/check_plantuml.sh` 可输出 `syntax_result=ok|error`。
 3. 候选列表中的前序 server 不可用时，会自动尝试后续 server。
 4. component 图满足“分层、分色、S1 起始流程 edge”约束。
-5. `make test SKILL=feipi-gen-plantuml-code` 是“需求文本 -> 生成代码 -> 真实渲染校验”链路，不依赖预置正确 puml。
+5. 渲染图通过人工可读性复核：edge 文本无明显重叠/遮挡，关键流程可辨识。
+6. `make test SKILL=feipi-gen-plantuml-code` 是“需求文本 -> 生成代码 -> 真实渲染校验”链路，不依赖预置正确 puml。
 
 ## 渐进式披露导航
 

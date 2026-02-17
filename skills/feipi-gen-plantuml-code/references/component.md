@@ -28,6 +28,11 @@
 - 标签过长必须换行（`\\n`）避免横向撑宽。
 - 可用 `-[hidden]down->` 约束层级与模块纵向排布。
 
+5. edge 文案可读性
+- 复杂图中，edge 标签默认使用短编号（如 `S1`、`S2`），避免长句直接压在线上。
+- 详细步骤说明推荐放到 `legend` 或 `note`，减少标签重叠。
+- 渲染后必须看图像（image）复核：若存在重叠/遮挡，需继续优化（简化文案或调整路由）后再交付。
+
 ## 标准样例（分层 + 分色 + S 序号 + 换行）
 
 ```plantuml
@@ -67,21 +72,34 @@ rectangle "L3 基础设施层（RPC/Chain）" as L_INFRA #FFF8F0 {
 L_APP -[hidden]down-> L_WALLET
 L_WALLET -[hidden]down-> L_INFRA
 
-' 主流程：S 序号从 S1 开始（用 down/up 约束层级）
-DAppUI -down-> ProviderAPI : S1 发起请求\nmethod+params
-ProviderAPI -down-> ProviderImpl : S2 路由到钱包
-ProviderImpl -down-> WalletUI : S3 触发授权确认
-WalletUI -down-> KeyManager : S4 签名/授权
-ProviderImpl -down-> RPC : S5 转发到 RPC
-RPC -down-> Chain : S6 链上执行
-Chain -up-> RPC : S7 返回回执
-RPC -up-> ProviderImpl : S8 回传\n结果/错误
-ProviderImpl -up-> ProviderAPI : S9 resolve/\nreject
-ProviderAPI -up-> DAppUI : S10 更新 UI
+' 主流程：S 序号从 S1 开始（复杂图优先短标签 + legend）
+DAppUI -down-> ProviderAPI : S1
+ProviderAPI -down-> ProviderImpl : S2
+ProviderImpl -down-> WalletUI : S3
+WalletUI -down-> KeyManager : S4
+ProviderImpl -down-> RPC : S5
+RPC -down-> Chain : S6
+Chain -up-> RPC : S7
+RPC -up-> ProviderImpl : S8
+ProviderImpl -up-> ProviderAPI : S9
+ProviderAPI -up-> DAppUI : S10
+ProviderImpl -up-> ProviderAPI : S11
+ProviderAPI -up-> DAppUI : S12
 
-' 事件链路：长标签强制换行
-ProviderImpl -up-> ProviderAPI : S11 emit\naccounts\n/chain\n/connect
-ProviderAPI -up-> DAppUI : S12 订阅处理\n并重渲染
+legend right
+  S1 发起请求 method+params
+  S2 路由到钱包
+  S3 触发授权确认
+  S4 签名/授权
+  S5 转发到 RPC
+  S6 链上执行
+  S7 返回回执
+  S8 回传结果/错误
+  S9 resolve/reject
+  S10 更新 UI
+  S11 emit accounts/chain/connect
+  S12 订阅处理并重渲染
+endlegend
 @enduml
 ```
 
