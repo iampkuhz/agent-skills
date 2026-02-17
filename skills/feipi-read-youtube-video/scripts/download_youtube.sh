@@ -4,9 +4,10 @@ set -euo pipefail
 # YouTube 下载脚本（简化版）
 #
 # 用法：
-#   bash scripts/download_youtube.sh <url> [output_dir] [mode]
+#   bash scripts/download_youtube.sh <url> [output_dir] [mode] [whisper_profile]
 #
 # mode: video | audio | dryrun | subtitle | whisper
+# whisper_profile: auto | fast | accurate（仅 mode=whisper 时生效）
 #
 # 认证配置：
 # - 仅支持 AGENT_CHROME_PROFILE（浏览器 profile）
@@ -15,6 +16,7 @@ set -euo pipefail
 URL="${1:-}"
 OUT_DIR="${2:-./downloads}"
 MODE="${3:-video}"
+WHISPER_PROFILE="${4:-auto}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -55,7 +57,12 @@ YT_EXTRACTOR_ARGS_DEFAULT="youtube:player_client=android,web_safari"
 YT_BOT_HIT=0
 
 if [[ -z "$URL" ]]; then
-  echo "用法: bash scripts/download_youtube.sh <url> [output_dir] [video|audio|dryrun|subtitle|whisper]" >&2
+  echo "用法: bash scripts/download_youtube.sh <url> [output_dir] [video|audio|dryrun|subtitle|whisper] [auto|fast|accurate]" >&2
+  exit 1
+fi
+
+if [[ "$WHISPER_PROFILE" != "auto" && "$WHISPER_PROFILE" != "fast" && "$WHISPER_PROFILE" != "accurate" ]]; then
+  echo "whisper_profile 仅支持 auto|fast|accurate，当前: $WHISPER_PROFILE" >&2
   exit 1
 fi
 
@@ -118,30 +125,32 @@ yt_common_on_error() {
 
 run_subtitle_mode() {
   local marker subtitle_file text_file
-  local -a langs
-  local lang
 
   marker="$(mktemp "$OUT_DIR/.subtitle-marker.XXXXXX")"
 
-  # 优先中文字幕，再回退英文；包含自动字幕，避免无人工字幕时失败。
-  langs=(zh en)
-  for lang in "${langs[@]}"; do
-    if yt_common_try \
+  # 一次请求同时覆盖中英字幕，减少多次网络探测耗时。
+  yt_common_try \
+    --skip-download \
+    --write-subs \
+    --write-auto-subs \
+    --convert-subs vtt \
+    --sub-langs "zh.*,en.*" \
+    --sub-format "vtt/srt" \
+    "$URL" || true
+
+  subtitle_file="$(yt_common_find_new_subtitle_file "$OUT_DIR" "$marker")"
+  if [[ -z "$subtitle_file" ]]; then
+    # 兜底：拉取全部语言，防止站点语言标签不规范。
+    yt_common_try \
       --skip-download \
       --write-subs \
       --write-auto-subs \
       --convert-subs vtt \
-      --sub-langs "$lang" \
+      --sub-langs "all" \
       --sub-format "vtt/srt" \
-      "$URL"; then
-      subtitle_file="$(yt_common_find_new_subtitle_file "$OUT_DIR" "$marker")"
-      if [[ -n "$subtitle_file" ]]; then
-        break
-      fi
-    fi
-  done
-
-  subtitle_file="$(yt_common_find_new_subtitle_file "$OUT_DIR" "$marker")"
+      "$URL" || true
+    subtitle_file="$(yt_common_find_new_subtitle_file "$OUT_DIR" "$marker")"
+  fi
   rm -f "$marker"
 
   if [[ -z "$subtitle_file" ]]; then
@@ -158,10 +167,10 @@ run_subtitle_mode() {
 }
 
 run_whisper_mode() {
-  local whisper_log used_device audio_file text_file
+  local whisper_log used_device used_profile used_model audio_file text_file
 
   whisper_log="$(mktemp "$OUT_DIR/.whisper-mode.XXXXXX")"
-  if ! yt_common_run_whisper_mode_from_url "$URL" "$OUT_DIR" "$WHISPER_HELPER" zh >"$whisper_log" 2>&1; then
+  if ! yt_common_run_whisper_mode_from_url "$URL" "$OUT_DIR" "$WHISPER_HELPER" zh "$WHISPER_PROFILE" >"$whisper_log" 2>&1; then
     cat "$whisper_log"
     rm -f "$whisper_log"
     return 1
@@ -169,6 +178,8 @@ run_whisper_mode() {
 
   cat "$whisper_log"
   used_device="$(sed -n 's/^device=//p' "$whisper_log" | tail -n1)"
+  used_profile="$(sed -n 's/^profile=//p' "$whisper_log" | tail -n1)"
+  used_model="$(sed -n 's/^model=//p' "$whisper_log" | tail -n1)"
   audio_file="$(sed -n 's/^audio_file=//p' "$whisper_log" | tail -n1)"
   text_file="$(sed -n 's/^text_file=//p' "$whisper_log" | tail -n1)"
   rm -f "$whisper_log"
@@ -176,8 +187,14 @@ run_whisper_mode() {
   if [[ -z "$used_device" ]]; then
     used_device="unknown"
   fi
+  if [[ -z "$used_profile" ]]; then
+    used_profile="unknown"
+  fi
+  if [[ -z "$used_model" ]]; then
+    used_model="unknown"
+  fi
 
-  echo "完成: mode=whisper, engine=whisper.cpp, device=$used_device, audio=$audio_file, text=$text_file"
+  echo "完成: mode=whisper, engine=whisper.cpp, profile=$used_profile, model=$used_model, device=$used_device, audio=$audio_file, text=$text_file"
 }
 
 case "$MODE" in

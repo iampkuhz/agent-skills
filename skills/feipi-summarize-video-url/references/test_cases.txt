@@ -1,6 +1,16 @@
-# 每行格式：<url>
-# 真实视频回放用例
+# 每行格式：<url>|<instruction>|<expected_profile>|<run_type>
+# run_type:
+# - selection: 仅校验“自动选档”逻辑，不执行真实提取
+# - extract: 执行真实提取 + 请求包生成全链路
 
-https://www.bilibili.com/video/BV1FbdaYzEP1
-https://www.youtube.com/watch?v=fHGE9KePsMI
-https://www.youtube.com/watch?v=CY5nvPIezAM
+# 正常场景：默认速度优先，应选 fast
+https://www.youtube.com/watch?v=CY5nvPIezAM|请快速提取并总结重点|fast|selection
+
+# 高质量场景：明确要求高质量，应选 accurate
+https://www.youtube.com/watch?v=CY5nvPIezAM|请高质量逐字转写，准确优先|accurate|selection
+
+# 真实回放：YouTube 全链路
+https://www.youtube.com/watch?v=fHGE9KePsMI||fast|extract
+
+# 真实回放：Bilibili 全链路
+https://www.bilibili.com/video/BV1FbdaYzEP1||fast|extract

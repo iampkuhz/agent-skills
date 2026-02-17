@@ -120,6 +120,17 @@ yt_common_mode_audio() {
     "$url"
 }
 
+yt_common_mode_whisper_audio() {
+  local url="$1"
+  # 转写优先速度：优先拉取中低码率音频，减小下载与后续转写耗时。
+  yt_common_run \
+    --format "bestaudio[abr<=96]/bestaudio/best" \
+    --extract-audio \
+    --audio-format mp3 \
+    --audio-quality 7 \
+    "$url"
+}
+
 yt_common_mode_video() {
   local url="$1"
   yt_common_run \
@@ -201,9 +212,10 @@ yt_common_run_whisper_mode_from_url() {
   local out_dir="$2"
   local whisper_helper="$3"
   local language="${4:-zh}"
+  local whisper_profile="${5:-auto}"
 
   local marker audio_file base text_file srt_file output_prefix
-  local transcribe_log used_device
+  local transcribe_log used_device used_model used_profile requested_profile
   local run_code
 
   if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -217,7 +229,7 @@ yt_common_run_whisper_mode_from_url() {
   fi
 
   marker="$(mktemp "$out_dir/.audio-marker.XXXXXX")"
-  if ! yt_common_mode_audio "$url"; then
+  if ! yt_common_mode_whisper_audio "$url"; then
     rm -f "$marker"
     return 1
   fi
@@ -238,7 +250,7 @@ yt_common_run_whisper_mode_from_url() {
 
   transcribe_log="$(mktemp "$out_dir/.whispercpp-log.XXXXXX")"
   set +e
-  bash "$whisper_helper" "$audio_file" "$output_prefix" "$language" >"$transcribe_log" 2>&1
+  bash "$whisper_helper" "$audio_file" "$output_prefix" "$language" "$whisper_profile" >"$transcribe_log" 2>&1
   run_code=$?
   set -e
   cat "$transcribe_log"
@@ -247,9 +259,21 @@ yt_common_run_whisper_mode_from_url() {
     return 1
   fi
   used_device="$(sed -n 's/^device=//p' "$transcribe_log" | tail -n1)"
+  used_model="$(sed -n 's/^model=//p' "$transcribe_log" | tail -n1)"
+  used_profile="$(sed -n 's/^profile=//p' "$transcribe_log" | tail -n1)"
+  requested_profile="$(sed -n 's/^requested_profile=//p' "$transcribe_log" | tail -n1)"
   rm -f "$transcribe_log"
   if [[ -z "$used_device" ]]; then
     used_device="unknown"
+  fi
+  if [[ -z "$used_profile" ]]; then
+    used_profile="unknown"
+  fi
+  if [[ -z "$requested_profile" ]]; then
+    requested_profile="$whisper_profile"
+  fi
+  if [[ -z "$used_model" ]]; then
+    used_model="unknown"
   fi
 
   if [[ ! -f "$srt_file" ]]; then
@@ -258,6 +282,9 @@ yt_common_run_whisper_mode_from_url() {
   fi
 
   yt_common_subtitle_to_text "$srt_file" "$text_file"
+  echo "requested_profile=$requested_profile"
+  echo "profile=$used_profile"
+  echo "model=$used_model"
   echo "device=$used_device"
   echo "audio_file=$audio_file"
   echo "text_file=$text_file"

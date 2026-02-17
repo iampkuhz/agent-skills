@@ -44,18 +44,37 @@ description: 用于根据视频 URL 调用来源技能提取带时间戳文本�
 
 2. 可选输入
 - 视频标题
+- 用户原始指令（用于自动判定提取质量档位）
+- 质量档位参数：`--quality auto|fast|accurate`（默认 `auto`）
 
 3. 输出
 - `summary_request.md`（提示词 + 文本片段）
 - 远程模型最终输出：`摘要概述` + `核心观点时间线`
 
+## 自动选档规则（提速重点）
+
+1. 默认策略（`--quality auto`）
+- 指令明确要求高质量（如“高质量/高精度/准确/逐字”）时，选择 `accurate`。
+- 其他情况默认选择 `fast`。
+
+2. `mode=auto` 的执行顺序
+- `accurate`：先 `whisper`，失败再回退 `subtitle`。
+- `fast`：先 `subtitle`，失败再回退 `whisper`。
+
+3. 观测字段
+- `extract_video_text.sh` 输出中包含：
+  - `whisper_profile`
+  - `selection_reason`
+  - `strategy`
+
 ## 工作流（Explore -> Plan -> Implement -> Verify）
 
 1. Explore
 - `scripts/extract_video_text.sh` 内部识别来源（YouTube/Bilibili）。
-- `scripts/extract_video_text.sh --check-deps` 校验依赖。
+- `scripts/extract_video_text.sh --check-deps` 校验依赖与自动选档结果。
 
 2. Plan
+- 根据用户指令选择质量档位（默认快档，显式高质量则慢档）。
 - `scripts/extract_video_text.sh` 获取带时间戳文本。
 - 根据视频时长控制摘要详略（短视频更短，长视频适当展开）。
 
@@ -72,15 +91,30 @@ description: 用于根据视频 URL 调用来源技能提取带时间戳文本�
 
 1. 检查依赖：
 ```bash
-bash scripts/extract_video_text.sh "<video_url>" "./tmp/video-text" auto --check-deps
+bash scripts/extract_video_text.sh "<video_url>" "./tmp/video-text" auto \
+  --instruction "请快速总结" \
+  --check-deps
 ```
 
-2. 提取文本：
+2. 自动选档提取（默认快档）：
 ```bash
-bash scripts/extract_video_text.sh "<video_url>" "./tmp/video-text" auto
+bash scripts/extract_video_text.sh "<video_url>" "./tmp/video-text" auto \
+  --instruction "请快速提取并总结重点"
 ```
 
-3. 生成请求包：
+3. 高质量提取（触发慢档）：
+```bash
+bash scripts/extract_video_text.sh "<video_url>" "./tmp/video-text" auto \
+  --instruction "请高质量逐字转写，准确优先"
+```
+
+4. 显式指定档位（可绕过自动判定）：
+```bash
+bash scripts/extract_video_text.sh "<video_url>" "./tmp/video-text" whisper \
+  --quality accurate
+```
+
+5. 生成请求包：
 ```bash
 bash scripts/render_summary_prompt.sh \
   "<video_url>" \
@@ -90,7 +124,7 @@ bash scripts/render_summary_prompt.sh \
   > "./tmp/video-text/summary_request.md"
 ```
 
-4. 回归测试：
+6. 回归测试：
 ```bash
 make test SKILL=feipi-summarize-video-url
 ```
@@ -99,8 +133,9 @@ make test SKILL=feipi-summarize-video-url
 
 1. 依赖缺失时失败退出。
 2. 输出文本带时间戳。
-3. 请求包含字幕文本与反套话约束。
-4. `make test SKILL=feipi-summarize-video-url` 可执行。
+3. 自动选档结果可观察（`whisper_profile`、`selection_reason`、`strategy`）。
+4. 请求包含字幕文本与反套话约束。
+5. `make test SKILL=feipi-summarize-video-url` 可执行。
 
 ## 渐进式披露
 

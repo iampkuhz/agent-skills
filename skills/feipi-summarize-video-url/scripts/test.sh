@@ -2,7 +2,9 @@
 set -euo pipefail
 
 # 统一测试入口（供 make test 调用）
-# 每行用例格式：<url>
+# 每行用例格式：<url>|<instruction>|<expected_profile>|<run_type>
+# - expected_profile: fast|accurate（可空，默认 fast）
+# - run_type: selection|extract（可空，默认 extract）
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -93,7 +95,32 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
   line="$(echo "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
   [[ -z "$line" ]] && continue
 
-  URL="$line"
+  IFS='|' read -r URL INSTRUCTION EXPECTED_PROFILE RUN_TYPE <<< "$line"
+  URL="$(echo "${URL:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  INSTRUCTION="$(echo "${INSTRUCTION:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  EXPECTED_PROFILE="$(echo "${EXPECTED_PROFILE:-fast}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  RUN_TYPE="$(echo "${RUN_TYPE:-extract}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+
+  if [[ -z "$URL" ]]; then
+    TOTAL=$((TOTAL + 1))
+    echo "[FAIL] case-$TOTAL URL 为空" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ "$EXPECTED_PROFILE" != "fast" && "$EXPECTED_PROFILE" != "accurate" ]]; then
+    TOTAL=$((TOTAL + 1))
+    echo "[FAIL] case-$TOTAL expected_profile 非法: $EXPECTED_PROFILE" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ "$RUN_TYPE" != "selection" && "$RUN_TYPE" != "extract" ]]; then
+    TOTAL=$((TOTAL + 1))
+    echo "[FAIL] case-$TOTAL run_type 非法: $RUN_TYPE" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
 
   TOTAL=$((TOTAL + 1))
   case_id="case-$TOTAL"
@@ -104,12 +131,51 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
   echo "----"
   echo "开始执行 $case_id"
   echo "URL: $URL"
+  echo "instruction: ${INSTRUCTION:-<empty>}"
+  echo "expected_profile: $EXPECTED_PROFILE"
+  echo "run_type: $RUN_TYPE"
+
+  selection_cmd=(bash "$EXTRACT_SCRIPT" "$URL" "$case_dir/selection" auto --quality auto --check-deps)
+  if [[ -n "$INSTRUCTION" ]]; then
+    selection_cmd+=(--instruction "$INSTRUCTION")
+  fi
 
   set +e
-  extract_output="$(bash "$EXTRACT_SCRIPT" "$URL" "$case_dir" auto 2>&1)"
+  selection_output="$("${selection_cmd[@]}" 2>&1)"
+  selection_code=$?
+  set -e
+  printf "[selection]\n%s\n" "$selection_output" > "$log_file"
+
+  if [[ $selection_code -ne 0 ]]; then
+    echo "[FAIL] $case_id 选档检查失败" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  selected_profile="$(printf "%s\n" "$selection_output" | sed -n 's/^whisper_profile=//p' | tail -n1)"
+  if [[ "$selected_profile" != "$EXPECTED_PROFILE" ]]; then
+    echo "[FAIL] $case_id 选档不符合预期（expect=$EXPECTED_PROFILE actual=$selected_profile）" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ "$RUN_TYPE" == "selection" ]]; then
+    echo "[PASS] $case_id selection-only profile=$selected_profile"
+    PASSED=$((PASSED + 1))
+    continue
+  fi
+
+  extract_cmd=(bash "$EXTRACT_SCRIPT" "$URL" "$case_dir" auto --quality auto)
+  if [[ -n "$INSTRUCTION" ]]; then
+    extract_cmd+=(--instruction "$INSTRUCTION")
+  fi
+  set +e
+  extract_output="$("${extract_cmd[@]}" 2>&1)"
   extract_code=$?
   set -e
-  printf "%s\n" "$extract_output" > "$log_file"
+  printf "[selection]\n%s\n\n[extract]\n%s\n" "$selection_output" "$extract_output" > "$log_file"
 
   if [[ $extract_code -ne 0 ]]; then
     echo "[FAIL] $case_id 文本提取失败" >&2
@@ -120,6 +186,14 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
 
   text_path="$(printf "%s\n" "$extract_output" | sed -n 's/^text_path=//p' | tail -n1)"
   source="$(printf "%s\n" "$extract_output" | sed -n 's/^source=//p' | tail -n1)"
+  whisper_profile="$(printf "%s\n" "$extract_output" | sed -n 's/^whisper_profile=//p' | tail -n1)"
+
+  if [[ "$whisper_profile" != "$EXPECTED_PROFILE" ]]; then
+    echo "[FAIL] $case_id 提取阶段选档不符合预期（expect=$EXPECTED_PROFILE actual=$whisper_profile）" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
 
   if [[ -z "$text_path" || ! -f "$text_path" ]]; then
     echo "[FAIL] $case_id 未产出文本文件" >&2
