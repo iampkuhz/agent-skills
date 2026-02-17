@@ -116,7 +116,10 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" subtitle
 ```bash
 bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 ```
-说明：使用 `whisper.cpp` 的 `large-v3-q5_0` 质量优先转写；先尝试 Metal（GPU），失败自动回退 CPU，再把 `srt` 转为带时间戳 `.txt`。
+说明：
+- 可选第 4 参数：`auto|fast|accurate`（示例：`whisper fast`、`whisper accurate`）。
+- `auto` 策略：先读取视频时长；短视频（<= 480 秒）选 `accurate`，长视频选 `fast`，若时长不可得默认 `fast`。
+- 转写先尝试 Metal（GPU），失败自动回退 CPU，再把 `srt` 转为带时间戳 `.txt`。
 
 ## 失败处理
 

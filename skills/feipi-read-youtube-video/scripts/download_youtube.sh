@@ -9,14 +9,33 @@ set -euo pipefail
 # mode: video | audio | dryrun | subtitle | whisper
 # whisper_profile: auto | fast | accurate（仅 mode=whisper 时生效）
 #
+# 样例（whisper 快/慢档）：
+#   bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper fast
+#   bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper accurate
+#
 # 认证配置：
 # - 仅支持 AGENT_CHROME_PROFILE（浏览器 profile）
 # - 默认不提示；仅在触发 bot 检测时给出配置建议
 
 URL="${1:-}"
-OUT_DIR="${2:-./downloads}"
+OUT_DIR_RAW="${2:-./downloads}"
 MODE="${3:-video}"
 WHISPER_PROFILE="${4:-auto}"
+
+normalize_out_dir() {
+  local raw="$1"
+  if [[ "$raw" == "~" ]]; then
+    echo "$HOME"
+    return 0
+  fi
+  if [[ "$raw" == "~/"* ]]; then
+    echo "$HOME/${raw:2}"
+    return 0
+  fi
+  echo "$raw"
+}
+
+OUT_DIR="$(normalize_out_dir "$OUT_DIR_RAW")"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -55,6 +74,7 @@ AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
 YT_REMOTE_COMPONENTS_DEFAULT="ejs:github"
 YT_EXTRACTOR_ARGS_DEFAULT="youtube:player_client=android,web_safari"
 YT_BOT_HIT=0
+WHISPER_AUTO_ACCURATE_MAX_SEC=480
 
 if [[ -z "$URL" ]]; then
   echo "用法: bash scripts/download_youtube.sh <url> [output_dir] [video|audio|dryrun|subtitle|whisper] [auto|fast|accurate]" >&2
@@ -168,9 +188,41 @@ run_subtitle_mode() {
 
 run_whisper_mode() {
   local whisper_log used_device used_profile used_model audio_file text_file
+  local resolved_profile profile_reason profile_pair
+
+  resolve_whisper_profile_auto() {
+    local requested="$1"
+    local duration_raw duration_int
+
+    if [[ "$requested" != "auto" ]]; then
+      echo "$requested|explicit"
+      return 0
+    fi
+
+    set +e
+    duration_raw="$(yt-dlp --skip-download --no-playlist --print "%(duration)s" "$URL" 2>/dev/null | head -n1)"
+    set -e
+
+    if [[ "$duration_raw" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+      duration_int="${duration_raw%.*}"
+      if (( duration_int <= WHISPER_AUTO_ACCURATE_MAX_SEC )); then
+        echo "accurate|auto_duration_short_${duration_int}s"
+      else
+        echo "fast|auto_duration_long_${duration_int}s"
+      fi
+      return 0
+    fi
+
+    # 无法获取时长时默认快档，优先保障速度。
+    echo "fast|auto_duration_unknown_default_fast"
+  }
+
+  profile_pair="$(resolve_whisper_profile_auto "$WHISPER_PROFILE")"
+  resolved_profile="${profile_pair%%|*}"
+  profile_reason="${profile_pair#*|}"
 
   whisper_log="$(mktemp "$OUT_DIR/.whisper-mode.XXXXXX")"
-  if ! yt_common_run_whisper_mode_from_url "$URL" "$OUT_DIR" "$WHISPER_HELPER" zh "$WHISPER_PROFILE" >"$whisper_log" 2>&1; then
+  if ! yt_common_run_whisper_mode_from_url "$URL" "$OUT_DIR" "$WHISPER_HELPER" zh "$resolved_profile" >"$whisper_log" 2>&1; then
     cat "$whisper_log"
     rm -f "$whisper_log"
     return 1
@@ -194,6 +246,9 @@ run_whisper_mode() {
     used_model="unknown"
   fi
 
+  echo "whisper_profile_requested=$WHISPER_PROFILE"
+  echo "whisper_profile_resolved=$resolved_profile"
+  echo "whisper_profile_reason=$profile_reason"
   echo "完成: mode=whisper, engine=whisper.cpp, profile=$used_profile, model=$used_model, device=$used_device, audio=$audio_file, text=$text_file"
 }
 

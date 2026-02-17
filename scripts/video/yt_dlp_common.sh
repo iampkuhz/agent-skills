@@ -215,6 +215,7 @@ yt_common_run_whisper_mode_from_url() {
   local whisper_profile="${5:-auto}"
 
   local marker audio_file base text_file srt_file output_prefix
+  local audio_download_log
   local transcribe_log used_device used_model used_profile requested_profile
   local run_code
 
@@ -229,12 +230,31 @@ yt_common_run_whisper_mode_from_url() {
   fi
 
   marker="$(mktemp "$out_dir/.audio-marker.XXXXXX")"
-  if ! yt_common_mode_whisper_audio "$url"; then
+  audio_download_log="$(mktemp "$out_dir/.audio-download-log.XXXXXX")"
+  if ! yt_common_mode_whisper_audio "$url" >"$audio_download_log" 2>&1; then
+    cat "$audio_download_log" >&2
+    rm -f "$audio_download_log"
     rm -f "$marker"
     return 1
   fi
+  cat "$audio_download_log"
 
   audio_file="$(yt_common_find_new_audio_file "$out_dir" "$marker")"
+
+  # 若文件已存在，yt-dlp 可能不会生成“新文件”；从日志回填音频路径。
+  if [[ -z "$audio_file" ]]; then
+    audio_file="$(sed -nE \
+      -e 's#^\[download\] Destination: (.*\.mp3)$#\1#p' \
+      -e 's#^\[download\] (.*\.mp3) has already been downloaded$#\1#p' \
+      -e 's#^\[ExtractAudio\] Destination: (.*\.mp3)$#\1#p' \
+      -e 's#^\[ExtractAudio\] Not converting audio (.*\.mp3);.*$#\1#p' \
+      "$audio_download_log" | tail -n1)"
+    if [[ -n "$audio_file" && ! -f "$audio_file" ]]; then
+      audio_file=""
+    fi
+  fi
+
+  rm -f "$audio_download_log"
   rm -f "$marker"
 
   if [[ -z "$audio_file" ]]; then
