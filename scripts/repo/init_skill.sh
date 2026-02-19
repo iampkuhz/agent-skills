@@ -10,11 +10,12 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/repo/init_skill.sh <skill-name> [--resources scripts,references,assets]
+  scripts/repo/init_skill.sh <skill-name> [--resources scripts,references,assets] [--target auto|skills|repo|<path>]
 
 示例:
   scripts/repo/init_skill.sh feipi-coding-react
   scripts/repo/init_skill.sh gen-api-tests --resources scripts,references
+  scripts/repo/init_skill.sh gen-api-tests --target repo
 USAGE
 }
 
@@ -25,13 +26,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SKILLS_ROOT="$REPO_ROOT/skills"
 TEMPLATES_ROOT="$REPO_ROOT/templates"
 
 SKILL_NAME="$1"
 shift
 
 RESOURCES=""
+TARGET="auto"
 # `feipi-<action>-<target...>` 命名里的 action 白名单。
 ALLOWED_ACTIONS="coding gen read write analyze review test debug refactor docs data git web ops build deploy migrate automate monitor summarize translate design planning"
 
@@ -39,6 +40,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --resources)
       RESOURCES="$2"
+      shift 2
+      ;;
+    --target)
+      TARGET="$2"
       shift 2
       ;;
     -h|--help)
@@ -52,6 +57,33 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+resolve_target_root() {
+  local target="$1"
+  case "$target" in
+    auto)
+      if [[ -d "$REPO_ROOT/skills" ]]; then
+        echo "$REPO_ROOT/skills"
+      else
+        echo "$REPO_ROOT/.agents/skills"
+      fi
+      ;;
+    skills)
+      echo "$REPO_ROOT/skills"
+      ;;
+    repo)
+      echo "$REPO_ROOT/.agents/skills"
+      ;;
+    /*)
+      echo "$target"
+      ;;
+    *)
+      echo "$REPO_ROOT/$target"
+      ;;
+  esac
+}
+
+SKILLS_ROOT="$(resolve_target_root "$TARGET")"
 
 if [[ ! "$SKILL_NAME" =~ ^[a-z0-9-]{1,64}$ ]]; then
   echo "Skill 名称必须匹配 ^[a-z0-9-]{1,64}$" >&2
@@ -130,4 +162,12 @@ if [[ -n "$RESOURCES" ]]; then
   done
 fi
 
-echo "已初始化: skills/$SKILL_NAME"
+if [[ "$SKILLS_ROOT" == "$REPO_ROOT" ]]; then
+  ROOT_DISPLAY="."
+elif [[ "$SKILLS_ROOT" == "$REPO_ROOT/"* ]]; then
+  ROOT_DISPLAY="${SKILLS_ROOT#$REPO_ROOT/}"
+else
+  ROOT_DISPLAY="$SKILLS_ROOT"
+fi
+
+echo "已初始化: $ROOT_DISPLAY/$SKILL_NAME"

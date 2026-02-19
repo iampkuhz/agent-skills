@@ -42,9 +42,13 @@
 ```bash
 # 初始化新 skill
 make new SKILL=gen-api-tests RESOURCES=scripts,references
+# 在“本仓库内创建”场景下初始化到 .agents/skills
+make new SKILL=gen-api-tests TARGET=repo
 
 # 校验 skill
 make validate DIR=skills/feipi-gen-api-tests
+# 或校验 .agents/skills 下的 skill
+make validate DIR=.agents/skills/feipi-gen-api-tests
 
 # 查看 skills 列表
 make list

@@ -51,25 +51,35 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SKILLS_ROOT="$REPO_ROOT/skills"
+SKILL_ROOTS=(
+  "$REPO_ROOT/skills"
+  "$REPO_ROOT/.agents/skills"
+)
 
 resolve_skill_name() {
   local name="$1"
+  local root=""
 
-  if [[ -d "$SKILLS_ROOT/$name" ]]; then
-    echo "$name"
-    return 0
-  fi
+  for root in "${SKILL_ROOTS[@]}"; do
+    if [[ -d "$root/$name" ]]; then
+      SKILL_NAME="$name"
+      SKILLS_ROOT="$root"
+      return 0
+    fi
 
-  if [[ "$name" != feipi-* ]] && [[ -d "$SKILLS_ROOT/feipi-$name" ]]; then
-    echo "feipi-$name"
-    return 0
-  fi
+    if [[ "$name" != feipi-* ]] && [[ -d "$root/feipi-$name" ]]; then
+      SKILL_NAME="feipi-$name"
+      SKILLS_ROOT="$root"
+      return 0
+    fi
+  done
 
   return 1
 }
 
-if ! SKILL_NAME="$(resolve_skill_name "$SKILL_INPUT")"; then
+SKILL_NAME=""
+SKILLS_ROOT=""
+if ! resolve_skill_name "$SKILL_INPUT"; then
   echo "未找到 skill: $SKILL_INPUT" >&2
   exit 1
 fi

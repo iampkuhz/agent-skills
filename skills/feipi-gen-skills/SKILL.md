@@ -21,13 +21,19 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 脚本与配置注释统一中文。
 
 3. 测试结构约束（开发流程）
-- 每个 skill 必须提供统一测试入口：`skills/<name>/scripts/test.sh`。
-- 每个 skill 的测试数据默认放在：`skills/<name>/references/test_cases.txt`。
-- 仓库级统一通过 `make test SKILL=<name>` 调度，不依赖非标准脚本名。
+- 每个 skill 必须提供统一测试入口：`<skill-root>/<name>/scripts/test.sh`。
+- 每个 skill 的测试数据默认放在：`<skill-root>/<name>/references/test_cases.txt`。
+- 仓库级统一通过 `make test SKILL=<name>` 调度，不依赖非标准脚本名（支持 `skills/` 与 `.agents/skills/`）。
 - 上述测试命令仅在创建/修改 skill 的开发流程执行，不写入目标 skill 的 `SKILL.md`。
 
 4. 校验约束
-- 新建或修改 skill 后，必须执行：`make validate DIR=skills/<name>`。
+- 新建或修改 skill 后，必须执行：`make validate DIR=<skill-root>/<name>`。
+
+5. 新建 skill 目录判定约束
+- 若用户明确要求“在本仓库内创建新 skill”，目标根目录固定为 `.agents/skills/`。
+- 若用户未特别说明，且当前仓库存在 `skills/` 目录，默认根目录为 `skills/`。
+- 若用户未特别说明且当前仓库不存在 `skills/` 目录，默认回退到 `.agents/skills/`。
+- 开发阶段可使用 `make new SKILL=<name> TARGET=repo|skills|auto` 显式对齐目录策略。
 
 
 ## 目录标准
@@ -119,7 +125,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 避免 Windows 路径，统一正斜杠。
 
 4. Verify（验证）
-- 运行仓库校验：`make validate DIR=skills/<name>`。
+- 运行仓库校验：`make validate DIR=<skill-root>/<name>`。
 - 执行至少一种任务级验证（测试、命令、截图比对、结构校验）。
 - 交付必须给出：验证步骤、结果、剩余风险。
 
@@ -130,7 +136,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 禁止在非 `feipi-gen-skills` 的 `SKILL.md` 中出现仓库维护命令（如 `make test SKILL=...`、`make validate DIR=...`）。
 
 2. 开发流程（创建/修改/重构 skill）
-- 在开发阶段执行 `make validate DIR=skills/<name>` 与必要的 `make test SKILL=<name>`。
+- 在开发阶段执行 `make validate DIR=<skill-root>/<name>` 与必要的 `make test SKILL=<name>`。
 - 开发校验结果记录在开发过程与提交说明中，不沉淀到目标 skill 的 `SKILL.md`。
 
 ## 反馈循环
@@ -175,6 +181,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - [ ] frontmatter 合规（name/description）
 - [ ] description 清晰说明能力与触发时机
 - [ ] SKILL.md 正文 <= 500 行
+- [ ] 新建 skill 时目录判定符合规则（本仓库内 -> `.agents/skills/`；默认优先 `skills/`）
 - [ ] 已提供验证步骤与通过标准
 - [ ] 已运行 make validate
 - [ ] 非 `feipi-gen-skills` 的 `SKILL.md` 不含 `make test SKILL=...` / `make validate DIR=...`

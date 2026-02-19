@@ -7,27 +7,33 @@
 SHELL := /bin/bash
 SKILL ?=
 RESOURCES ?=
+TARGET ?=
 DIR ?=
 CONFIG ?=
 OUTPUT ?=
 
 .PHONY: new validate list install-links test
 
-# 在 `skills/` 下创建新 skill。
+# 创建新 skill（默认优先 `skills/`，可切换到 `.agents/skills`）。
 # 示例：make new SKILL=gen-api-tests RESOURCES=scripts,references
+# 示例：make new SKILL=gen-api-tests TARGET=repo
 new:
-	@if [[ -z "$(SKILL)" ]]; then echo "用法: make new SKILL=<name> [RESOURCES=scripts,references,assets]"; exit 1; fi
-	./scripts/repo/init_skill.sh "$(SKILL)" $(if $(RESOURCES),--resources "$(RESOURCES)")
+	@if [[ -z "$(SKILL)" ]]; then echo "用法: make new SKILL=<name> [RESOURCES=scripts,references,assets] [TARGET=auto|skills|repo|<path>]"; exit 1; fi
+	./scripts/repo/init_skill.sh "$(SKILL)" $(if $(RESOURCES),--resources "$(RESOURCES)") $(if $(TARGET),--target "$(TARGET)")
 
 # 校验一个 skill 目录。
 # 示例：make validate DIR=skills/feipi-gen-skills
+# 示例：make validate DIR=.agents/skills/feipi-gen-skills
 validate:
-	@if [[ -z "$(DIR)" ]]; then echo "用法: make validate DIR=skills/<name>"; exit 1; fi
+	@if [[ -z "$(DIR)" ]]; then echo "用法: make validate DIR=<skill-dir>/<name>"; exit 1; fi
 	./scripts/repo/quick_validate.sh "$(DIR)"
 
-# 列出 `skills/` 下一层目录。
+# 列出 `skills/` 与 `.agents/skills/` 下一层目录。
 list:
-	@find skills -maxdepth 1 -mindepth 1 -type d | sort
+	@{ \
+		if [[ -d skills ]]; then find skills -maxdepth 1 -mindepth 1 -type d; fi; \
+		if [[ -d .agents/skills ]]; then find .agents/skills -maxdepth 1 -mindepth 1 -type d; fi; \
+	} | sort
 
 # 将仓库 `skills/` 下各 skill 软链接到 `$CODEX_HOME/skills`（默认 `~/.codex/skills`）。
 # 示例：

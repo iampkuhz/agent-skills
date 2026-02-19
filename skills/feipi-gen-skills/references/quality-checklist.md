@@ -22,7 +22,8 @@
 - [ ] 优先复用脚本实现确定性步骤
 - [ ] 脚本具备基本错误处理
 - [ ] 无 Windows 风格路径（统一 `/`）
-- [ ] 已运行 `make validate DIR=skills/<name>` 并通过
+- [ ] 新建 skill 目录判定正确（本仓库内 -> `.agents/skills/`；默认优先 `skills/`）
+- [ ] 已运行 `make validate DIR=<skill-root>/<name>` 并通过
 
 ## 评估与迭代
 
