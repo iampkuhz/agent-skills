@@ -118,19 +118,6 @@ bash scripts/lint_layout.sh ./tmp/diagram.puml
 rsvg-convert ./tmp/diagram.svg -o ./tmp/diagram.png
 ```
 
-5. 运行 skill 测试
-```bash
-make test SKILL=feipi-gen-plantuml-code
-```
-
-6. 直接调用测试脚本并覆盖候选列表（可选）
-```bash
-bash scripts/test.sh \
-  --config references/test_cases.txt \
-  --output ./tmp/puml-test \
-  --servers-config assets/server_candidates.txt
-```
-
 ## 验收标准
 
 1. `scripts/generate_plantuml.sh` 能根据需求生成 `*.puml`。
@@ -138,7 +125,7 @@ bash scripts/test.sh \
 3. 候选列表中的前序 server 不可用时，会自动尝试后续 server。
 4. component 图满足“分层、分色、S1 起始流程 edge”约束。
 5. 渲染图通过人工可读性复核：edge 文本无明显重叠/遮挡，关键流程可辨识。
-6. `make test SKILL=feipi-gen-plantuml-code` 是“需求文本 -> 生成代码 -> 真实渲染校验”链路，不依赖预置正确 puml。
+6. “需求文本 -> 生成代码 -> 真实渲染校验”链路可执行，不依赖预置正确 puml。
 
 ## 渐进式披露导航
 
@@ -147,5 +134,4 @@ bash scripts/test.sh \
 - sequence 参考位：`references/sequence.md`
 - class 参考位：`references/class.md`
 - 新图类型模板：`references/diagram-reference-template.md`
-- 测试场景：`references/test_cases.txt`
 - 来源说明：`references/sources.md`

@@ -142,8 +142,6 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper
 1. 至少执行一次 `dryrun` 或真实下载。
 2. 输出包含：执行命令、结果状态、文件路径。
 3. 若失败，输出明确错误与下一步建议。
-4. 回归测试统一通过 `make test SKILL=feipi-read-youtube-video` 执行。
-5. 测试要求：`references/test_cases.txt` 每一行（非注释）都必须执行成功。
 
 ## 参考
 

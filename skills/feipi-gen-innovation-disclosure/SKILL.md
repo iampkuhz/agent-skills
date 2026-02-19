@@ -100,21 +100,14 @@ bash scripts/check_disclosure_format.sh ./tmp/innovation/disclosure.md
 bash scripts/check_disclosure_format.sh <交底书.md>
 ```
 
-2. 运行 skill 回归测试（happy case）
-```bash
-make test SKILL=feipi-gen-innovation-disclosure
-```
-
 ## 验收标准
 
 1. 模板章节完整，顺序正确。
 2. 字数、条目数量、格式约束满足校验脚本。
 3. `详细描述`章节包含图示且流程序号与图示一致。
-4. `make test SKILL=feipi-gen-innovation-disclosure`（单 happy case）通过。
 
 ## 渐进式披露导航
 
 - 模板文件：`assets/proposal_template.md`
 - 校验脚本：`scripts/check_disclosure_format.sh`
-- 测试入口：`scripts/test.sh`
 - happy case：`references/cases/happy-case-full.md`

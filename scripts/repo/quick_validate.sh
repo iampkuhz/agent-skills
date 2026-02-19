@@ -160,6 +160,13 @@ if rg -q '[A-Za-z]:\\|\\[A-Za-z0-9._-]+' "$SKILL_FILE"; then
   exit 1
 fi
 
+if [[ "$BASE" != "feipi-gen-skills" ]]; then
+  if rg -n 'make[[:space:]]+test[[:space:]]+SKILL=|make[[:space:]]+validate[[:space:]]+DIR=|^##[[:space:]]*维护与回归' "$SKILL_FILE" >&2; then
+    echo "非 feipi-gen-skills 的 SKILL.md 禁止包含测试/维护命令（make test/make validate）或“维护与回归”章节" >&2
+    exit 1
+  fi
+fi
+
 if [[ -f "$DIR/agents/openai.yaml" ]]; then
   # 若存在 UI 元数据文件，则要求关键字段齐全。
   if ! rg -q '^interface:' "$DIR/agents/openai.yaml"; then

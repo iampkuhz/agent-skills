@@ -124,20 +124,13 @@ bash scripts/render_summary_prompt.sh \
   > "./tmp/video-text/summary_request.md"
 ```
 
-6. 回归测试：
-```bash
-make test SKILL=feipi-summarize-video-url
-```
-
 ## 验收标准
 
 1. 依赖缺失时失败退出。
 2. 输出文本带时间戳。
 3. 自动选档结果可观察（`whisper_profile`、`selection_reason`、`strategy`）。
 4. 请求包含字幕文本与反套话约束。
-5. `make test SKILL=feipi-summarize-video-url` 可执行。
 
 ## 渐进式披露
 
-- 用例：`references/test_cases.txt`
 - 来源：`references/sources.md`

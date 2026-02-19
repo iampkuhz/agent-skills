@@ -12,6 +12,7 @@
 
 - [ ] SKILL.md 有明确工作流（探索/规划/实现/验证）
 - [ ] 至少包含一种可执行验证方式
+- [ ] 非 `feipi-gen-skills` 的 SKILL.md 不含 `make test SKILL=...` / `make validate DIR=...`
 - [ ] 复杂细节下沉到 `references/`，主文件保持简洁
 - [ ] 引用为一级深（由 SKILL.md 直接链接）
 - [ ] 术语一致，无同义词混用

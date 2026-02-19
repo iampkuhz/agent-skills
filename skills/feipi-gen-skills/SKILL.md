@@ -20,10 +20,11 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - `references/` 默认中文（如保留英文原文，需附中文摘要）。
 - 脚本与配置注释统一中文。
 
-3. 测试结构约束
+3. 测试结构约束（开发流程）
 - 每个 skill 必须提供统一测试入口：`skills/<name>/scripts/test.sh`。
 - 每个 skill 的测试数据默认放在：`skills/<name>/references/test_cases.txt`。
 - 仓库级统一通过 `make test SKILL=<name>` 调度，不依赖非标准脚本名。
+- 上述测试命令仅在创建/修改 skill 的开发流程执行，不写入目标 skill 的 `SKILL.md`。
 
 4. 校验约束
 - 新建或修改 skill 后，必须执行：`make validate DIR=skills/<name>`。
@@ -122,6 +123,16 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 执行至少一种任务级验证（测试、命令、截图比对、结构校验）。
 - 交付必须给出：验证步骤、结果、剩余风险。
 
+## 使用态与开发流程分离（强约束）
+
+1. 使用态（调用 skill 完成用户任务）
+- `SKILL.md` 只保留完成任务所需信息（输入、输出、执行步骤、结果校验）。
+- 禁止在非 `feipi-gen-skills` 的 `SKILL.md` 中出现仓库维护命令（如 `make test SKILL=...`、`make validate DIR=...`）。
+
+2. 开发流程（创建/修改/重构 skill）
+- 在开发阶段执行 `make validate DIR=skills/<name>` 与必要的 `make test SKILL=<name>`。
+- 开发校验结果记录在开发过程与提交说明中，不沉淀到目标 skill 的 `SKILL.md`。
+
 ## 反馈循环
 
 默认采用循环：验证 -> 修复 -> 再验证。
@@ -166,6 +177,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - [ ] SKILL.md 正文 <= 500 行
 - [ ] 已提供验证步骤与通过标准
 - [ ] 已运行 make validate
+- [ ] 非 `feipi-gen-skills` 的 `SKILL.md` 不含 `make test SKILL=...` / `make validate DIR=...`
 - [ ] 文件引用均为一级深链接
 - [ ] 无 Windows 风格路径
 - [ ] 术语一致，示例可执行
