@@ -14,4 +14,17 @@
 make install-links
 ```
 
-这会把 `skills/` 下的技能以软链接方式安装到 `$CODEX_HOME/skills`（未设置时为 `~/.codex/skills`）。
+这会把 `skills/` 下的技能以软链接方式安装到目标目录（默认 `~/.agents/skills`）。
+
+可选示例：
+
+```bash
+AGENT=qoder make install-links
+```
+
+默认目录映射：
+
+codex -> `$CODEX_HOME/skills`（未设置时为 `~/.codex/skills`）
+qoder -> `~/.qoder/skills`
+claudecode -> `~/.claude/skills`
+未设置 AGENT -> `~/.agents/skills`

@@ -53,8 +53,9 @@ make validate DIR=.agents/skills/feipi-gen-api-tests
 # 查看 skills 列表
 make list
 
-# 安装软链接到本机常见 agent 目录（默认 codex,qoder,claude）
+# 安装软链接到本机常见 agent 目录（默认 ~/.agents/skills，可选 codex,qoder,claudecode）
 make install-links
+# 示例：AGENT=qoder make install-links
 
 # 统一入口执行 skill 测试
 make test SKILL=feipi-read-youtube-video

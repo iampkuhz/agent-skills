@@ -35,9 +35,10 @@ list:
 		if [[ -d .agents/skills ]]; then find .agents/skills -maxdepth 1 -mindepth 1 -type d; fi; \
 	} | sort
 
-# 将仓库 `skills/` 下各 skill 软链接到 `$CODEX_HOME/skills`（默认 `~/.codex/skills`）。
+# 将仓库 `skills/` 下各 skill 软链接到目标目录（默认 ~/.agents/skills）。
 # 示例：
 # - make install-links
+# - AGENT=qoder make install-links
 install-links:
 	./scripts/repo/install_skills_links.sh
 
