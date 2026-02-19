@@ -337,6 +337,9 @@ if [[ "$MODULE_LAYER_COUNT" -lt 2 || "$MODULE_LAYER_COUNT" -gt 3 ]]; then
   err "模块图分层容器应为 2-3 个（package/frame/rectangle + {...}），当前=$MODULE_LAYER_COUNT"
 else
   echo "[OK] 模块图分层容器数=$MODULE_LAYER_COUNT"
+  if [[ "$MODULE_LAYER_COUNT" -eq 2 ]]; then
+    warn "模块图当前为 2 层（可接受），建议优先使用 3 层以增强结构表达"
+  fi
 fi
 
 MODULE_COLOR_LAYER_LINES="$(printf "%s\n" "$MODULE_DIAGRAM_CONTENT" | rg '^[[:space:]]*(package|frame|rectangle)[[:space:]].*#[0-9A-Fa-f]{3,6}.*\{' || true)"
@@ -381,15 +384,59 @@ if [[ "$FLOW_S_UNIQUE_COUNT" -gt 10 ]]; then
   warn "主流程图/说明的唯一 S 序号超过 10（当前=$FLOW_S_UNIQUE_COUNT），建议进一步合并步骤"
 fi
 
-FLOW_PARTICIPANT_LINES="$(printf "%s\n" "$FLOW_CONTENT" | rg '^[[:space:]]*(participant|actor|boundary|control|entity|collections?|database)\b' || true)"
-FLOW_PARTICIPANT_COUNT="$(printf "%s\n" "$FLOW_PARTICIPANT_LINES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
-if [[ "$FLOW_PARTICIPANT_COUNT" -gt 0 ]]; then
-  if [[ "$FLOW_PARTICIPANT_COUNT" -gt 7 ]]; then
-    err "时序图 participant 过多（当前=$FLOW_PARTICIPANT_COUNT），应控制在 5-7 个核心角色"
-  elif [[ "$FLOW_PARTICIPANT_COUNT" -lt 5 ]]; then
-    warn "时序图 participant 偏少（当前=$FLOW_PARTICIPANT_COUNT），建议保持在 5-7 个核心角色"
+FLOW_PARTY_DECL_LINES="$(printf "%s\n" "$FLOW_CONTENT" | rg '^[[:space:]]*(participant|actor|boundary|control|entity|collections?|database|queue)\b' || true)"
+FLOW_PARTY_DECL_COUNT="$(printf "%s\n" "$FLOW_PARTY_DECL_LINES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+
+FLOW_PARTY_ENDPOINTS="$(
+  printf "%s\n" "$FLOW_CONTENT" | awk '
+    {
+      line = $0
+      sub(/[[:space:]]*:[[:space:]].*$/, "", line)
+      gsub(/-[Uu][Pp]-/, "-", line)
+      gsub(/-[Dd][Oo][Ww][Nn]-/, "-", line)
+      gsub(/-[Ll][Ee][Ff][Tt]-/, "-", line)
+      gsub(/-[Rr][Ii][Gg][Hh][Tt]-/, "-", line)
+      gsub(/--+>/, "->", line)
+      gsub(/<--+/, "<-", line)
+
+      if (index(line, "->") > 0) {
+        n = split(line, a, "->")
+        if (n >= 2) {
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[1])
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[2])
+          gsub(/[^A-Za-z0-9_]/, "", a[1])
+          gsub(/[^A-Za-z0-9_]/, "", a[2])
+          if (a[1] != "") print a[1]
+          if (a[2] != "") print a[2]
+        }
+      } else if (index(line, "<-") > 0) {
+        n = split(line, a, "<-")
+        if (n >= 2) {
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[1])
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[2])
+          gsub(/[^A-Za-z0-9_]/, "", a[1])
+          gsub(/[^A-Za-z0-9_]/, "", a[2])
+          if (a[1] != "") print a[1]
+          if (a[2] != "") print a[2]
+        }
+      }
+    }
+  ' || true
+)"
+FLOW_PARTY_ENDPOINT_COUNT="$(printf "%s\n" "$FLOW_PARTY_ENDPOINTS" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort -u | wc -l | awk '{print $1}')"
+
+FLOW_PARTY_COUNT="$FLOW_PARTY_DECL_COUNT"
+if [[ "$FLOW_PARTY_ENDPOINT_COUNT" -gt "$FLOW_PARTY_COUNT" ]]; then
+  FLOW_PARTY_COUNT="$FLOW_PARTY_ENDPOINT_COUNT"
+fi
+
+if [[ "$FLOW_PARTY_COUNT" -gt 0 ]]; then
+  if [[ "$FLOW_PARTY_COUNT" -gt 7 ]]; then
+    err "时序图参与方过多（当前=$FLOW_PARTY_COUNT），应控制在 5-7 个核心角色（含 participant/actor/user 等）"
+  elif [[ "$FLOW_PARTY_COUNT" -lt 5 ]]; then
+    warn "时序图参与方偏少（当前=$FLOW_PARTY_COUNT），建议保持在 5-7 个核心角色（含 participant/actor/user 等）"
   else
-    echo "[OK] 时序图 participant 数=$FLOW_PARTICIPANT_COUNT"
+    echo "[OK] 时序图参与方数=$FLOW_PARTY_COUNT"
   fi
 fi
 
