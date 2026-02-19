@@ -47,21 +47,43 @@ require_heading() {
 
 extract_section() {
   local heading="$1"
-  awk -v heading="$heading" '
-    $0 == heading { capture = 1; next }
-    capture && $0 ~ /^#{1,3}[[:space:]]/ { exit }
-    capture { print }
-  ' "$DOC"
+  local capture=0
+  local line
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$capture" -eq 0 ]]; then
+      if [[ "$line" == "$heading" ]]; then
+        capture=1
+      fi
+      continue
+    fi
+
+    if [[ "$line" =~ ^#[#]?[#]?[[:space:]] ]]; then
+      break
+    fi
+    printf "%s\n" "$line"
+  done < "$DOC"
 }
 
 extract_subsection_from_content() {
   local content="$1"
   local heading="$2"
-  printf "%s\n" "$content" | awk -v heading="$heading" '
-    $0 == heading { capture = 1; next }
-    capture && $0 ~ /^####[[:space:]]/ { exit }
-    capture { print }
-  '
+  local capture=0
+  local line
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$capture" -eq 0 ]]; then
+      if [[ "$line" == "$heading" ]]; then
+        capture=1
+      fi
+      continue
+    fi
+
+    if [[ "$line" =~ ^####[[:space:]] ]]; then
+      break
+    fi
+    printf "%s\n" "$line"
+  done <<< "$content"
 }
 
 content_without_code() {
@@ -75,6 +97,12 @@ content_without_code() {
 
 count_chars() {
   local content="$1"
+  # 章节无有效内容时直接返回 0，避免被末尾换行计为 1。
+  if [[ -z "$(printf "%s" "$content" | tr -d '[:space:]')" ]]; then
+    echo "0"
+    return
+  fi
+
   printf "%s\n" "$content" | awk '
     BEGIN { in_code = 0 }
     /^```/ { in_code = !in_code; next }
