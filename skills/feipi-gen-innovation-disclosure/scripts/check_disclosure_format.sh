@@ -125,6 +125,16 @@ count_list_items() {
   printf "%s\n" "$matches" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}'
 }
 
+count_unique_s_tokens() {
+  local content="$1"
+  printf "%s\n" "$content" \
+    | rg -o 'S[0-9]+' \
+    | sed '/^[[:space:]]*$/d' \
+    | LC_ALL=C sort -u \
+    | wc -l \
+    | awk '{print $1}'
+}
+
 check_limit() {
   local heading="$1"
   local max_chars="$2"
@@ -289,8 +299,8 @@ else
   echo "[OK] 关键词条目数=$KEYWORDS_COUNT"
 fi
 
-# 其他方案：1-4 条，且应为本方案变体
-check_list_range "### 是否还有其他解决方案，如有，请详细说明" 1 4 1
+# 其他方案：1-2 条，且应为本方案变体
+check_list_range "### 是否还有其他解决方案，如有，请详细说明" 1 2 1
 ALTERNATIVE_CONTENT="$(extract_section "### 是否还有其他解决方案，如有，请详细说明")"
 if [[ "$(printf "%s\n" "$ALTERNATIVE_CONTENT" | tr -d '[:space:]')" != "无" ]]; then
   if ! printf "%s\n" "$ALTERNATIVE_CONTENT" | rg -q '(变体|替换|调整|简化|改为|仍可达到)'; then
@@ -320,6 +330,28 @@ for sub in "${DETAIL_SUBHEADINGS[@]}"; do
   fi
 done
 
+MODULE_DIAGRAM_CONTENT="$(extract_subsection_from_content "$DETAIL_CONTENT" "#### 模块图")"
+MODULE_LAYER_LINES="$(printf "%s\n" "$MODULE_DIAGRAM_CONTENT" | rg '^[[:space:]]*(package|frame|rectangle)[[:space:]].*\{' || true)"
+MODULE_LAYER_COUNT="$(printf "%s\n" "$MODULE_LAYER_LINES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$MODULE_LAYER_COUNT" -lt 2 || "$MODULE_LAYER_COUNT" -gt 3 ]]; then
+  err "模块图分层容器应为 2-3 个（package/frame/rectangle + {...}），当前=$MODULE_LAYER_COUNT"
+else
+  echo "[OK] 模块图分层容器数=$MODULE_LAYER_COUNT"
+fi
+
+MODULE_COLOR_LAYER_LINES="$(printf "%s\n" "$MODULE_DIAGRAM_CONTENT" | rg '^[[:space:]]*(package|frame|rectangle)[[:space:]].*#[0-9A-Fa-f]{3,6}.*\{' || true)"
+MODULE_COLOR_LAYER_COUNT="$(printf "%s\n" "$MODULE_COLOR_LAYER_LINES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$MODULE_COLOR_LAYER_COUNT" -lt 2 || "$MODULE_COLOR_LAYER_COUNT" -gt 3 ]]; then
+  err "模块图分层容器中显式颜色层应为 2-3 个（#RRGGBB），当前=$MODULE_COLOR_LAYER_COUNT"
+else
+  echo "[OK] 模块图分层着色容器数=$MODULE_COLOR_LAYER_COUNT"
+fi
+
+MODULE_S_UNIQUE_COUNT="$(count_unique_s_tokens "$MODULE_DIAGRAM_CONTENT")"
+if [[ "$MODULE_S_UNIQUE_COUNT" -gt 10 ]]; then
+  warn "模块图 S 序号偏多（唯一序号=$MODULE_S_UNIQUE_COUNT），建议压缩到 10 步以内并把细节放图下注释"
+fi
+
 MODULE_DESC="$(extract_subsection_from_content "$DETAIL_CONTENT" "#### 模块说明")"
 MODULE_COUNT="$(count_list_items "$MODULE_DESC")"
 if [[ "$MODULE_COUNT" -lt 3 ]]; then
@@ -330,18 +362,51 @@ fi
 
 FLOW_CONTENT="$(extract_subsection_from_content "$DETAIL_CONTENT" "#### 主流程（最常见场景）")"
 FLOW_COUNT="$(count_list_items "$FLOW_CONTENT")"
-if [[ "$FLOW_COUNT" -lt 6 ]]; then
-  err "主流程至少需要 6 条步骤，当前=$FLOW_COUNT"
+if [[ "$FLOW_COUNT" -lt 5 || "$FLOW_COUNT" -gt 10 ]]; then
+  err "主流程步骤建议为 5-10 条，当前=$FLOW_COUNT"
 else
   echo "[OK] 主流程条目数=$FLOW_COUNT"
 fi
 
 FLOW_NUMBERED_LINES="$(printf "%s\n" "$FLOW_CONTENT" | rg '^[[:space:]]*[0-9]+[.)][[:space:]]+S[0-9]+' || true)"
 FLOW_NUMBERED_COUNT="$(printf "%s\n" "$FLOW_NUMBERED_LINES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
-if [[ "$FLOW_NUMBERED_COUNT" -lt 6 ]]; then
-  err "主流程每步应以 S 序号开头（如 S1），当前符合条目=$FLOW_NUMBERED_COUNT"
+if [[ "$FLOW_NUMBERED_COUNT" -lt 5 || "$FLOW_NUMBERED_COUNT" -gt 10 ]]; then
+  err "主流程每步应以 S 序号开头且控制在 5-10 条，当前符合条目=$FLOW_NUMBERED_COUNT"
 else
   echo "[OK] 主流程 S 序号条目数=$FLOW_NUMBERED_COUNT"
+fi
+
+FLOW_S_UNIQUE_COUNT="$(count_unique_s_tokens "$FLOW_CONTENT")"
+if [[ "$FLOW_S_UNIQUE_COUNT" -gt 10 ]]; then
+  warn "主流程图/说明的唯一 S 序号超过 10（当前=$FLOW_S_UNIQUE_COUNT），建议进一步合并步骤"
+fi
+
+FLOW_PARTICIPANT_LINES="$(printf "%s\n" "$FLOW_CONTENT" | rg '^[[:space:]]*(participant|actor|boundary|control|entity|collections?|database)\b' || true)"
+FLOW_PARTICIPANT_COUNT="$(printf "%s\n" "$FLOW_PARTICIPANT_LINES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$FLOW_PARTICIPANT_COUNT" -gt 0 ]]; then
+  if [[ "$FLOW_PARTICIPANT_COUNT" -gt 7 ]]; then
+    err "时序图 participant 过多（当前=$FLOW_PARTICIPANT_COUNT），应控制在 5-7 个核心角色"
+  elif [[ "$FLOW_PARTICIPANT_COUNT" -lt 5 ]]; then
+    warn "时序图 participant 偏少（当前=$FLOW_PARTICIPANT_COUNT），建议保持在 5-7 个核心角色"
+  else
+    echo "[OK] 时序图 participant 数=$FLOW_PARTICIPANT_COUNT"
+  fi
+fi
+
+FLOW_TEXT_ONLY="$(printf "%s\n" "$FLOW_CONTENT" | awk '
+  BEGIN { in_code = 0 }
+  /^```/ { in_code = !in_code; next }
+  in_code { next }
+  { print }
+')"
+FLOW_TEXT_CHARS="$(count_chars "$FLOW_TEXT_ONLY")"
+if [[ "$FLOW_TEXT_CHARS" -gt 480 ]]; then
+  warn "主流程图下方说明偏长（当前=$FLOW_TEXT_CHARS），建议保留核心步骤并精简描述"
+fi
+FLOW_DETAIL_LIST_MATCHES="$(printf "%s\n" "$FLOW_TEXT_ONLY" | rg '^[[:space:]]{2,}(-|\*|[0-9]+[.)])[[:space:]]+' || true)"
+FLOW_DETAIL_LIST_COUNT="$(printf "%s\n" "$FLOW_DETAIL_LIST_MATCHES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$FLOW_TEXT_CHARS" -gt 480 && "$FLOW_DETAIL_LIST_COUNT" -eq 0 ]]; then
+  warn "主流程补充细节建议使用二级列表（如“补充细节”），便于快速定位重点"
 fi
 
 DIAGRAM_MATCHES="$(printf "%s\n" "$DETAIL_CONTENT" | rg -o '@startuml' || true)"
@@ -354,30 +419,71 @@ else
   echo "[OK] 图数量=$DIAGRAM_COUNT"
 fi
 
-DIAGRAM_SNUM_COUNT="$(printf "%s\n" "$DETAIL_CONTENT" | rg -o 'S[0-9]+' | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
-if [[ "$DIAGRAM_SNUM_COUNT" -lt 6 ]]; then
-  err "图示与正文应使用 S 序号，检测到的 S 序号数量不足: $DIAGRAM_SNUM_COUNT"
+DIAGRAM_SNUM_COUNT="$(count_unique_s_tokens "$DETAIL_CONTENT")"
+if [[ "$DIAGRAM_SNUM_COUNT" -lt 5 ]]; then
+  err "图示与正文应使用 S 序号，检测到的唯一 S 序号数量不足: $DIAGRAM_SNUM_COUNT"
 else
-  echo "[OK] 检测到 S 序号数量=$DIAGRAM_SNUM_COUNT"
+  echo "[OK] 检测到唯一 S 序号数量=$DIAGRAM_SNUM_COUNT"
 fi
 
-# 套话检查（不含代码块）
-DOC_TEXT_NO_CODE="$(content_without_code)"
-BANNED_PHRASES=(
-  "赋能"
-  "全方位"
-  "行业领先"
-  "端到端"
-  "生态闭环"
-  "大而全"
-  "高效协同"
-  "全面提升"
-)
-for phrase in "${BANNED_PHRASES[@]}"; do
-  if printf "%s\n" "$DOC_TEXT_NO_CODE" | rg -Fq "$phrase"; then
-    err "检测到套话/大话表达：$phrase"
+CORE_CONTENT="$(extract_subsection_from_content "$DETAIL_CONTENT" "#### 核心创新展开")"
+CORE_DIAGRAM_MATCHES="$(printf "%s\n" "$CORE_CONTENT" | rg -o '@startuml' || true)"
+CORE_DIAGRAM_COUNT="$(printf "%s\n" "$CORE_DIAGRAM_MATCHES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$CORE_DIAGRAM_COUNT" -gt 0 ]]; then
+  CORE_S_UNIQUE_COUNT="$(count_unique_s_tokens "$CORE_CONTENT")"
+  if [[ "$FLOW_S_UNIQUE_COUNT" -gt 0 && "$CORE_S_UNIQUE_COUNT" -ge "$FLOW_S_UNIQUE_COUNT" ]]; then
+    err "核心创新图应比主流程图更精简（核心图唯一 S 序号=$CORE_S_UNIQUE_COUNT，主流程=$FLOW_S_UNIQUE_COUNT）"
+  elif [[ "$CORE_S_UNIQUE_COUNT" -gt 6 ]]; then
+    warn "核心创新图步骤偏多（唯一 S 序号=$CORE_S_UNIQUE_COUNT），建议压缩到 6 步以内"
+  else
+    echo "[OK] 核心创新图复杂度低于主流程图"
   fi
-done
+fi
+
+# 风格软校验（不含代码块，不阻塞通过）
+DOC_TEXT_NO_CODE="$(content_without_code)"
+
+STYLE_HIT_MATCHES="$(printf "%s\n" "$DOC_TEXT_NO_CODE" | rg -o '赋能|全方位|行业领先|端到端|生态闭环|大而全|高效协同|全面提升|显著提升|有效提升|深度融合|全面覆盖' || true)"
+STYLE_HIT_COUNT="$(printf "%s\n" "$STYLE_HIT_MATCHES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$STYLE_HIT_COUNT" -ge 2 ]]; then
+  warn "检测到套话/大话表达次数偏高（$STYLE_HIT_COUNT 次），建议替换为具体对象、动作和结果"
+fi
+
+# 事实锚点密度检查（数字、时长、阈值、序号等）
+STYLE_FACT_CONTENT="$(
+  {
+    extract_section "### 申请说明"
+    extract_section "### 本方案的背景是什么"
+    extract_section "### 详细描述本方案，包括组合部分、步骤"
+  } | sed '/^[[:space:]]*$/d'
+)"
+FACT_ANCHOR_MATCHES="$(printf "%s\n" "$STYLE_FACT_CONTENT" | rg -o 'S[0-9]+|L[0-9]+|[0-9]{4}-[0-9]{2}(-[0-9]{2})?|[0-9]+(%|ms|秒|分钟|小时|天|周|月|年|次|条|个|级)?' || true)"
+FACT_ANCHOR_COUNT="$(printf "%s\n" "$FACT_ANCHOR_MATCHES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$FACT_ANCHOR_COUNT" -lt 8 ]]; then
+  warn "事实锚点偏少（检测到 $FACT_ANCHOR_COUNT 处），建议补充时间、阈值、序号或量化条件"
+fi
+
+# 同一起手句式重复检查（列表行）
+LIST_LINES="$(printf "%s\n" "$DOC_TEXT_NO_CODE" | rg '^[[:space:]]*([0-9]+[.)]|[-*])[[:space:]]+' || true)"
+LIST_HEADS="$(
+  printf "%s\n" "$LIST_LINES" \
+    | sed -E 's/^[[:space:]]*([0-9]+[.)]|[-*])[[:space:]]+//' \
+    | rg -o '^[^，。；：:,.!?！？()（） ]+' \
+    | sed -E 's/^\*\*//; s/\*\*$//' \
+    || true
+)"
+LIST_HEAD_TOTAL="$(printf "%s\n" "$LIST_HEADS" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+LIST_HEAD_MAX_REPEAT="$(printf "%s\n" "$LIST_HEADS" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort | LC_ALL=C uniq -c | awk 'max < $1 { max = $1 } END { print max + 0 }')"
+if [[ "$LIST_HEAD_TOTAL" -ge 8 && "$LIST_HEAD_MAX_REPEAT" -ge 4 ]]; then
+  warn "列表句式起手重复较高（同一开头最多重复 $LIST_HEAD_MAX_REPEAT 次），建议改写为更自然表达"
+fi
+
+# 总结腔连接词密度检查
+CONNECTOR_MATCHES="$(printf "%s\n" "$DOC_TEXT_NO_CODE" | rg -o '首先|其次|最后|此外' || true)"
+CONNECTOR_COUNT="$(printf "%s\n" "$CONNECTOR_MATCHES" | sed '/^[[:space:]]*$/d' | wc -l | awk '{print $1}')"
+if [[ "$CONNECTOR_COUNT" -gt 3 ]]; then
+  warn "“首先/其次/最后/此外”等连接词使用偏多（$CONNECTOR_COUNT 次），建议降低总结腔"
+fi
 
 if [[ "$FAILED" -ne 0 ]]; then
   exit 1

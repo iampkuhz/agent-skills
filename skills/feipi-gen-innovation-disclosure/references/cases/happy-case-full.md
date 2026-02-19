@@ -56,14 +56,24 @@
 @startuml
 title 冷链异常分层处置模块图
 top to bottom direction
-rectangle "事件接入器" as ingress
-rectangle "阶段判定器" as stage
-rectangle "异常窗口计算器" as window
-rectangle "分层处置引擎" as engine
-rectangle "责任域路由器" as router
-rectangle "回执审计器" as audit
-database "处置单存储" as store
-cloud "执行团队" as team
+skinparam linetype ortho
+
+package "接入层" #EAF2FF {
+  rectangle "事件接入器" as ingress
+  rectangle "阶段判定器" as stage
+}
+
+package "决策层" #EAFBEA {
+  rectangle "异常窗口计算器" as window
+  rectangle "分层处置引擎" as engine
+}
+
+package "执行与协同层" #FFF6E8 {
+  rectangle "责任域路由器" as router
+  rectangle "回执审计器" as audit
+  database "处置单存储" as store
+  cloud "执行团队" as team
+}
 
 ingress --> stage : S1 统一事件
 stage --> window : S2 阶段参数
@@ -135,7 +145,6 @@ close --> risk : S4 二次升级反馈
 ### 是否还有其他解决方案，如有，请详细说明
 1. 变体一（窗口策略替换）：将阶段固定窗口改为自适应窗口，依据近期波动自动缩放窗口长度，仍可达到噪声过滤与持续风险识别目标。
 2. 变体二（分层策略调整）：保留分层处置单框架，但把 L1/L2/L3 改为“观察/处置/应急”三层语义级别，仍可达到任务聚合与升级控制目标。
-3. 变体三（路由策略简化）：在组织边界稳定的场景下，将责任域映射由规则表改为节点直连映射，仍可达到自动派发与回执考核目标。
 
 ### 技术效果总结
 1. **降低误升级率**：通过阶段化异常窗口区分短时波动与持续失控，减少不必要的高等级告警派发。
