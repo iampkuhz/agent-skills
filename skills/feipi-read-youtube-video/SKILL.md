@@ -8,6 +8,7 @@ description: 用于下载 YouTube 视频或音频并保存到本地目录，支�
 ## 核心目标
 
 稳定下载 YouTube 视频/音频，输出可验证结果，并在失败时给出可执行修复路径。
+脚本会先探测 YouTube 连通性：直连失败时自动尝试 `127.0.0.1:7890` 代理，再失败时提示用户提供代理端口。
 
 ## 触发条件
 
@@ -56,11 +57,12 @@ curl -L --fail \
   -o "$HOME/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin"
 ```
 
-## 环境变量配置（用于应对 bot 检测）
+## 环境变量配置（用于应对 bot 检测与网络回退）
 
 1. 模板文件：`references/.env.example`
 2. 关键变量：
-- `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态（唯一支持项）
+- `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态
+- `AGENT_YOUTUBE_PROXY_PORT`：可选代理端口（仅当直连失败时使用；默认 `7890`）
 
 说明：脚本默认不提示配置；仅在遇到 bot 检测时才提醒配置 `AGENT_CHROME_PROFILE`。  
 配置文件不要求固定路径，脚本会按顺序自动尝试：
@@ -106,6 +108,12 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" dryrun
 ```
 说明：`dryrun` 只输出标题和视频 ID，不生成下载文件。适合先验证链接与权限，再执行真实下载。
 
+3.1 指定代理端口（直连与默认端口均失败时）：
+```bash
+AGENT_YOUTUBE_PROXY_PORT=7891 bash scripts/download_youtube.sh "<youtube_url>" "./downloads" dryrun
+```
+说明：脚本默认先探测直连，失败后自动尝试 `http://127.0.0.1:7890`；仅当这两步都失败时再建议手动指定端口。
+
 4. 提取字幕文本（优先中英字幕，保留时间戳）：
 ```bash
 bash scripts/download_youtube.sh "<youtube_url>" "./downloads" subtitle
@@ -130,10 +138,14 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper
 - 先执行 `dryrun`，返回错误摘要给用户。
 - 按 `references/.env.example` 配置 `.env` 后重试。
 
-3. 下载成功但无音频/无视频
+3. 网络不通（YouTube 直连失败）
+- 脚本会自动回退到 `http://127.0.0.1:7890` 代理重试。
+- 若仍失败，按提示设置 `AGENT_YOUTUBE_PROXY_PORT=<你的端口>` 后重试。
+
+4. 下载成功但无音频/无视频
 - 优先改用默认 `video` 模式重试。
 
-4. `whisper` 模式失败
+5. `whisper` 模式失败
 - 检查 `whisper-cli` 是否存在（建议 `brew install whisper-cpp`）。
 - 检查模型文件是否存在于 `$HOME/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin`。
 

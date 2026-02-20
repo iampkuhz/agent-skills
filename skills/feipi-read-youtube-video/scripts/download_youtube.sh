@@ -16,6 +16,11 @@ set -euo pipefail
 # 认证配置：
 # - 仅支持 AGENT_CHROME_PROFILE（浏览器 profile）
 # - 默认不提示；仅在触发 bot 检测时给出配置建议
+#
+# 网络回退配置：
+# - 先尝试直连 YouTube
+# - 直连失败后默认尝试代理 http://127.0.0.1:7890
+# - 可通过 AGENT_YOUTUBE_PROXY_PORT 覆盖默认端口
 
 URL="${1:-}"
 OUT_DIR_RAW="${2:-./downloads}"
@@ -69,12 +74,21 @@ for f in "${CONFIG_CANDIDATES[@]}"; do
 done
 
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
+AGENT_YOUTUBE_PROXY_PORT="${AGENT_YOUTUBE_PROXY_PORT:-}"
 
 # YouTube 反爬重试策略固定值（不通过环境变量暴露）。
 YT_REMOTE_COMPONENTS_DEFAULT="ejs:github"
 YT_EXTRACTOR_ARGS_DEFAULT="youtube:player_client=android,web_safari"
 YT_BOT_HIT=0
 WHISPER_AUTO_ACCURATE_MAX_SEC=480
+YT_CONNECT_TEST_URL="https://www.youtube.com/generate_204"
+YT_CONNECT_TIMEOUT_SEC=8
+YT_PROXY_SCHEME_DEFAULT="http"
+YT_PROXY_HOST_DEFAULT="127.0.0.1"
+YT_PROXY_PORT_DEFAULT="7890"
+YT_DLP_NETWORK_ARGS=()
+ACTIVE_PROXY_URL=""
+YT_NETWORK_ROUTE="direct"
 
 if [[ -z "$URL" ]]; then
   echo "用法: bash scripts/download_youtube.sh <url> [output_dir] [video|audio|dryrun|subtitle|whisper] [auto|fast|accurate]" >&2
@@ -83,6 +97,22 @@ fi
 
 if [[ "$WHISPER_PROFILE" != "auto" && "$WHISPER_PROFILE" != "fast" && "$WHISPER_PROFILE" != "accurate" ]]; then
   echo "whisper_profile 仅支持 auto|fast|accurate，当前: $WHISPER_PROFILE" >&2
+  exit 1
+fi
+
+is_valid_port() {
+  local value="${1:-}"
+  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+    return 1
+  fi
+  if (( value < 1 || value > 65535 )); then
+    return 1
+  fi
+  return 0
+}
+
+if [[ -n "$AGENT_YOUTUBE_PROXY_PORT" ]] && ! is_valid_port "$AGENT_YOUTUBE_PROXY_PORT"; then
+  echo "AGENT_YOUTUBE_PROXY_PORT 必须是 1~65535 的整数，当前: $AGENT_YOUTUBE_PROXY_PORT" >&2
   exit 1
 fi
 
@@ -96,6 +126,106 @@ source "$YT_COMMON_LIB"
 
 yt_common_require_tools "$MODE"
 yt_common_init "$OUT_DIR" "$AGENT_CHROME_PROFILE"
+
+build_proxy_url() {
+  local port
+  port="${AGENT_YOUTUBE_PROXY_PORT:-$YT_PROXY_PORT_DEFAULT}"
+  echo "$YT_PROXY_SCHEME_DEFAULT://$YT_PROXY_HOST_DEFAULT:$port"
+}
+
+enable_proxy_for_yt_dlp() {
+  local proxy_url="$1"
+
+  if [[ -z "$proxy_url" ]]; then
+    return 1
+  fi
+
+  if [[ "$ACTIVE_PROXY_URL" == "$proxy_url" ]]; then
+    return 0
+  fi
+
+  YT_COMMON_ARGS+=(--proxy "$proxy_url")
+  YT_DLP_NETWORK_ARGS=(--proxy "$proxy_url")
+  ACTIVE_PROXY_URL="$proxy_url"
+  YT_NETWORK_ROUTE="proxy"
+}
+
+probe_youtube_connectivity() {
+  local proxy_url="${1:-}"
+  local -a curl_cmd
+
+  if ! command -v curl >/dev/null 2>&1; then
+    # macOS 默认有 curl；若缺失则回退到 yt-dlp 轻量探测。
+    local -a ytdlp_cmd
+    ytdlp_cmd=(
+      yt-dlp
+      --skip-download
+      --no-playlist
+      --socket-timeout "$YT_CONNECT_TIMEOUT_SEC"
+    )
+    if [[ -n "$proxy_url" ]]; then
+      ytdlp_cmd+=(--proxy "$proxy_url")
+    fi
+    ytdlp_cmd+=(--print id "https://www.youtube.com/watch?v=BaW_jenozKc")
+    "${ytdlp_cmd[@]}" >/dev/null 2>&1
+    return $?
+  fi
+
+  curl_cmd=(
+    curl
+    --silent
+    --show-error
+    --head
+    --location
+    --max-time "$YT_CONNECT_TIMEOUT_SEC"
+    --connect-timeout "$YT_CONNECT_TIMEOUT_SEC"
+  )
+  if [[ -n "$proxy_url" ]]; then
+    curl_cmd+=(--proxy "$proxy_url")
+  fi
+  curl_cmd+=("$YT_CONNECT_TEST_URL")
+
+  "${curl_cmd[@]}" >/dev/null 2>&1
+}
+
+print_proxy_port_guidance() {
+  local tested_proxy="$1"
+  local retry_cmd
+
+  if [[ "$MODE" == "whisper" ]]; then
+    retry_cmd="AGENT_YOUTUBE_PROXY_PORT=7891 bash scripts/download_youtube.sh \"$URL\" \"$OUT_DIR_RAW\" \"$MODE\" \"$WHISPER_PROFILE\""
+  else
+    retry_cmd="AGENT_YOUTUBE_PROXY_PORT=7891 bash scripts/download_youtube.sh \"$URL\" \"$OUT_DIR_RAW\" \"$MODE\""
+  fi
+
+  echo "直连 YouTube 失败，且默认代理也不可用: $tested_proxy" >&2
+  echo "请提供可用代理端口后重试，例如:" >&2
+  echo "  $retry_cmd" >&2
+}
+
+ensure_youtube_network_ready() {
+  local fallback_proxy
+
+  if probe_youtube_connectivity; then
+    YT_NETWORK_ROUTE="direct"
+    return 0
+  fi
+
+  fallback_proxy="$(build_proxy_url)"
+  echo "检测到 YouTube 直连不可用，开始尝试代理: $fallback_proxy" >&2
+  if probe_youtube_connectivity "$fallback_proxy"; then
+    enable_proxy_for_yt_dlp "$fallback_proxy"
+    echo "已启用代理下载: $fallback_proxy" >&2
+    return 0
+  fi
+
+  print_proxy_port_guidance "$fallback_proxy"
+  return 1
+}
+
+if ! ensure_youtube_network_ready; then
+  exit 1
+fi
 
 is_challenge_error() {
   local err_file="$1"
@@ -200,7 +330,7 @@ run_whisper_mode() {
     fi
 
     set +e
-    duration_raw="$(yt-dlp --skip-download --no-playlist --print "%(duration)s" "$URL" 2>/dev/null | head -n1)"
+    duration_raw="$(yt-dlp "${YT_DLP_NETWORK_ARGS[@]}" --skip-download --no-playlist --print "%(duration)s" "$URL" 2>/dev/null | head -n1)"
     set -e
 
     if [[ "$duration_raw" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
@@ -274,4 +404,8 @@ case "$MODE" in
     ;;
 esac
 
+echo "network_route=$YT_NETWORK_ROUTE"
+if [[ -n "$ACTIVE_PROXY_URL" ]]; then
+  echo "proxy_url=$ACTIVE_PROXY_URL"
+fi
 echo "完成: mode=$MODE, output_dir=$OUT_DIR"
