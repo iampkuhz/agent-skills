@@ -3,13 +3,17 @@ set -euo pipefail
 
 # 依据 URL 来源调用依赖技能，提取文本。
 # 用法：
-#   bash scripts/extract_video_text.sh <url> [output_dir] [auto|subtitle|whisper] \
+#   bash scripts/extract_video_text.sh <url> [output_root_dir] [auto|subtitle|whisper] \
 #     [--instruction "用户原始指令"] [--quality auto|fast|accurate] [--check-deps]
 #
 # 档位策略（仅在需要 whisper 时生效）：
 # - --quality=auto：若指令明确要求高质量，则选 accurate；否则默认 fast。
 # - mode=auto + accurate：whisper 优先，失败后回退 subtitle。
 # - mode=auto + fast：subtitle 优先，失败后回退 whisper。
+#
+# 目录策略：
+# - 传入目录视为“根目录”，脚本会自动创建 source-url_key 子目录，避免多 URL 平铺。
+# - 例如：./tmp/video-text/youtube-5Foo8VUZlFM、./tmp/video-text/bilibili-BV1Q5fgBfExq。
 
 CHECK_ONLY="0"
 INSTRUCTION_TEXT=""
@@ -17,11 +21,12 @@ QUALITY_HINT="auto"
 PROFILE_REASON="default_fast"
 WHISPER_PROFILE="fast"
 URL=""
-OUT_DIR="./tmp/video-text"
+OUT_ROOT_DIR="./tmp/video-text"
+RUN_DIR=""
 MODE="auto"
 
 usage() {
-  echo "用法: bash scripts/extract_video_text.sh <url> [output_dir] [auto|subtitle|whisper] [--instruction \"文本\"] [--quality auto|fast|accurate] [--check-deps]" >&2
+  echo "用法: bash scripts/extract_video_text.sh <url> [output_root_dir] [auto|subtitle|whisper] [--instruction \"文本\"] [--quality auto|fast|accurate] [--check-deps]" >&2
 }
 
 contains_any() {
@@ -143,7 +148,7 @@ fi
 
 URL="${POSITIONAL_ARGS[0]}"
 if [[ "${#POSITIONAL_ARGS[@]}" -ge 2 ]]; then
-  OUT_DIR="${POSITIONAL_ARGS[1]}"
+  OUT_ROOT_DIR="${POSITIONAL_ARGS[1]}"
 fi
 if [[ "${#POSITIONAL_ARGS[@]}" -ge 3 ]]; then
   MODE="${POSITIONAL_ARGS[2]}"
@@ -179,12 +184,105 @@ detect_source() {
   return 1
 }
 
+sanitize_key() {
+  local raw="$1"
+  local normalized
+
+  normalized="$(printf "%s" "$raw" | tr -c 'A-Za-z0-9._-' '-')"
+  normalized="$(printf "%s" "$normalized" | sed -E 's/-+/-/g; s/^-+//; s/-+$//')"
+  if [[ -z "$normalized" ]]; then
+    echo "unknown"
+    return 0
+  fi
+
+  echo "$normalized"
+}
+
+fallback_url_hash() {
+  local url="$1"
+
+  if command -v shasum >/dev/null 2>&1; then
+    printf "%s" "$url" | shasum -a 1 | awk '{print substr($1,1,12)}'
+    return 0
+  fi
+
+  if command -v sha1sum >/dev/null 2>&1; then
+    printf "%s" "$url" | sha1sum | awk '{print substr($1,1,12)}'
+    return 0
+  fi
+
+  if command -v md5 >/dev/null 2>&1; then
+    printf "%s" "$url" | md5 | awk '{print substr($NF,1,12)}'
+    return 0
+  fi
+
+  echo "nohash"
+}
+
+extract_youtube_key() {
+  local url="$1"
+  local key
+
+  key="$(printf "%s" "$url" | sed -nE 's#.*[?&]v=([A-Za-z0-9_-]{6,}).*#\1#p' | head -n1)"
+  if [[ -n "$key" ]]; then
+    echo "$key"
+    return 0
+  fi
+
+  key="$(printf "%s" "$url" | sed -nE 's#^https?://([a-zA-Z0-9-]+\.)?youtu\.be/([^?&/]+).*$#\2#p' | head -n1)"
+  if [[ -n "$key" ]]; then
+    echo "$key"
+    return 0
+  fi
+
+  key="$(printf "%s" "$url" | sed -nE 's#^https?://([a-zA-Z0-9-]+\.)?youtube\.com/(shorts|live)/([^?&/]+).*$#\3#p' | head -n1)"
+  if [[ -n "$key" ]]; then
+    echo "$key"
+    return 0
+  fi
+
+  return 1
+}
+
+extract_bilibili_key() {
+  local url="$1"
+  local key
+
+  key="$(printf "%s" "$url" | sed -nE 's#.*(BV[0-9A-Za-z]+).*#\1#p' | head -n1)"
+  if [[ -n "$key" ]]; then
+    echo "$key"
+    return 0
+  fi
+
+  return 1
+}
+
+resolve_url_key() {
+  local source="$1"
+  local url="$2"
+  local key=""
+
+  if [[ "$source" == "youtube" ]]; then
+    key="$(extract_youtube_key "$url" || true)"
+  elif [[ "$source" == "bilibili" ]]; then
+    key="$(extract_bilibili_key "$url" || true)"
+  fi
+
+  if [[ -z "$key" ]]; then
+    key="url-$(fallback_url_hash "$url")"
+  fi
+
+  sanitize_key "$key"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILLS_ROOT_DEFAULT="$(cd "$SKILL_DIR/.." && pwd)"
 SKILLS_ROOT="${AGENT_SKILLS_ROOT:-$SKILLS_ROOT_DEFAULT}"
 
 SOURCE="$(detect_source "$URL")"
+URL_KEY="$(resolve_url_key "$SOURCE" "$URL")"
+RUN_DIR="$OUT_ROOT_DIR/${SOURCE}-${URL_KEY}"
 
 if [[ "$SOURCE" == "youtube" ]]; then
   DEP_SKILL_DIR="$SKILLS_ROOT/feipi-read-youtube-video"
@@ -212,32 +310,33 @@ fi
 if [[ "$CHECK_ONLY" == "1" ]]; then
   echo "dependency_ok=1"
   echo "source=$SOURCE"
+  echo "run_dir=$RUN_DIR"
   echo "script=$DEP_SCRIPT"
   echo "whisper_profile=$WHISPER_PROFILE"
   echo "selection_reason=$PROFILE_REASON"
   exit 0
 fi
 
-mkdir -p "$OUT_DIR"
-LOG_DIR="$OUT_DIR/logs"
+mkdir -p "$RUN_DIR"
+LOG_DIR="$RUN_DIR/logs"
 mkdir -p "$LOG_DIR"
 
 run_mode() {
   local mode="$1"
   local marker log_file newest_txt
-  marker="$(mktemp "$OUT_DIR/.txt-marker.XXXXXX")"
+  marker="$(mktemp "$RUN_DIR/.txt-marker.XXXXXX")"
   log_file="$LOG_DIR/${SOURCE}-${mode}.log"
 
   set +e
   if [[ "$mode" == "whisper" ]]; then
-    bash "$DEP_SCRIPT" "$URL" "$OUT_DIR" "$mode" "$WHISPER_PROFILE" >"$log_file" 2>&1
+    bash "$DEP_SCRIPT" "$URL" "$RUN_DIR" "$mode" "$WHISPER_PROFILE" >"$log_file" 2>&1
   else
-    bash "$DEP_SCRIPT" "$URL" "$OUT_DIR" "$mode" >"$log_file" 2>&1
+    bash "$DEP_SCRIPT" "$URL" "$RUN_DIR" "$mode" >"$log_file" 2>&1
   fi
   local code=$?
   set -e
 
-  newest_txt="$(find "$OUT_DIR" -type f -name '*.txt' -newer "$marker" | sort | tail -n1 || true)"
+  newest_txt="$(find "$RUN_DIR" -type f -name '*.txt' -newer "$marker" | sort | tail -n1 || true)"
   rm -f "$marker"
 
   if [[ $code -eq 0 && -n "$newest_txt" ]]; then
@@ -287,6 +386,7 @@ if [[ -z "$TEXT_FILE" ]]; then
 fi
 
 echo "source=$SOURCE"
+echo "run_dir=$RUN_DIR"
 echo "mode=$USED_MODE"
 echo "text_path=$TEXT_FILE"
 echo "log_dir=$LOG_DIR"

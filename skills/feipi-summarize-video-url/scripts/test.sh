@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # 统一测试入口（供 make test 调用）
+# 覆盖范围：自动选档 + 文本提取 + 第一轮请求包 + 第二轮请求包
 # 每行用例格式：<url>|<instruction>|<expected_profile>|<run_type>
 # - expected_profile: fast|accurate（可空，默认 fast）
 # - run_type: selection|extract（可空，默认 extract）
@@ -10,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 EXTRACT_SCRIPT="$SCRIPT_DIR/extract_video_text.sh"
 REQUEST_SCRIPT="$SCRIPT_DIR/render_summary_prompt.sh"
+BACKGROUND_REQUEST_SCRIPT="$SCRIPT_DIR/render_background_prompt.sh"
 DEFAULT_CONFIG="$SKILL_DIR/references/test_cases.txt"
 
 CONFIG=""
@@ -154,8 +156,16 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
   fi
 
   selected_profile="$(printf "%s\n" "$selection_output" | sed -n 's/^whisper_profile=//p' | tail -n1)"
+  selected_run_dir="$(printf "%s\n" "$selection_output" | sed -n 's/^run_dir=//p' | tail -n1)"
   if [[ "$selected_profile" != "$EXPECTED_PROFILE" ]]; then
     echo "[FAIL] $case_id 选档不符合预期（expect=$EXPECTED_PROFILE actual=$selected_profile）" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ -z "$selected_run_dir" || "$selected_run_dir" != "$case_dir/selection/"* ]]; then
+    echo "[FAIL] $case_id 选档阶段 run_dir 异常（actual=$selected_run_dir）" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
@@ -185,6 +195,7 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
   fi
 
   text_path="$(printf "%s\n" "$extract_output" | sed -n 's/^text_path=//p' | tail -n1)"
+  run_dir="$(printf "%s\n" "$extract_output" | sed -n 's/^run_dir=//p' | tail -n1)"
   source="$(printf "%s\n" "$extract_output" | sed -n 's/^source=//p' | tail -n1)"
   whisper_profile="$(printf "%s\n" "$extract_output" | sed -n 's/^whisper_profile=//p' | tail -n1)"
 
@@ -197,6 +208,27 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
 
   if [[ -z "$text_path" || ! -f "$text_path" ]]; then
     echo "[FAIL] $case_id 未产出文本文件" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ -z "$run_dir" || ! -d "$run_dir" ]]; then
+    echo "[FAIL] $case_id 未产出 URL 子目录 run_dir" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ "$run_dir" != "$case_dir/"* || "$run_dir" == "$case_dir" ]]; then
+    echo "[FAIL] $case_id run_dir 未落在测试目录子层级（run_dir=$run_dir）" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if [[ "$text_path" != "$run_dir/"* ]]; then
+    echo "[FAIL] $case_id text_path 未落在 run_dir 内（text_path=$text_path run_dir=$run_dir）" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
@@ -224,7 +256,7 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
     duration_sec=900
   fi
 
-  request_path="$case_dir/summary_request.md"
+  request_path="$run_dir/summary_request.md"
   set +e
   request_output="$(bash "$REQUEST_SCRIPT" "$URL" "$video_title" "$duration_sec" "$text_path" > "$request_path" 2>&1)"
   request_code=$?
@@ -238,8 +270,43 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
     continue
   fi
 
-  if ! rg -q '^## 摘要概述$' "$request_path" || ! rg -q '^## 核心观点时间线$' "$request_path"; then
+  if ! rg -q '^## 摘要概述$' "$request_path" || ! rg -q '^## 附件$' "$request_path"; then
     echo "[FAIL] $case_id 请求包缺少输出结构约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '不允许输出“## 核心观点时间线”章节|不允许输出 `## 核心观点时间线` 章节|不要输出 `## 核心观点时间线` 章节' "$request_path"; then
+    echo "[FAIL] $case_id 请求包缺少“摘要与时间线合并”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '\[MM:SS\]|\[HH:MM:SS\]' "$request_path"; then
+    echo "[FAIL] $case_id 请求包缺少“时间锚点格式”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '禁止使用 T\+00:00:00|禁止 T\+00:00:00' "$request_path"; then
+    echo "[FAIL] $case_id 请求包缺少“禁止 T+ 时间格式”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '原始视频：' "$request_path" || ! rg -q '转写文本：' "$request_path"; then
+    echo "[FAIL] $case_id 请求包缺少附件输出要求（原始视频 + 转写文本）" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if rg -q '字幕文件：' "$request_path"; then
+    echo "[FAIL] $case_id 请求包附件仍包含字幕文件（当前规范不要求该项）" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
@@ -272,7 +339,76 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
     continue
   fi
 
-  echo "[PASS] $case_id source=$source request=$request_path"
+  summary_result_path="$run_dir/summary_result.md"
+  cat > "$summary_result_path" <<EOF
+## 摘要概述
+示例：该视频讨论了关税裁决争议及制度影响。
+
+1. [00:05] 最高法院给出关键裁决。
+2. [01:48] 讨论“是否构成宪政危机”。
+
+## 附件
+- 原始视频：$URL
+- 转写文本：$text_path
+EOF
+
+  background_request_path="$run_dir/background_request.md"
+  set +e
+  background_output="$(bash "$BACKGROUND_REQUEST_SCRIPT" "$URL" "$video_title" "$summary_result_path" "$text_path" > "$background_request_path" 2>&1)"
+  background_code=$?
+  set -e
+  printf "\n[background_request]\n%s\n" "$background_output" >> "$log_file"
+
+  if [[ $background_code -ne 0 || ! -f "$background_request_path" ]]; then
+    echo "[FAIL] $case_id 第二次请求包生成失败" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '^## 相关影响和背景分析$' "$background_request_path"; then
+    echo "[FAIL] $case_id 第二次请求包缺少输出章节约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '<FIRST_ROUND_SUMMARY_START>' "$background_request_path" || ! rg -q '<FIRST_ROUND_SUMMARY_END>' "$background_request_path"; then
+    echo "[FAIL] $case_id 第二次请求包未包含第一轮摘要输入" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '不要重复第一轮内容|不得重复第一轮|新增信息价值' "$background_request_path"; then
+    echo "[FAIL] $case_id 第二次请求包缺少去重约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '背景知识补充（约2/3）|关键影响（约1/3）|122 条款是什么|此前条款 -> 当前条款|之前已经收上来的税如何处置|触发点 -> 作用机制 -> 受影响对象 -> 可观察结果' "$background_request_path"; then
+    echo "[FAIL] $case_id 第二次请求包缺少“背景优先 + 122/条款切换/税款处置 + 关键影响”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '关键不确定性|后续观察点是否有诉讼' "$background_request_path"; then
+    echo "[FAIL] $case_id 第二次请求包缺少“禁止空洞小节”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '禁止使用 T\+00:00:00|禁止使用字幕行号' "$background_request_path"; then
+    echo "[FAIL] $case_id 第二次请求包缺少时间锚点简化约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  echo "[PASS] $case_id source=$source request=$request_path background=$background_request_path"
   PASSED=$((PASSED + 1))
 done < "$CONFIG"
 
@@ -286,4 +422,4 @@ if [[ "$FAILED" -ne 0 ]]; then
   exit 1
 fi
 
-echo "测试通过: feipi-summarize-video-url（提取 + 请求包链路通过）"
+echo "测试通过: feipi-summarize-video-url（提取 + 两阶段请求包链路通过）"
