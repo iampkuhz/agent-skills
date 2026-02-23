@@ -20,6 +20,7 @@ make install-links
 
 ```bash
 AGENT=qoder make install-links
+AGENT=openclaw make install-links
 ```
 
 默认目录映射：
@@ -27,4 +28,5 @@ AGENT=qoder make install-links
 codex -> `$CODEX_HOME/skills`（未设置时为 `~/.codex/skills`）
 qoder -> `~/.qoder/skills`
 claudecode -> `~/.claude/skills`
+openclaw -> `$OPENCLAW_HOME/skills`（未设置时为 `~/.openclaw/skills`）
 未设置 AGENT -> `~/.agents/skills`

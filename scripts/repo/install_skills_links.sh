@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 将当前仓库的 skills 目录下所有技能，以软链接方式安装到用户目录。
 # 默认目标目录：~/.agents/skills
-# 通过环境变量 AGENT 选择目标：codex | qoder | claudecode
+# 通过环境变量 AGENT 选择目标：codex | qoder | claudecode | openclaw
 
 usage() {
   cat <<'USAGE'
@@ -13,10 +13,11 @@ usage() {
 说明:
   把仓库内 skills/* 安装到目标目录。
   - 默认目标：~/.agents/skills（AGENT 未设置时）
-  - 通过环境变量 AGENT 指定 agent：codex | qoder | claudecode
+  - 通过环境变量 AGENT 指定 agent：codex | qoder | claudecode | openclaw
   - codex -> $CODEX_HOME/skills（默认 ~/.codex/skills）
   - qoder -> ~/.qoder/skills
   - claudecode -> ~/.claude/skills
+  - openclaw -> $OPENCLAW_HOME/skills（默认 ~/.openclaw/skills）
 USAGE
 }
 
@@ -52,8 +53,12 @@ case "$AGENT_NAME" in
   claudecode)
     DEST_ROOT="$HOME/.claude/skills"
     ;;
+  openclaw)
+    OPENCLAW_HOME_DIR="${OPENCLAW_HOME:-$HOME/.openclaw}"
+    DEST_ROOT="$OPENCLAW_HOME_DIR/skills"
+    ;;
   *)
-    echo "未知 AGENT: $AGENT_NAME（支持 codex | qoder | claudecode）" >&2
+    echo "未知 AGENT: ${AGENT_NAME}（支持 codex | qoder | claudecode | openclaw）" >&2
     usage
     exit 1
     ;;

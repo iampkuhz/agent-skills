@@ -39,6 +39,7 @@ list:
 # 示例：
 # - make install-links
 # - AGENT=qoder make install-links
+# - AGENT=openclaw make install-links
 install-links:
 	./scripts/repo/install_skills_links.sh
 
