@@ -1,0 +1,8 @@
+# feipi-ops-openclaw-config 回放测试用例
+# 格式：case_id|expect|fixture|assert_text
+# expect: ok | fail
+
+happy-env-ref|ok|good-env-ref|审计通过
+abnormal-plain-secret|fail|bad-plain-secret|敏感字段疑似明文
+abnormal-legacy-path|fail|bad-legacy-path|检测到废弃路径
+boundary-extra-dirs|ok|good-extra-dirs|审计通过

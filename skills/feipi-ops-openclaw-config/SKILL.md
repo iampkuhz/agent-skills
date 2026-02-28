@@ -1,0 +1,103 @@
+---
+name: feipi-ops-openclaw-config
+description: 用于在 OpenClaw 仓库中安全修改与优化 openclaw 配置，提供最小改动、风险检查和可复现验证；当用户要求调整模型、渠道、skills、workspace 或 gateway 配置时使用。
+---
+
+# OpenClaw 配置修改优化助手（中文）
+
+## 核心目标
+
+在不破坏现有可用性的前提下，对 `openclaw.json` 做最小化、可审计、可回滚的配置修改。
+
+## 触发场景
+
+1. 用户要求修改 OpenClaw 行为（模型、渠道、skills、gateway、workspace、插件等）。
+2. 用户要求“优化配置”“清理配置”“排查配置问题”。
+3. 用户要求将敏感信息改为环境变量引用（`${ENV_NAME}`）。
+
+## 非适用场景
+
+1. 纯业务文案编辑（不涉及配置文件）。
+2. 需要安装系统依赖或变更操作系统级服务，但用户未授权执行。
+3. 与 OpenClaw 无关的通用代码任务。
+
+## 输入与输出
+
+1. 输入
+- 配置目标：要改什么、为什么改、影响范围。
+- 约束：是否允许重启 gateway、是否允许新增字段、是否只做 dry-run。
+
+2. 输出
+- 配置改动（最小 diff）。
+- 验证结果（至少 1 条命令级证据）。
+- 风险与回滚建议（若有）。
+
+## 强约束
+
+1. 敏感信息不得明文入库
+- 包含 `apiKey/token/password/secret/botToken` 等敏感字段时，值必须使用 `${ENV_NAME}`。
+
+2. 优先最小改动
+- 只改和目标直接相关的键，不做无关重排或格式化。
+
+3. 以 `openclaw.json` 为主入口
+- 优先围绕 `openclaw.json` 完成配置收敛。
+
+4. 保持可回滚
+- 修改前后都要可定位差异；必要时输出回滚命令或回滚步骤。
+
+5. 平台约束
+- 默认按 macOS 环境处理，不引入 Linux/Windows 特殊分支逻辑。
+
+## 标准流程（Explore -> Plan -> Implement -> Verify）
+
+1. Explore：仅读取必要文件，避免无边界探索。
+2. Plan：先给出“目标键 -> 变更方式 -> 风险点 -> 验证命令”。
+3. Implement：按计划改动，保持 diff 最小且路径可追溯。
+4. Verify：至少执行以下两类检查之一并回传结果：
+- JSON 结构检查
+- OpenClaw 运行检查
+
+## 标准命令（使用态）
+
+1. 配置审计（敏感字段与路径规则）
+```bash
+bash scripts/audit_openclaw_config.sh --config /path/to/openclaw.json
+```
+
+2. JSON 结构校验
+```bash
+jq . /path/to/openclaw.json >/dev/null
+```
+
+3. OpenClaw 配置自检（本机已安装时）
+```bash
+openclaw doctor
+```
+
+## 变更决策顺序（默认）
+
+1. 先满足“正确性与安全性”（可解析、无明文敏感字段）。
+2. 再满足“最小配置与低风险”（删除冗余、减少副作用）。
+3. 最后做“可维护性优化”（命名一致、结构清晰、注释补齐）。
+
+## 验收标准
+
+1. 配置文件可被 `jq` 成功解析。
+2. `scripts/audit_openclaw_config.sh` 返回通过（或给出明确失败项）。
+3. 输出包含：
+- 改动摘要
+- 验证步骤与结果
+- 剩余风险（若存在）
+
+## 渐进式披露导航
+
+- 规则清单：`references/checklist.md`
+- 互联网高 star 参考来源：`references/sources.md`
+- 回放测试样例：`references/test_cases.txt`
+
+## 交付模板（建议）
+
+1. 改动摘要：`文件 + 键路径 + 新旧值差异`
+2. 验证记录：`命令 + 结果`
+3. 风险与回滚：`风险点 + 回滚步骤`

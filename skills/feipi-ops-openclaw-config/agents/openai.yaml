@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: "OpenClaw 配置修改优化助手"
+  short_description: "安全修改 openclaw.json，输出最小 diff 与可复现验证结果。"
+  default_prompt: "请使用 feipi-ops-openclaw-config：先明确目标键与风险，再做最小配置改动；执行 scripts/audit_openclaw_config.sh 与必要的 openclaw 检查，并汇报改动摘要、验证结果和回滚建议。"
