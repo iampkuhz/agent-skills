@@ -14,7 +14,8 @@ set -euo pipefail
 #   bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper accurate
 #
 # 认证配置：
-# - 仅支持 AGENT_CHROME_PROFILE（浏览器 profile）
+# - 支持 AGENT_CHROME_PROFILE（浏览器 profile）
+# - 支持 AGENT_YOUTUBE_COOKIE_FILE（cookies.txt 文件，Netscape 格式）
 # - 默认不提示；仅在触发 bot 检测时给出配置建议
 #
 # 网络回退配置：
@@ -74,7 +75,9 @@ for f in "${CONFIG_CANDIDATES[@]}"; do
 done
 
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
+AGENT_YOUTUBE_COOKIE_FILE_RAW="${AGENT_YOUTUBE_COOKIE_FILE:-}"
 AGENT_YOUTUBE_PROXY_PORT="${AGENT_YOUTUBE_PROXY_PORT:-}"
+AGENT_YOUTUBE_COOKIE_FILE="$(normalize_out_dir "$AGENT_YOUTUBE_COOKIE_FILE_RAW")"
 
 # YouTube 反爬重试策略固定值（不通过环境变量暴露）。
 YT_REMOTE_COMPONENTS_DEFAULT="ejs:github"
@@ -116,6 +119,17 @@ if [[ -n "$AGENT_YOUTUBE_PROXY_PORT" ]] && ! is_valid_port "$AGENT_YOUTUBE_PROXY
   exit 1
 fi
 
+if [[ -n "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+  if [[ ! -f "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+    echo "AGENT_YOUTUBE_COOKIE_FILE 指向的文件不存在: $AGENT_YOUTUBE_COOKIE_FILE" >&2
+    exit 1
+  fi
+  if [[ ! -r "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+    echo "AGENT_YOUTUBE_COOKIE_FILE 不可读: $AGENT_YOUTUBE_COOKIE_FILE" >&2
+    exit 1
+  fi
+fi
+
 if [[ ! -r "$YT_COMMON_LIB" ]]; then
   echo "缺少仓库级通用脚本: $YT_COMMON_LIB" >&2
   exit 1
@@ -126,6 +140,15 @@ source "$YT_COMMON_LIB"
 
 yt_common_require_tools "$MODE"
 yt_common_init "$OUT_DIR" "$AGENT_CHROME_PROFILE"
+AUTH_SOURCE="none"
+if [[ -n "$AGENT_CHROME_PROFILE" ]]; then
+  AUTH_SOURCE="browser_profile"
+fi
+if [[ -n "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+  # 若同时配置 profile 与 cookie 文件，优先 cookie 文件，便于跨主机复用。
+  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_YOUTUBE_COOKIE_FILE")
+  AUTH_SOURCE="cookie_file"
+fi
 
 build_proxy_url() {
   local port
@@ -235,14 +258,17 @@ is_challenge_error() {
 print_bot_guidance() {
   echo "检测到可能的 YouTube bot/风控拦截。" >&2
   echo "处理建议:" >&2
-  echo "1) 临时方式（推荐先试）:" >&2
+  echo "1) 临时方式（推荐先试其一）:" >&2
   echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
+  echo "   export AGENT_YOUTUBE_COOKIE_FILE='/path/to/cookies.txt'" >&2
+  echo "   # cookies.txt 需为 Netscape Cookie File 格式" >&2
   echo "2) 持久方式（二选一）:" >&2
   echo "   - $CODEX_HOME_DIR/skills-config/feipi-read-youtube-video.env" >&2
   echo "   - $HOME/.config/feipi-read-youtube-video/.env" >&2
   echo "3) 也可显式指定配置文件:" >&2
   echo "   export AGENT_SKILL_ENV_FILE='/your/path/feipi-read-youtube-video.env'" >&2
-  echo "4) 配置后先执行 dryrun，再重试下载" >&2
+  echo "4) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
+  echo "5) 配置后先执行 dryrun，再重试下载" >&2
   if [[ -n "$LOADED_ENV_FILE" ]]; then
     echo "当前已加载配置文件: $LOADED_ENV_FILE" >&2
   else
@@ -408,4 +434,5 @@ echo "network_route=$YT_NETWORK_ROUTE"
 if [[ -n "$ACTIVE_PROXY_URL" ]]; then
   echo "proxy_url=$ACTIVE_PROXY_URL"
 fi
+echo "auth_source=$AUTH_SOURCE"
 echo "完成: mode=$MODE, output_dir=$OUT_DIR"

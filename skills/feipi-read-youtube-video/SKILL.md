@@ -62,9 +62,12 @@ curl -L --fail \
 1. 模板文件：`references/.env.example`
 2. 关键变量：
 - `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态
+- `AGENT_YOUTUBE_COOKIE_FILE`：使用 cookies.txt 文件登录态（Netscape Cookie File 格式）
 - `AGENT_YOUTUBE_PROXY_PORT`：可选代理端口（仅当直连失败时使用；默认 `7890`）
 
-说明：脚本默认不提示配置；仅在遇到 bot 检测时才提醒配置 `AGENT_CHROME_PROFILE`。  
+说明：
+- 脚本默认不提示配置；仅在遇到 bot 检测时才提醒配置认证参数。
+- `AGENT_CHROME_PROFILE` 与 `AGENT_YOUTUBE_COOKIE_FILE` 同时存在时，默认优先使用 cookie 文件。  
 配置文件不要求固定路径，脚本会按顺序自动尝试：
 1. `AGENT_SKILL_ENV_FILE` 指向的文件
 2. `$CODEX_HOME/skills-config/feipi-read-youtube-video.env`
@@ -136,7 +139,7 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper
 
 2. 地区/权限限制 / bot 检测
 - 先执行 `dryrun`，返回错误摘要给用户。
-- 按 `references/.env.example` 配置 `.env` 后重试。
+- 优先按 `references/.env.example` 配置 `AGENT_CHROME_PROFILE` 或 `AGENT_YOUTUBE_COOKIE_FILE` 后重试。
 
 3. 网络不通（YouTube 直连失败）
 - 脚本会自动回退到 `http://127.0.0.1:7890` 代理重试。
