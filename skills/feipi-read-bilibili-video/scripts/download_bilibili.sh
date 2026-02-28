@@ -40,8 +40,8 @@ OUT_DIR="$(normalize_out_dir "$OUT_DIR_RAW")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-WHISPER_HELPER="$REPO_ROOT/scripts/video/whispercpp_transcribe.sh"
-YT_COMMON_LIB="$REPO_ROOT/scripts/video/yt_dlp_common.sh"
+WHISPER_HELPER="$REPO_ROOT/feipi-scripts/video/whispercpp_transcribe.sh"
+YT_COMMON_LIB="$REPO_ROOT/feipi-scripts/video/yt_dlp_common.sh"
 
 # 可选配置文件加载策略（按顺序取第一个存在的）：
 # 1) AGENT_SKILL_ENV_FILE 显式指定

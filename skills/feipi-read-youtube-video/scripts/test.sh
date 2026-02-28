@@ -9,7 +9,7 @@ SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TARGET_SCRIPT="$SCRIPT_DIR/download_youtube.sh"
 DEFAULT_CONFIG="$SKILL_DIR/references/test_cases.txt"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-WHISPER_HELPER="$REPO_ROOT/scripts/video/whispercpp_transcribe.sh"
+WHISPER_HELPER="$REPO_ROOT/feipi-scripts/video/whispercpp_transcribe.sh"
 WHISPER_CPP_BIN_DEFAULT="/opt/homebrew/opt/whisper-cpp/bin/whisper-cli"
 WHISPER_MODEL_FILE_DEFAULT="$HOME/Library/Caches/whisper.cpp/models/ggml-large-v3-q5_0.bin"
 

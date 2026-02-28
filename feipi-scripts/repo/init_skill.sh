@@ -10,12 +10,12 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/repo/init_skill.sh <skill-name> [--resources scripts,references,assets] [--target auto|skills|repo|<path>]
+  feipi-scripts/repo/init_skill.sh <skill-name> [--resources scripts,references,assets] [--target auto|skills|repo|<path>]
 
 示例:
-  scripts/repo/init_skill.sh feipi-coding-react
-  scripts/repo/init_skill.sh gen-api-tests --resources scripts,references
-  scripts/repo/init_skill.sh gen-api-tests --target repo
+  feipi-scripts/repo/init_skill.sh feipi-coding-react
+  feipi-scripts/repo/init_skill.sh gen-api-tests --resources scripts,references
+  feipi-scripts/repo/init_skill.sh gen-api-tests --target repo
 USAGE
 }
 

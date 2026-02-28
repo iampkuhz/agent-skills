@@ -10,10 +10,10 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/repo/quick_validate.sh <path-to-skill-folder>
+  feipi-scripts/repo/quick_validate.sh <path-to-skill-folder>
 
 示例:
-  scripts/repo/quick_validate.sh skills/feipi-coding-react
+  feipi-scripts/repo/quick_validate.sh skills/feipi-coding-react
 USAGE
 }
 

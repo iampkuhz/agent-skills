@@ -15,6 +15,7 @@ make install-links
 ```
 
 这会把 `skills/` 下的技能以软链接方式安装到目标目录（默认 `~/.agents/skills`）。
+如果 skill 脚本里通过 `$REPO_ROOT/...` 引用了仓库共享路径（例如 `feipi-scripts/video/*`），安装时也会自动在目标根目录补齐对应软链接（例如 `~/.codex/feipi-scripts`）。
 
 可选示例：
 

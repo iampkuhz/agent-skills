@@ -8,46 +8,25 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 用法:
-  scripts/repo/run_skill_test.sh <skill-name> [--config <path>] [--output <path>]
+  feipi-scripts/repo/run_skill_test.sh <skill-name>
 
 示例:
-  scripts/repo/run_skill_test.sh feipi-read-youtube-video
-  scripts/repo/run_skill_test.sh read-youtube-video --output ./tmp/runs
+  feipi-scripts/repo/run_skill_test.sh feipi-read-youtube-video
+  feipi-scripts/repo/run_skill_test.sh read-youtube-video
 USAGE
 }
 
-if [[ $# -lt 1 ]]; then
+if [[ $# -eq 1 ]] && [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -ne 1 ]]; then
   usage
   exit 1
 fi
 
 SKILL_INPUT="$1"
-shift
-
-CONFIG=""
-OUTPUT=""
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --config)
-      CONFIG="$2"
-      shift 2
-      ;;
-    --output)
-      OUTPUT="$2"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "未知参数: $1" >&2
-      usage
-      exit 1
-      ;;
-  esac
-done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -90,12 +69,4 @@ if [[ ! -x "$TEST_SCRIPT" ]]; then
   exit 1
 fi
 
-CMD=("$TEST_SCRIPT")
-if [[ -n "$CONFIG" ]]; then
-  CMD+=(--config "$CONFIG")
-fi
-if [[ -n "$OUTPUT" ]]; then
-  CMD+=(--output "$OUTPUT")
-fi
-
-"${CMD[@]}"
+"$TEST_SCRIPT"

@@ -4,7 +4,7 @@ set -euo pipefail
 # whisper.cpp 转写共享脚本（仓库级）
 #
 # 用法：
-#   bash scripts/video/whispercpp_transcribe.sh <audio_file> <output_prefix> [language] [accurate|fast|auto]
+#   bash feipi-scripts/video/whispercpp_transcribe.sh <audio_file> <output_prefix> [language] [accurate|fast|auto]
 #
 # 说明：
 # - 支持质量档位：
@@ -33,7 +33,7 @@ WHISPER_BEAM_SIZE_FAST=2
 WHISPER_BEST_OF_FAST=2
 
 usage() {
-  echo "用法: bash scripts/video/whispercpp_transcribe.sh <audio_file> <output_prefix> [language] [accurate|fast|auto]" >&2
+  echo "用法: bash feipi-scripts/video/whispercpp_transcribe.sh <audio_file> <output_prefix> [language] [accurate|fast|auto]" >&2
 }
 
 if [[ -z "$AUDIO_FILE" || -z "$OUTPUT_PREFIX" ]]; then

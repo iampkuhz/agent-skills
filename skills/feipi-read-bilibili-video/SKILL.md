@@ -45,9 +45,9 @@ bash scripts/install_deps.sh --check
 2. 模型策略：
 - 默认使用 `large-v3 q5_0`，优先质量，不追求速度。
 3. 维护方式：
-- 转写逻辑统一由仓库级脚本 `scripts/video/whispercpp_transcribe.sh` 维护，本 skill 只负责下载音频并调用。
-- 依赖安装逻辑统一由仓库级脚本 `scripts/video/install_video_deps.sh` 维护，本 skill 的 `scripts/install_deps.sh` 仅作转发入口。
-- `yt-dlp` 通用命令组装与基础模式统一由仓库级脚本 `scripts/video/yt_dlp_common.sh` 维护，本 skill 仅维护 Bilibili 特有策略（如登录态探测与字幕语言策略）。
+- 转写逻辑统一由仓库级脚本 `feipi-scripts/video/whispercpp_transcribe.sh` 维护，本 skill 只负责下载音频并调用。
+- 依赖安装逻辑统一由仓库级脚本 `feipi-scripts/video/install_video_deps.sh` 维护，本 skill 的 `scripts/install_deps.sh` 仅作转发入口。
+- `yt-dlp` 通用命令组装与基础模式统一由仓库级脚本 `feipi-scripts/video/yt_dlp_common.sh` 维护，本 skill 仅维护 Bilibili 特有策略（如登录态探测与字幕语言策略）。
 4. 一次性下载（如需手动）：
 ```bash
 mkdir -p "$HOME/Library/Caches/whisper.cpp/models"
