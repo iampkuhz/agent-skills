@@ -31,3 +31,13 @@ qoder -> `~/.qoder/skills`
 claudecode -> `~/.claude/skills`
 openclaw -> `$OPENCLAW_HOME/skills`（未设置时为 `~/.openclaw/skills`）
 未设置 AGENT -> `~/.agents/skills`
+
+## 统一环境变量
+
+本仓库所有技能的环境变量模板统一维护在仓库根目录：
+
+```bash
+./.env.example
+```
+
+后续新增或修改环境变量时，统一更新此文件，不再按 skill 分散维护。

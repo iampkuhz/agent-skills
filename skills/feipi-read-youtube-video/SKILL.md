@@ -59,20 +59,22 @@ curl -L --fail \
 
 ## 环境变量配置（用于应对 bot 检测与网络回退）
 
-1. 模板文件：`references/.env.example`
+1. 统一模板文件：仓库根目录 `.env.example`
 2. 关键变量：
 - `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态
-- `AGENT_YOUTUBE_COOKIE_FILE`：使用 cookies.txt 文件登录态（Netscape Cookie File 格式）
-- `AGENT_YOUTUBE_PROXY_PORT`：可选代理端口（仅当直连失败时使用；默认 `7890`）
+- `AGENT_VIDEO_COOKIE_FILE`：使用 cookies.txt 文件登录态（Netscape Cookie File 格式）
+- `AGENT_VIDEO_PROXY_PORT`：可选代理端口（仅当直连失败时使用；默认 `7890`）
 
 说明：
 - 脚本默认不提示配置；仅在遇到 bot 检测时才提醒配置认证参数。
-- `AGENT_CHROME_PROFILE` 与 `AGENT_YOUTUBE_COOKIE_FILE` 同时存在时，默认优先使用 cookie 文件。  
+- `AGENT_CHROME_PROFILE` 与 `AGENT_VIDEO_COOKIE_FILE` 同时存在时，默认优先使用 cookie 文件。  
 配置文件不要求固定路径，脚本会按顺序自动尝试：
 1. `AGENT_SKILL_ENV_FILE` 指向的文件
-2. `$CODEX_HOME/skills-config/feipi-read-youtube-video.env`
-3. `~/.config/feipi-read-youtube-video/.env`
-4. 兼容路径：`skills/feipi-read-youtube-video/.env`
+2. `~/.env`（统一入口，推荐）
+3. `<repo-root>/.env`
+4. `$CODEX_HOME/skills-config/feipi-read-youtube-video.env`（兼容）
+5. `~/.config/feipi-read-youtube-video/.env`（兼容）
+6. 兼容路径：`skills/feipi-read-youtube-video/.env`
 
 ## 工作流（Explore -> Plan -> Implement -> Verify）
 
@@ -113,7 +115,7 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" dryrun
 
 3.1 指定代理端口（直连与默认端口均失败时）：
 ```bash
-AGENT_YOUTUBE_PROXY_PORT=7891 bash scripts/download_youtube.sh "<youtube_url>" "./downloads" dryrun
+AGENT_VIDEO_PROXY_PORT=7891 bash scripts/download_youtube.sh "<youtube_url>" "./downloads" dryrun
 ```
 说明：脚本默认先探测直连，失败后自动尝试 `http://127.0.0.1:7890`；仅当这两步都失败时再建议手动指定端口。
 
@@ -139,11 +141,11 @@ bash scripts/download_youtube.sh "<youtube_url>" "./downloads" whisper
 
 2. 地区/权限限制 / bot 检测
 - 先执行 `dryrun`，返回错误摘要给用户。
-- 优先按 `references/.env.example` 配置 `AGENT_CHROME_PROFILE` 或 `AGENT_YOUTUBE_COOKIE_FILE` 后重试。
+- 优先按仓库根 `.env.example` 配置 `AGENT_CHROME_PROFILE` 或 `AGENT_VIDEO_COOKIE_FILE` 后重试。
 
 3. 网络不通（YouTube 直连失败）
 - 脚本会自动回退到 `http://127.0.0.1:7890` 代理重试。
-- 若仍失败，按提示设置 `AGENT_YOUTUBE_PROXY_PORT=<你的端口>` 后重试。
+- 若仍失败，按提示设置 `AGENT_VIDEO_PROXY_PORT=<你的端口>` 后重试。
 
 4. 下载成功但无音频/无视频
 - 优先改用默认 `video` 模式重试。

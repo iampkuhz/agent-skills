@@ -86,7 +86,10 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 若确实无法避免，才允许新增少量环境变量，且优先 0~1 个。
 - 环境变量命名使用业务语义，避免工具绑定前缀（如优先 `AGENT_*`，避免 `YTDLP_*`）。
 - 所有可调参数必须集中放在脚本顶部“可调参数区”，并配中文注释说明用途与修改方式。
-- 每次新增/修改环境变量时，必须同步更新 `.env.example` 与对应 `SKILL.md` 的参数说明。
+- 每次新增/修改环境变量时，必须同步更新仓库根目录 `.env.example` 与对应 `SKILL.md` 的参数说明。
+- 仓库内禁止新增分散的 `references/.env.example`；环境变量模板只维护一份，并在变量注释中标注使用 skill。
+- 场景相同的变量必须统一命名并保留兼容读取窗口（例如视频下载统一 `AGENT_VIDEO_*`；PlantUML 端口统一 `AGENT_PLANTUML_PORT`）。
+- 新增统一命名时，需在根 `.env.example` 中写明“新名/旧名映射关系 + 使用 skill”，并在脚本中优先读取新名、兼容旧名。
 
 
 ## Frontmatter 规范
@@ -185,6 +188,8 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - [ ] 已提供验证步骤与通过标准
 - [ ] 已运行 make validate
 - [ ] 非 `feipi-gen-skills` 的 `SKILL.md` 不含 `make test SKILL=...` / `make validate DIR=...`
+- [ ] 无 skill 内分散 `.env.example`（统一维护于仓库根 `.env.example`）
+- [ ] 同类场景环境变量命名一致（必要时提供新旧名兼容映射）
 - [ ] 文件引用均为一级深链接
 - [ ] 无 Windows 风格路径
 - [ ] 术语一致，示例可执行

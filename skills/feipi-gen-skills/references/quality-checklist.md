@@ -23,6 +23,9 @@
 - [ ] 脚本具备基本错误处理
 - [ ] 无 Windows 风格路径（统一 `/`）
 - [ ] 新建 skill 目录判定正确（本仓库内 -> `.agents/skills/`；默认优先 `skills/`）
+- [ ] 无 skill 内分散 `.env.example`，环境变量模板仅维护在仓库根 `.env.example`
+- [ ] 同类场景环境变量命名统一（如 `AGENT_VIDEO_*`、`AGENT_PLANTUML_PORT`）
+- [ ] 若存在历史变量重命名，已提供新旧名兼容与迁移说明
 - [ ] 已运行 `make validate DIR=<skill-root>/<name>` 并通过
 
 ## 评估与迭代

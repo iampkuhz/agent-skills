@@ -58,16 +58,18 @@ curl -L --fail \
 
 ## 环境变量配置（用于应对登录限制）
 
-1. 模板文件：`references/.env.example`
+1. 统一模板文件：仓库根目录 `.env.example`
 2. 关键变量：
 - `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态（唯一支持项）
 
 说明：脚本默认不提示配置；仅在遇到权限/风控拦截时才提醒配置 `AGENT_CHROME_PROFILE`。  
 配置文件不要求固定路径，脚本会按顺序自动尝试：
 1. `AGENT_SKILL_ENV_FILE` 指向的文件
-2. `$CODEX_HOME/skills-config/feipi-read-bilibili-video.env`
-3. `~/.config/feipi-read-bilibili-video/.env`
-4. 兼容路径：`skills/feipi-read-bilibili-video/.env`
+2. `~/.env`（统一入口，推荐）
+3. `<repo-root>/.env`
+4. `$CODEX_HOME/skills-config/feipi-read-bilibili-video.env`（兼容）
+5. `~/.config/feipi-read-bilibili-video/.env`（兼容）
+6. 兼容路径：`skills/feipi-read-bilibili-video/.env`
 
 ## 工作流（Explore -> Plan -> Implement -> Verify）
 
@@ -128,7 +130,7 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 
 2. 权限限制 / 风控拦截
 - 先执行 `dryrun`，返回错误摘要给用户。
-- 按 `references/.env.example` 配置 `.env` 后重试。
+- 按仓库根 `.env.example` 配置环境变量后重试。
 
 3. 下载成功但无音频/无视频
 - 优先改用默认 `video` 模式重试。

@@ -155,6 +155,11 @@ if ! rg -q '(验证|校验|测试|验收)' "$SKILL_FILE"; then
   exit 1
 fi
 
+if [[ -f "$DIR/references/.env.example" ]]; then
+  echo "禁止在 skill 目录下维护 references/.env.example，请统一维护到仓库根目录 .env.example" >&2
+  exit 1
+fi
+
 if rg -q '[A-Za-z]:\\|\\[A-Za-z0-9._-]+' "$SKILL_FILE"; then
   echo "SKILL.md 检测到 Windows 风格路径，请统一使用正斜杠" >&2
   exit 1

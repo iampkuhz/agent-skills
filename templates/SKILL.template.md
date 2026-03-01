@@ -42,3 +42,9 @@ description: {{SKILL_DESCRIPTION}}
 - `scripts/`: 可选，放可复用、确定性强的辅助脚本。
 - `references/`: 可选，放按需读取的领域资料。
 - `assets/`: 可选，放输出时要用到的模板或静态文件。
+
+## 环境变量约定（如需）
+
+- 新增环境变量前，先确认能否通过参数或自动探测替代。
+- 若必须新增：变量名与同类 skill 保持一致，不自行发明同义变量名。
+- 环境变量模板统一维护在仓库根目录 `.env.example`，不要在 skill 下新增 `references/.env.example`。

@@ -45,12 +45,16 @@ YT_COMMON_LIB="$REPO_ROOT/feipi-scripts/video/yt_dlp_common.sh"
 
 # 可选配置文件加载策略（按顺序取第一个存在的）：
 # 1) AGENT_SKILL_ENV_FILE 显式指定
-# 2) $CODEX_HOME/skills-config/feipi-read-bilibili-video.env
-# 3) ~/.config/feipi-read-bilibili-video/.env
-# 4) 兼容路径：skills/feipi-read-bilibili-video/.env
+# 2) ~/.env（统一环境变量入口，推荐）
+# 3) <repo-root>/.env（仓库内统一入口）
+# 4) $CODEX_HOME/skills-config/feipi-read-bilibili-video.env（兼容）
+# 5) ~/.config/feipi-read-bilibili-video/.env（兼容）
+# 6) 兼容路径：skills/feipi-read-bilibili-video/.env
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
 CONFIG_CANDIDATES=(
   "${AGENT_SKILL_ENV_FILE:-}"
+  "$HOME/.env"
+  "$REPO_ROOT/.env"
   "$CODEX_HOME_DIR/skills-config/feipi-read-bilibili-video.env"
   "$HOME/.config/feipi-read-bilibili-video/.env"
   "$SKILL_DIR/.env"
@@ -99,6 +103,8 @@ print_auth_guidance() {
   echo "1) 临时方式（推荐先试）:" >&2
   echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
   echo "2) 持久方式（二选一）:" >&2
+  echo "   - ~/.env（统一环境变量入口，推荐）" >&2
+  echo "   - $REPO_ROOT/.env" >&2
   echo "   - $CODEX_HOME_DIR/skills-config/feipi-read-bilibili-video.env" >&2
   echo "   - $HOME/.config/feipi-read-bilibili-video/.env" >&2
   echo "3) 也可显式指定配置文件:" >&2

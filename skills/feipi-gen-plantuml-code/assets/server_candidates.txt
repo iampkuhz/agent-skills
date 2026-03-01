@@ -1,9 +1,9 @@
 # PlantUML 渲染候选列表（按顺序尝试）
 # 本地与远程统一放在同一个列表中，脚本会按顺序逐个尝试。
-# 本地端口支持环境变量：AGENT_PLANTUML_SERVER_PORT（默认 8199）。
+# 本地端口支持环境变量：AGENT_PLANTUML_PORT（默认 8199，兼容旧变量 AGENT_PLANTUML_SERVER_PORT）。
 
-http://127.0.0.1:${AGENT_PLANTUML_SERVER_PORT}/plantuml
-http://localhost:${AGENT_PLANTUML_SERVER_PORT}/plantuml
+http://127.0.0.1:${AGENT_PLANTUML_PORT}/plantuml
+http://localhost:${AGENT_PLANTUML_PORT}/plantuml
 https://www.plantuml.com/plantuml
 https://www.planttext.com/api/plantuml
 https://www.planttext.com/plantuml

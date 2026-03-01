@@ -1,7 +1,5 @@
 # TODO
 
-- [x] plantuml 助手
-- [ ] 创新提案整理助手
-- [x] skills openai.yaml 文件注释优化，并更新 creator
-- [ ] 集成 openclaw 使用
-- [ ] 配置 obsidian 助手
+- [ ] 使用 cookie 对视频提取摘要，测试 youtube 和 bilibili
+- [ ] dotfiles 统一维护环境变量，不要每个地方维护自己的
+- [ ] agent-skills 统一维护环境变量，不要每个地方维护自己的
