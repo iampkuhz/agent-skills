@@ -32,7 +32,7 @@
 ## 变更同步要求
 
 1. 修改规范类文件（如 `AGENTS.md`、`skills/feipi-gen-skills/SKILL.md`）后，需检查是否影响现有 skill 的文档与脚本约定。
-2. 新增或调整环境变量时，必须同步更新对应 `.env.example` 与 `SKILL.md` 参数说明。
+2. 新增或调整环境变量时，必须同步更新仓库根目录 `.env.example` 与 `SKILL.md` 参数说明，不在 skill 目录下分散维护 `.env.example`。
 3. 修改测试入口或测试数据约定时，必须同步检查 `make test` 调用链与示例命令。
 
 ## 常用命令（附录，可选）
