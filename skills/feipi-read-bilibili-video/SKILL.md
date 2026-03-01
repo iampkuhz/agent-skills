@@ -60,16 +60,12 @@ curl -L --fail \
 
 1. 统一模板文件：仓库根目录 `.env.example`
 2. 关键变量：
-- `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态（唯一支持项）
+- `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态
+- `AGENT_VIDEO_COOKIE_FILE_BILIBILI`：使用 cookies.txt 文件登录态（Netscape Cookie File 格式）
 
-说明：脚本默认不提示配置；仅在遇到权限/风控拦截时才提醒配置 `AGENT_CHROME_PROFILE`。  
-配置文件不要求固定路径，脚本会按顺序自动尝试：
-1. `AGENT_SKILL_ENV_FILE` 指向的文件
-2. `~/.env`（统一入口，推荐）
-3. `<repo-root>/.env`
-4. `$CODEX_HOME/skills-config/feipi-read-bilibili-video.env`（兼容）
-5. `~/.config/feipi-read-bilibili-video/.env`（兼容）
-6. 兼容路径：`skills/feipi-read-bilibili-video/.env`
+说明：脚本默认不提示配置；仅在遇到权限/风控拦截时才提醒配置认证参数。  
+`AGENT_CHROME_PROFILE` 与 `AGENT_VIDEO_COOKIE_FILE_BILIBILI` 同时存在时，默认优先使用 cookie 文件。  
+仅读取当前 shell 环境变量；`.env.example` 仅作为模板，不自动加载。
 
 ## 工作流（Explore -> Plan -> Implement -> Verify）
 
@@ -130,7 +126,7 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 
 2. 权限限制 / 风控拦截
 - 先执行 `dryrun`，返回错误摘要给用户。
-- 按仓库根 `.env.example` 配置环境变量后重试。
+- 参考仓库根 `.env.example` 手动 export `AGENT_CHROME_PROFILE` 或 `AGENT_VIDEO_COOKIE_FILE_BILIBILI` 后重试。
 
 3. 下载成功但无音频/无视频
 - 优先改用默认 `video` 模式重试。

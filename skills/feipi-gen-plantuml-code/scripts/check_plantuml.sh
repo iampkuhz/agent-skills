@@ -13,7 +13,6 @@ usage() {
 
 环境变量:
   AGENT_PLANTUML_PORT          本地 server 端口，默认 8199
-  AGENT_PLANTUML_SERVER_PORT   兼容旧变量（不推荐新增）
 
 示例:
   bash scripts/check_plantuml.sh ./tmp/diagram.puml
@@ -27,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEFAULT_SERVERS_CONFIG="$SKILL_DIR/assets/server_candidates.txt"
 DEFAULT_TIMEOUT=20
-DEFAULT_LOCAL_PORT="${AGENT_PLANTUML_PORT:-${AGENT_PLANTUML_SERVER_PORT:-8199}}"
+DEFAULT_LOCAL_PORT="${AGENT_PLANTUML_PORT:-8199}"
 
 trim() {
   printf '%s' "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
@@ -82,8 +81,6 @@ load_candidates() {
     local expanded="$raw_line"
     expanded="${expanded//\$\{AGENT_PLANTUML_PORT\}/$local_port}"
     expanded="${expanded//\$AGENT_PLANTUML_PORT/$local_port}"
-    expanded="${expanded//\$\{AGENT_PLANTUML_SERVER_PORT\}/$local_port}"
-    expanded="${expanded//\$AGENT_PLANTUML_SERVER_PORT/$local_port}"
     printf '%s\n' "$expanded"
   }
 

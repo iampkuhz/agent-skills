@@ -15,15 +15,13 @@ set -euo pipefail
 #
 # 认证配置：
 # - 支持 AGENT_CHROME_PROFILE（浏览器 profile）
-# - 支持 AGENT_VIDEO_COOKIE_FILE（cookies.txt 文件，Netscape 格式）
-# - 兼容旧变量：AGENT_YOUTUBE_COOKIE_FILE
+# - 支持 AGENT_VIDEO_COOKIE_FILE_YOUTUBE（cookies.txt 文件，Netscape 格式）
 # - 默认不提示；仅在触发 bot 检测时给出配置建议
 #
 # 网络回退配置：
 # - 先尝试直连 YouTube
 # - 直连失败后默认尝试代理 http://127.0.0.1:7890
 # - 可通过 AGENT_VIDEO_PROXY_PORT 覆盖默认端口
-# - 兼容旧变量：AGENT_YOUTUBE_PROXY_PORT
 
 URL="${1:-}"
 OUT_DIR_RAW="${2:-./downloads}"
@@ -46,44 +44,14 @@ normalize_out_dir() {
 OUT_DIR="$(normalize_out_dir "$OUT_DIR_RAW")"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 WHISPER_HELPER="$REPO_ROOT/feipi-scripts/video/whispercpp_transcribe.sh"
 YT_COMMON_LIB="$REPO_ROOT/feipi-scripts/video/yt_dlp_common.sh"
 
-# 可选配置文件加载策略（按顺序取第一个存在的）：
-# 1) AGENT_SKILL_ENV_FILE 显式指定
-# 2) ~/.env（统一环境变量入口，推荐）
-# 3) <repo-root>/.env（仓库内统一入口）
-# 4) $CODEX_HOME/skills-config/feipi-read-youtube-video.env（兼容）
-# 5) ~/.config/feipi-read-youtube-video/.env（兼容）
-# 6) 兼容路径：skills/feipi-read-youtube-video/.env
-CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
-CONFIG_CANDIDATES=(
-  "${AGENT_SKILL_ENV_FILE:-}"
-  "$HOME/.env"
-  "$REPO_ROOT/.env"
-  "$CODEX_HOME_DIR/skills-config/feipi-read-youtube-video.env"
-  "$HOME/.config/feipi-read-youtube-video/.env"
-  "$SKILL_DIR/.env"
-)
-
-LOADED_ENV_FILE=""
-for f in "${CONFIG_CANDIDATES[@]}"; do
-  if [[ -n "$f" && -f "$f" ]]; then
-    # shellcheck disable=SC1090
-    set -a
-    source "$f"
-    set +a
-    LOADED_ENV_FILE="$f"
-    break
-  fi
-done
-
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
-AGENT_VIDEO_COOKIE_FILE_RAW="${AGENT_VIDEO_COOKIE_FILE:-${AGENT_YOUTUBE_COOKIE_FILE:-}}"
-AGENT_VIDEO_PROXY_PORT="${AGENT_VIDEO_PROXY_PORT:-${AGENT_YOUTUBE_PROXY_PORT:-}}"
-AGENT_VIDEO_COOKIE_FILE="$(normalize_out_dir "$AGENT_VIDEO_COOKIE_FILE_RAW")"
+AGENT_VIDEO_COOKIE_FILE_YOUTUBE_RAW="${AGENT_VIDEO_COOKIE_FILE_YOUTUBE:-}"
+AGENT_VIDEO_PROXY_PORT="${AGENT_VIDEO_PROXY_PORT:-}"
+AGENT_VIDEO_COOKIE_FILE_YOUTUBE="$(normalize_out_dir "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE_RAW")"
 
 # YouTube 反爬重试策略固定值（不通过环境变量暴露）。
 YT_REMOTE_COMPONENTS_DEFAULT="ejs:github"
@@ -125,13 +93,13 @@ if [[ -n "$AGENT_VIDEO_PROXY_PORT" ]] && ! is_valid_port "$AGENT_VIDEO_PROXY_POR
   exit 1
 fi
 
-if [[ -n "$AGENT_VIDEO_COOKIE_FILE" ]]; then
-  if [[ ! -f "$AGENT_VIDEO_COOKIE_FILE" ]]; then
-    echo "AGENT_VIDEO_COOKIE_FILE 指向的文件不存在: $AGENT_VIDEO_COOKIE_FILE" >&2
+if [[ -n "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
+  if [[ ! -f "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
+    echo "AGENT_VIDEO_COOKIE_FILE_YOUTUBE 指向的文件不存在: $AGENT_VIDEO_COOKIE_FILE_YOUTUBE" >&2
     exit 1
   fi
-  if [[ ! -r "$AGENT_VIDEO_COOKIE_FILE" ]]; then
-    echo "AGENT_VIDEO_COOKIE_FILE 不可读: $AGENT_VIDEO_COOKIE_FILE" >&2
+  if [[ ! -r "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
+    echo "AGENT_VIDEO_COOKIE_FILE_YOUTUBE 不可读: $AGENT_VIDEO_COOKIE_FILE_YOUTUBE" >&2
     exit 1
   fi
 fi
@@ -150,9 +118,9 @@ AUTH_SOURCE="none"
 if [[ -n "$AGENT_CHROME_PROFILE" ]]; then
   AUTH_SOURCE="browser_profile"
 fi
-if [[ -n "$AGENT_VIDEO_COOKIE_FILE" ]]; then
+if [[ -n "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
   # 若同时配置 profile 与 cookie 文件，优先 cookie 文件，便于跨主机复用。
-  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_VIDEO_COOKIE_FILE")
+  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE")
   AUTH_SOURCE="cookie_file"
 fi
 
@@ -266,22 +234,10 @@ print_bot_guidance() {
   echo "处理建议:" >&2
   echo "1) 临时方式（推荐先试其一）:" >&2
   echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
-  echo "   export AGENT_VIDEO_COOKIE_FILE='/path/to/cookies.txt'" >&2
+  echo "   export AGENT_VIDEO_COOKIE_FILE_YOUTUBE='/path/to/cookies.txt'" >&2
   echo "   # cookies.txt 需为 Netscape Cookie File 格式" >&2
-  echo "2) 持久方式（二选一）:" >&2
-  echo "   - ~/.env（统一环境变量入口，推荐）" >&2
-  echo "   - $REPO_ROOT/.env" >&2
-  echo "   - $CODEX_HOME_DIR/skills-config/feipi-read-youtube-video.env" >&2
-  echo "   - $HOME/.config/feipi-read-youtube-video/.env" >&2
-  echo "3) 也可显式指定配置文件:" >&2
-  echo "   export AGENT_SKILL_ENV_FILE='/your/path/feipi-read-youtube-video.env'" >&2
-  echo "4) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
-  echo "5) 配置后先执行 dryrun，再重试下载" >&2
-  if [[ -n "$LOADED_ENV_FILE" ]]; then
-    echo "当前已加载配置文件: $LOADED_ENV_FILE" >&2
-  else
-    echo "当前未加载任何配置文件。" >&2
-  fi
+  echo "2) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
+  echo "3) 配置后先执行 dryrun，再重试下载" >&2
 }
 
 # 可选回调：yt_common_run 在失败时会调用该函数。

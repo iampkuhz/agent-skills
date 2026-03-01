@@ -88,8 +88,15 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 所有可调参数必须集中放在脚本顶部“可调参数区”，并配中文注释说明用途与修改方式。
 - 每次新增/修改环境变量时，必须同步更新仓库根目录 `.env.example` 与对应 `SKILL.md` 的参数说明。
 - 仓库内禁止新增分散的 `references/.env.example`；环境变量模板只维护一份，并在变量注释中标注使用 skill。
-- 场景相同的变量必须统一命名并保留兼容读取窗口（例如视频下载统一 `AGENT_VIDEO_*`；PlantUML 端口统一 `AGENT_PLANTUML_PORT`）。
-- 新增统一命名时，需在根 `.env.example` 中写明“新名/旧名映射关系 + 使用 skill”，并在脚本中优先读取新名、兼容旧名。
+- 所有 skill 禁止读取或加载 skill 子目录内的 `.env`；只读取当前 shell 环境变量。
+- 是否将 `~/.env` 注入到上下文由 `zsh` 或用户命令负责，skill 与脚本不做加载与兜底。
+- 场景相同的变量必须统一命名，且每次优化默认所有环境适配最新版，不做新旧兼容读取。
+- PlantUML 端口只保留 `AGENT_PLANTUML_PORT`，禁止同时支持 `AGENT_PLANTUML_SERVER_PORT`。
+- 视频类 cookie 按站点区分变量名：`AGENT_VIDEO_COOKIE_FILE_<SITE>`（示例：`AGENT_VIDEO_COOKIE_FILE_YOUTUBE`、`AGENT_VIDEO_COOKIE_FILE_BILIBILI`），不使用通用 `AGENT_VIDEO_COOKIE_FILE`。
+- 新增/调整统一命名时，仅以最新命名为准并同步更新根 `.env.example`，不保留旧名映射，不做兼容读取。
+
+7. 版本兼容策略
+- 每次优化/重构默认所有环境适配最新版，不保留旧版兼容路径或多套读写逻辑。
 
 
 ## Frontmatter 规范
@@ -189,7 +196,8 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - [ ] 已运行 make validate
 - [ ] 非 `feipi-gen-skills` 的 `SKILL.md` 不含 `make test SKILL=...` / `make validate DIR=...`
 - [ ] 无 skill 内分散 `.env.example`（统一维护于仓库根 `.env.example`）
-- [ ] 同类场景环境变量命名一致（必要时提供新旧名兼容映射）
+- [ ] 不加载任何 `.env` 文件（只读取当前 shell 环境变量）
+- [ ] 同类场景环境变量命名一致（仅最新命名，不保留兼容旧名）
 - [ ] 文件引用均为一级深链接
 - [ ] 无 Windows 风格路径
 - [ ] 术语一致，示例可执行

@@ -14,7 +14,8 @@ set -euo pipefail
 #   bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper accurate
 #
 # 认证配置：
-# - 仅支持 AGENT_CHROME_PROFILE（浏览器 profile）
+# - 支持 AGENT_CHROME_PROFILE（浏览器 profile）
+# - 支持 AGENT_VIDEO_COOKIE_FILE_BILIBILI（cookies.txt 文件，Netscape 格式）
 # - 默认不提示；仅在触发权限/风控问题时给出配置建议
 
 URL="${1:-}"
@@ -38,41 +39,13 @@ normalize_out_dir() {
 OUT_DIR="$(normalize_out_dir "$OUT_DIR_RAW")"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 WHISPER_HELPER="$REPO_ROOT/feipi-scripts/video/whispercpp_transcribe.sh"
 YT_COMMON_LIB="$REPO_ROOT/feipi-scripts/video/yt_dlp_common.sh"
 
-# 可选配置文件加载策略（按顺序取第一个存在的）：
-# 1) AGENT_SKILL_ENV_FILE 显式指定
-# 2) ~/.env（统一环境变量入口，推荐）
-# 3) <repo-root>/.env（仓库内统一入口）
-# 4) $CODEX_HOME/skills-config/feipi-read-bilibili-video.env（兼容）
-# 5) ~/.config/feipi-read-bilibili-video/.env（兼容）
-# 6) 兼容路径：skills/feipi-read-bilibili-video/.env
-CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
-CONFIG_CANDIDATES=(
-  "${AGENT_SKILL_ENV_FILE:-}"
-  "$HOME/.env"
-  "$REPO_ROOT/.env"
-  "$CODEX_HOME_DIR/skills-config/feipi-read-bilibili-video.env"
-  "$HOME/.config/feipi-read-bilibili-video/.env"
-  "$SKILL_DIR/.env"
-)
-
-LOADED_ENV_FILE=""
-for f in "${CONFIG_CANDIDATES[@]}"; do
-  if [[ -n "$f" && -f "$f" ]]; then
-    # shellcheck disable=SC1090
-    set -a
-    source "$f"
-    set +a
-    LOADED_ENV_FILE="$f"
-    break
-  fi
-done
-
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
+AGENT_VIDEO_COOKIE_FILE_BILIBILI_RAW="${AGENT_VIDEO_COOKIE_FILE_BILIBILI:-}"
+AGENT_VIDEO_COOKIE_FILE_BILIBILI="$(normalize_out_dir "$AGENT_VIDEO_COOKIE_FILE_BILIBILI_RAW")"
 BILI_AUTH_HIT=0
 WHISPER_AUTO_ACCURATE_MAX_SEC=480
 
@@ -96,25 +69,28 @@ source "$YT_COMMON_LIB"
 
 yt_common_require_tools "$MODE"
 yt_common_init "$OUT_DIR" "$AGENT_CHROME_PROFILE"
+if [[ -n "$AGENT_VIDEO_COOKIE_FILE_BILIBILI" ]]; then
+  if [[ ! -f "$AGENT_VIDEO_COOKIE_FILE_BILIBILI" ]]; then
+    echo "AGENT_VIDEO_COOKIE_FILE_BILIBILI 指向的文件不存在: $AGENT_VIDEO_COOKIE_FILE_BILIBILI" >&2
+    exit 1
+  fi
+  if [[ ! -r "$AGENT_VIDEO_COOKIE_FILE_BILIBILI" ]]; then
+    echo "AGENT_VIDEO_COOKIE_FILE_BILIBILI 不可读: $AGENT_VIDEO_COOKIE_FILE_BILIBILI" >&2
+    exit 1
+  fi
+  # 若同时配置 profile 与 cookie 文件，优先 cookie 文件，便于跨主机复用。
+  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_VIDEO_COOKIE_FILE_BILIBILI")
+fi
 
 print_auth_guidance() {
   echo "检测到可能的 Bilibili 权限限制或风控拦截。" >&2
   echo "处理建议:" >&2
-  echo "1) 临时方式（推荐先试）:" >&2
+  echo "1) 临时方式（推荐先试其一）:" >&2
   echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
-  echo "2) 持久方式（二选一）:" >&2
-  echo "   - ~/.env（统一环境变量入口，推荐）" >&2
-  echo "   - $REPO_ROOT/.env" >&2
-  echo "   - $CODEX_HOME_DIR/skills-config/feipi-read-bilibili-video.env" >&2
-  echo "   - $HOME/.config/feipi-read-bilibili-video/.env" >&2
-  echo "3) 也可显式指定配置文件:" >&2
-  echo "   export AGENT_SKILL_ENV_FILE='/your/path/feipi-read-bilibili-video.env'" >&2
-  echo "4) 配置后先执行 dryrun，再重试下载" >&2
-  if [[ -n "$LOADED_ENV_FILE" ]]; then
-    echo "当前已加载配置文件: $LOADED_ENV_FILE" >&2
-  else
-    echo "当前未加载任何配置文件。" >&2
-  fi
+  echo "   export AGENT_VIDEO_COOKIE_FILE_BILIBILI='/path/to/cookies.txt'" >&2
+  echo "   # cookies.txt 需为 Netscape Cookie File 格式" >&2
+  echo "2) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
+  echo "3) 配置后先执行 dryrun，再重试下载" >&2
 }
 
 is_auth_related_error() {
