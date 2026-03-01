@@ -15,7 +15,7 @@ set -euo pipefail
 #
 # 认证配置：
 # - 支持 AGENT_CHROME_PROFILE（浏览器 profile）
-# - 支持 AGENT_VIDEO_COOKIE_FILE_YOUTUBE（cookies.txt 文件，Netscape 格式）
+# - 支持 AGENT_YOUTUBE_COOKIE_FILE（cookies.txt 文件，Netscape 格式）
 # - 默认不提示；仅在触发 bot 检测时给出配置建议
 #
 # 网络回退配置：
@@ -49,9 +49,9 @@ WHISPER_HELPER="$REPO_ROOT/feipi-scripts/video/whispercpp_transcribe.sh"
 YT_COMMON_LIB="$REPO_ROOT/feipi-scripts/video/yt_dlp_common.sh"
 
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
-AGENT_VIDEO_COOKIE_FILE_YOUTUBE_RAW="${AGENT_VIDEO_COOKIE_FILE_YOUTUBE:-}"
+AGENT_YOUTUBE_COOKIE_FILE_RAW="${AGENT_YOUTUBE_COOKIE_FILE:-}"
 AGENT_VIDEO_PROXY_PORT="${AGENT_VIDEO_PROXY_PORT:-}"
-AGENT_VIDEO_COOKIE_FILE_YOUTUBE="$(normalize_out_dir "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE_RAW")"
+AGENT_YOUTUBE_COOKIE_FILE="$(normalize_out_dir "$AGENT_YOUTUBE_COOKIE_FILE_RAW")"
 
 # YouTube 反爬重试策略固定值（不通过环境变量暴露）。
 YT_REMOTE_COMPONENTS_DEFAULT="ejs:github"
@@ -93,13 +93,13 @@ if [[ -n "$AGENT_VIDEO_PROXY_PORT" ]] && ! is_valid_port "$AGENT_VIDEO_PROXY_POR
   exit 1
 fi
 
-if [[ -n "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
-  if [[ ! -f "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
-    echo "AGENT_VIDEO_COOKIE_FILE_YOUTUBE 指向的文件不存在: $AGENT_VIDEO_COOKIE_FILE_YOUTUBE" >&2
+if [[ -n "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+  if [[ ! -f "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+    echo "AGENT_YOUTUBE_COOKIE_FILE 指向的文件不存在: $AGENT_YOUTUBE_COOKIE_FILE" >&2
     exit 1
   fi
-  if [[ ! -r "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
-    echo "AGENT_VIDEO_COOKIE_FILE_YOUTUBE 不可读: $AGENT_VIDEO_COOKIE_FILE_YOUTUBE" >&2
+  if [[ ! -r "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
+    echo "AGENT_YOUTUBE_COOKIE_FILE 不可读: $AGENT_YOUTUBE_COOKIE_FILE" >&2
     exit 1
   fi
 fi
@@ -118,9 +118,9 @@ AUTH_SOURCE="none"
 if [[ -n "$AGENT_CHROME_PROFILE" ]]; then
   AUTH_SOURCE="browser_profile"
 fi
-if [[ -n "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE" ]]; then
+if [[ -n "$AGENT_YOUTUBE_COOKIE_FILE" ]]; then
   # 若同时配置 profile 与 cookie 文件，优先 cookie 文件，便于跨主机复用。
-  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_VIDEO_COOKIE_FILE_YOUTUBE")
+  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_YOUTUBE_COOKIE_FILE")
   AUTH_SOURCE="cookie_file"
 fi
 
@@ -234,7 +234,7 @@ print_bot_guidance() {
   echo "处理建议:" >&2
   echo "1) 临时方式（推荐先试其一）:" >&2
   echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
-  echo "   export AGENT_VIDEO_COOKIE_FILE_YOUTUBE='/path/to/cookies.txt'" >&2
+  echo "   export AGENT_YOUTUBE_COOKIE_FILE='/path/to/cookies.txt'" >&2
   echo "   # cookies.txt 需为 Netscape Cookie File 格式" >&2
   echo "2) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
   echo "3) 配置后先执行 dryrun，再重试下载" >&2

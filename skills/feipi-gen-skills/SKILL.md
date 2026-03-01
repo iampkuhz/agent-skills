@@ -92,7 +92,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 是否将 `~/.env` 注入到上下文由 `zsh` 或用户命令负责，skill 与脚本不做加载与兜底。
 - 场景相同的变量必须统一命名，且每次优化默认所有环境适配最新版，不做新旧兼容读取。
 - PlantUML 端口只保留 `AGENT_PLANTUML_PORT`，禁止同时支持 `AGENT_PLANTUML_SERVER_PORT`。
-- 视频类 cookie 按站点区分变量名：`AGENT_VIDEO_COOKIE_FILE_<SITE>`（示例：`AGENT_VIDEO_COOKIE_FILE_YOUTUBE`、`AGENT_VIDEO_COOKIE_FILE_BILIBILI`），不使用通用 `AGENT_VIDEO_COOKIE_FILE`。
+- 视频类 cookie 按站点区分变量名：`AGENT_YOUTUBE_COOKIE_FILE`、`AGENT_BILIBILI_COOKIE_FILE`，不使用通用 `AGENT_VIDEO_COOKIE_FILE`。
 - 新增/调整统一命名时，仅以最新命名为准并同步更新根 `.env.example`，不保留旧名映射，不做兼容读取。
 
 7. 版本兼容策略

@@ -61,10 +61,10 @@ curl -L --fail \
 1. 统一模板文件：仓库根目录 `.env.example`
 2. 关键变量：
 - `AGENT_CHROME_PROFILE`：从浏览器 profile 读取登录态
-- `AGENT_VIDEO_COOKIE_FILE_BILIBILI`：使用 cookies.txt 文件登录态（Netscape Cookie File 格式）
+- `AGENT_BILIBILI_COOKIE_FILE`：使用 cookies.txt 文件登录态（Netscape Cookie File 格式）
 
 说明：脚本默认不提示配置；仅在遇到权限/风控拦截时才提醒配置认证参数。  
-`AGENT_CHROME_PROFILE` 与 `AGENT_VIDEO_COOKIE_FILE_BILIBILI` 同时存在时，默认优先使用 cookie 文件。  
+`AGENT_CHROME_PROFILE` 与 `AGENT_BILIBILI_COOKIE_FILE` 同时存在时，默认优先使用 cookie 文件。  
 仅读取当前 shell 环境变量；`.env.example` 仅作为模板，不自动加载。
 
 ## 工作流（Explore -> Plan -> Implement -> Verify）
@@ -126,7 +126,7 @@ bash scripts/download_bilibili.sh "<bilibili_url>" "./downloads" whisper
 
 2. 权限限制 / 风控拦截
 - 先执行 `dryrun`，返回错误摘要给用户。
-- 参考仓库根 `.env.example` 手动 export `AGENT_CHROME_PROFILE` 或 `AGENT_VIDEO_COOKIE_FILE_BILIBILI` 后重试。
+- 参考仓库根 `.env.example` 手动 export `AGENT_CHROME_PROFILE` 或 `AGENT_BILIBILI_COOKIE_FILE` 后重试。
 
 3. 下载成功但无音频/无视频
 - 优先改用默认 `video` 模式重试。

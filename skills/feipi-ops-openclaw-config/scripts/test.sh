@@ -67,8 +67,8 @@ build_fixture() {
   "models": {
     "providers": {
       "qwen": {
-        "baseUrl": "${OPENCLAW_BASE_URL}",
-        "apiKey": "${OPENCLAW_API_KEY}"
+        "baseUrl": "${CHAT_API_BASE}",
+        "apiKey": "${CHAT_API_KEY}"
       }
     }
   },
@@ -91,7 +91,7 @@ EOF
   "models": {
     "providers": {
       "qwen": {
-        "baseUrl": "${OPENCLAW_BASE_URL}",
+        "baseUrl": "${CHAT_API_BASE}",
         "apiKey": "sk-plain-text"
       }
     }

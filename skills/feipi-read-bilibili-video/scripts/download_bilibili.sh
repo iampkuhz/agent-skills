@@ -15,7 +15,7 @@ set -euo pipefail
 #
 # 认证配置：
 # - 支持 AGENT_CHROME_PROFILE（浏览器 profile）
-# - 支持 AGENT_VIDEO_COOKIE_FILE_BILIBILI（cookies.txt 文件，Netscape 格式）
+# - 支持 AGENT_BILIBILI_COOKIE_FILE（cookies.txt 文件，Netscape 格式）
 # - 默认不提示；仅在触发权限/风控问题时给出配置建议
 
 URL="${1:-}"
@@ -44,8 +44,8 @@ WHISPER_HELPER="$REPO_ROOT/feipi-scripts/video/whispercpp_transcribe.sh"
 YT_COMMON_LIB="$REPO_ROOT/feipi-scripts/video/yt_dlp_common.sh"
 
 AGENT_CHROME_PROFILE="${AGENT_CHROME_PROFILE:-}"
-AGENT_VIDEO_COOKIE_FILE_BILIBILI_RAW="${AGENT_VIDEO_COOKIE_FILE_BILIBILI:-}"
-AGENT_VIDEO_COOKIE_FILE_BILIBILI="$(normalize_out_dir "$AGENT_VIDEO_COOKIE_FILE_BILIBILI_RAW")"
+AGENT_BILIBILI_COOKIE_FILE_RAW="${AGENT_BILIBILI_COOKIE_FILE:-}"
+AGENT_BILIBILI_COOKIE_FILE="$(normalize_out_dir "$AGENT_BILIBILI_COOKIE_FILE_RAW")"
 BILI_AUTH_HIT=0
 WHISPER_AUTO_ACCURATE_MAX_SEC=480
 
@@ -69,17 +69,17 @@ source "$YT_COMMON_LIB"
 
 yt_common_require_tools "$MODE"
 yt_common_init "$OUT_DIR" "$AGENT_CHROME_PROFILE"
-if [[ -n "$AGENT_VIDEO_COOKIE_FILE_BILIBILI" ]]; then
-  if [[ ! -f "$AGENT_VIDEO_COOKIE_FILE_BILIBILI" ]]; then
-    echo "AGENT_VIDEO_COOKIE_FILE_BILIBILI 指向的文件不存在: $AGENT_VIDEO_COOKIE_FILE_BILIBILI" >&2
+if [[ -n "$AGENT_BILIBILI_COOKIE_FILE" ]]; then
+  if [[ ! -f "$AGENT_BILIBILI_COOKIE_FILE" ]]; then
+    echo "AGENT_BILIBILI_COOKIE_FILE 指向的文件不存在: $AGENT_BILIBILI_COOKIE_FILE" >&2
     exit 1
   fi
-  if [[ ! -r "$AGENT_VIDEO_COOKIE_FILE_BILIBILI" ]]; then
-    echo "AGENT_VIDEO_COOKIE_FILE_BILIBILI 不可读: $AGENT_VIDEO_COOKIE_FILE_BILIBILI" >&2
+  if [[ ! -r "$AGENT_BILIBILI_COOKIE_FILE" ]]; then
+    echo "AGENT_BILIBILI_COOKIE_FILE 不可读: $AGENT_BILIBILI_COOKIE_FILE" >&2
     exit 1
   fi
   # 若同时配置 profile 与 cookie 文件，优先 cookie 文件，便于跨主机复用。
-  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_VIDEO_COOKIE_FILE_BILIBILI")
+  YT_COMMON_AUTH_ARGS=(--cookies "$AGENT_BILIBILI_COOKIE_FILE")
 fi
 
 print_auth_guidance() {
@@ -87,7 +87,7 @@ print_auth_guidance() {
   echo "处理建议:" >&2
   echo "1) 临时方式（推荐先试其一）:" >&2
   echo "   export AGENT_CHROME_PROFILE='chrome:Profile 1'" >&2
-  echo "   export AGENT_VIDEO_COOKIE_FILE_BILIBILI='/path/to/cookies.txt'" >&2
+  echo "   export AGENT_BILIBILI_COOKIE_FILE='/path/to/cookies.txt'" >&2
   echo "   # cookies.txt 需为 Netscape Cookie File 格式" >&2
   echo "2) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
   echo "3) 配置后先执行 dryrun，再重试下载" >&2
