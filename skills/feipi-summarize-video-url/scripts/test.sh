@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # 统一测试入口（供 make test 调用）
-# 覆盖范围：自动选档 + 文本提取 + 第一轮请求包 + 第二轮请求包
+# 覆盖范围：自动选档 + 文本提取 + 默认摘要请求包 + 扩展分析请求包 + 背景单问请求包
 # 每行用例格式：<url>|<instruction>|<expected_profile>|<run_type>
 # - expected_profile: fast|accurate（可空，默认 fast）
 # - run_type: selection|extract（可空，默认 extract）
@@ -271,66 +271,73 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
   request_output="$(bash "$REQUEST_SCRIPT" "$URL" "$video_title" "$duration_sec" "$text_path" > "$request_path" 2>&1)"
   request_code=$?
   set -e
-  printf "\n[request]\n%s\n" "$request_output" >> "$log_file"
+  printf "\n[summary_request]\n%s\n" "$request_output" >> "$log_file"
 
   if [[ $request_code -ne 0 || ! -f "$request_path" ]]; then
-    echo "[FAIL] $case_id 请求包生成失败" >&2
+    echo "[FAIL] $case_id 摘要请求包生成失败" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '^## 摘要概述$' "$request_path" || ! rg -q '^## 附件$' "$request_path"; then
-    echo "[FAIL] $case_id 请求包缺少输出结构约束" >&2
+    echo "[FAIL] $case_id 摘要请求包缺少输出结构约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '不允许输出“## 核心观点时间线”章节|不允许输出 `## 核心观点时间线` 章节|不要输出 `## 核心观点时间线` 章节' "$request_path"; then
-    echo "[FAIL] $case_id 请求包缺少“摘要与时间线合并”约束" >&2
+    echo "[FAIL] $case_id 摘要请求包缺少“摘要与时间线合并”约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '\[MM:SS\]|\[HH:MM:SS\]' "$request_path"; then
-    echo "[FAIL] $case_id 请求包缺少“时间锚点格式”约束" >&2
+    echo "[FAIL] $case_id 摘要请求包缺少“时间锚点格式”约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '禁止使用 T\+00:00:00|禁止 T\+00:00:00' "$request_path"; then
-    echo "[FAIL] $case_id 请求包缺少“禁止 T+ 时间格式”约束" >&2
+    echo "[FAIL] $case_id 摘要请求包缺少“禁止 T+ 时间格式”约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '原始视频：' "$request_path" || ! rg -q '转写文本：' "$request_path"; then
-    echo "[FAIL] $case_id 请求包缺少附件输出要求（原始视频 + 转写文本）" >&2
+    echo "[FAIL] $case_id 摘要请求包缺少附件输出要求（原始视频 + 转写文本）" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if rg -q '字幕文件：' "$request_path"; then
-    echo "[FAIL] $case_id 请求包附件仍包含字幕文件（当前规范不要求该项）" >&2
+    echo "[FAIL] $case_id 摘要请求包附件仍包含字幕文件（当前规范不要求该项）" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '<TRANSCRIPT_START>' "$request_path" || ! rg -q '<TRANSCRIPT_END>' "$request_path"; then
-    echo "[FAIL] $case_id 请求包未包含文本片段" >&2
+    echo "[FAIL] $case_id 摘要请求包未包含文本片段" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
   if ! rg -q '绝对禁止出现以下表达|禁止出现以下模板句' "$request_path"; then
-    echo "[FAIL] $case_id 请求包缺少反套话约束" >&2
+    echo "[FAIL] $case_id 摘要请求包缺少反套话约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '不要扩展到背景、影响或相关新闻|当前模式禁止主动补充以下内容|本次不要输出“相关影响和背景分析”或“上下文背景”' "$request_path"; then
+    echo "[FAIL] $case_id 摘要请求包缺少“默认只做摘要”边界" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
@@ -343,7 +350,7 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
     END {print c+0}
   ' "$request_path")"
   if [[ -z "$inside_lines" || "$inside_lines" -lt 5 ]]; then
-    echo "[FAIL] $case_id 请求包文本内容过少" >&2
+    echo "[FAIL] $case_id 摘要请求包文本内容过少" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
@@ -362,77 +369,133 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
 - 转写文本：$text_path
 EOF
 
-  background_request_path="$run_dir/background_request.md"
+  background_expand_request_path="$run_dir/background_request_expand.md"
   set +e
-  background_output="$(bash "$BACKGROUND_REQUEST_SCRIPT" "$URL" "$video_title" "$summary_result_path" "$text_path" > "$background_request_path" 2>&1)"
-  background_code=$?
+  background_expand_output="$(bash "$BACKGROUND_REQUEST_SCRIPT" "$URL" "$video_title" "$summary_result_path" "$text_path" --mode expand > "$background_expand_request_path" 2>&1)"
+  background_expand_code=$?
   set -e
-  printf "\n[background_request]\n%s\n" "$background_output" >> "$log_file"
+  printf "\n[background_expand_request]\n%s\n" "$background_expand_output" >> "$log_file"
 
-  if [[ $background_code -ne 0 || ! -f "$background_request_path" ]]; then
-    echo "[FAIL] $case_id 第二次请求包生成失败" >&2
+  if [[ $background_expand_code -ne 0 || ! -f "$background_expand_request_path" ]]; then
+    echo "[FAIL] $case_id 扩展分析请求包生成失败" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '^## 相关影响和背景分析$' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少输出章节约束" >&2
+  if ! rg -q '^## 相关影响和背景分析$' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包缺少输出章节约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '<FIRST_ROUND_SUMMARY_START>' "$background_request_path" || ! rg -q '<FIRST_ROUND_SUMMARY_END>' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包未包含第一轮摘要输入" >&2
+  if ! rg -q '<SUMMARY_REFERENCE_START>' "$background_expand_request_path" || ! rg -q '<SUMMARY_REFERENCE_END>' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包未包含摘要参考输入" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '不要重复第一轮内容|不得重复第一轮|新增信息价值' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少去重约束" >&2
+  if ! rg -q '不要重复第一轮内容|新增信息价值' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包缺少去重约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '背景知识补充（约2/3）|关键影响（约1/3）|关键术语/人物/机构/事件|时间 \\+ 主体/机构 \\+ 关键动作 \\+ 直接结果 \\+ 含义|触发点 -> 作用机制 -> 受影响对象 -> 可观察结果' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少“背景优先 + 视频关键词 + 关键影响”约束" >&2
+  if ! rg -q '背景知识补充（约2/3）|关键影响（约1/3）|关键术语/人物/机构/事件|触发点 -> 作用机制 -> 受影响对象 -> 可观察结果' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包缺少“背景优先 + 关键影响”约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '视频外公开资料' "$background_request_path" || ! rg -q '来源清单' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少“外部背景 + 来源清单”约束" >&2
+  if ! rg -q '视频外公开资料' "$background_expand_request_path" || ! rg -q '来源清单' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包缺少“外部背景 + 来源清单”约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '新闻原文|原始文件' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少“新闻原文/原始文件”约束" >&2
+  if ! rg -q '默认不要主动搜索相关新闻|不强制补近期新闻' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包缺少“默认不搜相关新闻”约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '关键不确定性|后续观察点是否有诉讼' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少“禁止空洞小节”约束" >&2
+  if ! rg -q '禁止使用 T\+00:00:00|禁止使用字幕行号' "$background_expand_request_path"; then
+    echo "[FAIL] $case_id 扩展分析请求包缺少时间锚点简化约束" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  if ! rg -q '禁止使用 T\+00:00:00|禁止使用字幕行号' "$background_request_path"; then
-    echo "[FAIL] $case_id 第二次请求包缺少时间锚点简化约束" >&2
+  background_news_request_path="$run_dir/background_request_news.md"
+  set +e
+  background_news_output="$(bash "$BACKGROUND_REQUEST_SCRIPT" "$URL" "$video_title" "$summary_result_path" "$text_path" --mode expand --news on > "$background_news_request_path" 2>&1)"
+  background_news_code=$?
+  set -e
+  printf "\n[background_news_request]\n%s\n" "$background_news_output" >> "$log_file"
+
+  if [[ $background_news_code -ne 0 || ! -f "$background_news_request_path" ]]; then
+    echo "[FAIL] $case_id 新闻扩展请求包生成失败" >&2
     echo "日志: $log_file" >&2
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  echo "[PASS] $case_id source=$source request=$request_path background=$background_request_path"
+  if ! rg -q '用户已明确要求相关新闻/最新进展' "$background_news_request_path" || ! rg -q '至少包含 1-2 条新闻原文或原始文件' "$background_news_request_path"; then
+    echo "[FAIL] $case_id 新闻扩展请求包缺少“显式开启新闻范围”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  background_context_request_path="$run_dir/background_request_context.md"
+  set +e
+  background_context_output="$(bash "$BACKGROUND_REQUEST_SCRIPT" "$URL" "$video_title" "-" "$text_path" --mode background-only > "$background_context_request_path" 2>&1)"
+  background_context_code=$?
+  set -e
+  printf "\n[background_context_request]\n%s\n" "$background_context_output" >> "$log_file"
+
+  if [[ $background_context_code -ne 0 || ! -f "$background_context_request_path" ]]; then
+    echo "[FAIL] $case_id 背景单问请求包生成失败" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '^## 上下文背景$' "$background_context_request_path"; then
+    echo "[FAIL] $case_id 背景单问请求包缺少输出章节约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '### 关键背景脉络|### 与视频的关联|### 来源清单' "$background_context_request_path"; then
+    echo "[FAIL] $case_id 背景单问请求包缺少章节小标题约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '无现成摘要，本轮需直接从转写中提取关键术语与背景线索。' "$background_context_request_path"; then
+    echo "[FAIL] $case_id 背景单问请求包未正确处理“无摘要输入”" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  if ! rg -q '默认不要主动搜索相关新闻|除非用户额外要求，否则不要展开“关键影响”或相关新闻综述' "$background_context_request_path"; then
+    echo "[FAIL] $case_id 背景单问请求包缺少“默认不搜新闻/不强制写影响”约束" >&2
+    echo "日志: $log_file" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  echo "[PASS] $case_id source=$source summary=$request_path expand=$background_expand_request_path context=$background_context_request_path"
   PASSED=$((PASSED + 1))
 done < "$CONFIG"
 
@@ -446,4 +509,4 @@ if [[ "$FAILED" -ne 0 ]]; then
   exit 1
 fi
 
-echo "测试通过: feipi-summarize-video-url（提取 + 两阶段请求包链路通过）"
+echo "测试通过: feipi-summarize-video-url（提取 + 分段请求包链路通过）"
