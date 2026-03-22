@@ -18,6 +18,7 @@
 
 ## 命名一致性
 - 场景相同的变量必须统一命名，且每次优化默认所有环境适配最新版，不做新旧兼容读取。
-- PlantUML 端口只保留 `AGENT_PLANTUML_PORT`，禁止同时支持 `AGENT_PLANTUML_SERVER_PORT`。
-- 视频类 cookie 按站点区分变量名：`AGENT_YOUTUBE_COOKIE_FILE`、`AGENT_BILIBILI_COOKIE_FILE`，不使用通用 `AGENT_VIDEO_COOKIE_FILE`。
+- 具体变量名的统一规则，只在两种情况下更新：用户明确要求 repo 级规范调整；或当前被修改的目标 skill 本身就是该规则的归属方。仅因为调用 `feipi-gen-skills` 工作流，不得顺手改这里的命名示例或约束。
+- 这一节只写抽象命名约束，不写具体场景变量名；具体命名示例应放在对应 skill 文档、实现脚本或仓库根目录 `.env.example`。
+- 同一类配置应按业务维度拆分命名，避免使用语义过宽的通用变量名。
 - 新增/调整统一命名时，仅以最新命名为准并同步更新根 `.env.example`，不保留旧名映射，不做兼容读取。

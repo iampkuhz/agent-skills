@@ -16,6 +16,8 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - 优化已有 skill 的触发描述、测试样例与评测流程。
 
 ## 使用方式
+- 先区分“目标 skill”和“执行 skill”：用户明确要求交付变更的对象才是目标 skill；调用 `feipi-gen-skills` 只代表采用其工作流，不代表要修改 `skills/feipi-gen-skills/**`。
+- 若用户只点名一个目标 skill，默认改动范围仅限该 skill 与直接关联的仓库级共享文件（如根目录 `.env.example`、`CHANGELOG.md`）；除非用户明确要求 repo 级规范调整，否则不要顺手修改其他 skill、其 `agents/openai.yaml` 或其 `references/`。
 - 先判断用户处于哪个阶段：想法澄清、已有草稿、已有 skill 待优化、已有失败案例待修复。
 - 优先从当前对话和现有文件提取信息，再补问真正缺失的关键项，不重复让用户描述已经给出的内容。
 - 默认给出一个推荐方案并直接推进；只有在目标、目录或风险存在明显分叉时才暂停确认。
@@ -25,7 +27,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - `SKILL.md`：入口说明、阶段判断、执行流程摘要、规则索引与关键命令。
 - `references/`：规则细节、清单、命名规范、流程、评测与策略。
 - `scripts/`：可重复执行的确定性操作；能脚本化就不要让后续维护者手工重复。
-- `agents/openai.yaml`：skill 元数据与版本入口；每次更新 skill 时都要同步递增 `version`。
+- `agents/openai.yaml`：skill 元数据与版本入口；每次更新目标 skill 时都要同步递增 `version`，仅作为工作流被调用的 skill 不算目标 skill。
 
 ## 目录标准
 
@@ -52,7 +54,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
    - 至少准备正常、边界、异常三类场景。
    - 若是优化现有 skill，优先保留一份旧版本对照，避免“改了很多但不知道是否更好”。
 4. 明确版本与变更记录：
-   - 目标 skill 更新时先判断“当天是否已升版”。
+   - 先锁定这次交付的目标 skill；只有目标 skill 更新时才判断“当天是否已升版”。
    - 若该 skill 当天尚未升版，则同步递增 `agents/openai.yaml` 中的 `version`。
    - 若该 skill 当天已经升版且继续迭代，则保持当天版本，只合并当天 changelog 摘要。
    - `CHANGELOG.md` 继续按日期写，但每条要带上该 skill 的版本与汇总后的改动内容。
@@ -63,6 +65,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 1. Explore：明确目标、输入输出、触发条件、边界与风险；优先从对话和现有文件抽取信息。
 2. Plan：列出改动文件、理由、对照基线与验证方式；批量或高风险任务先生成中间计划。
 3. Implement：先落脚本/参考/资产，再更新 `SKILL.md`；把重复操作收敛成脚本或模板；若目标 skill 被修改，先判断该 skill 当天是否已升版：未升则递增 `version`，已升则保持当天版本并只更新同日 changelog 摘要。
+   - 仅因为读取或调用 `feipi-gen-skills`，不得修改 `skills/feipi-gen-skills/**`；只有用户明确把它列为目标 skill，或明确要求 repo 级规范调整时，才允许改动它自身。
 4. Verify：运行 `make validate DIR=<skill-root>/<name>`，并完成至少一种任务级验证；能做对照测试时优先做。
 5. Iterate：根据失败样例、误触发/漏触发、执行成本与用户反馈修订 skill，而不是凭感觉改文案。
 6. 收尾：按 `references/changelog-policy.md` 用“日期分组 + skill 版本摘要”格式更新 `CHANGELOG.md`，并检查 `README.md`。
@@ -95,6 +98,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 ### 5. 版本号与变更记录一起维护
 - 更新任意 skill 时，先检查该 skill 当天是否已经升版。
 - 默认按整数递增 `1`；不要跨 skill 共用一个全仓库版本号。
+- 被调用来指导流程的 skill 不自动进入版本维护范围；没有被用户明确列为目标 skill 时，不得给它升版。
 - 若该 skill 当天尚未升版，则在当天首次修改时递增 `version`。
 - 若该 skill 当天已经升版且继续修改，则保持当天版本，不重复升版。
 - `CHANGELOG.md` 继续只按日期做二级标题；日期下的每条记录写成“skill 名 + version + 合并后的更新摘要”。

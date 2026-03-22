@@ -4,6 +4,7 @@
 - 每次更新完成后，必须更新仓库根目录 `CHANGELOG.md`。
 - `CHANGELOG.md` 只按日期做二级标题，格式 `## YYYY-MM-DD`，时间倒序排列（新日期在上）。
 - 版本来源是目标 skill 的 `agents/openai.yaml` 顶层 `version` 字段；更新 skill 时先递增版本，再写 changelog。
+- 被调用来指导流程的 skill 不视为本次目标 skill；除非用户明确要求修改它，否则不得为它升级 `version` 或补写 changelog 记录。
 - 推荐结构：
 
 ```md

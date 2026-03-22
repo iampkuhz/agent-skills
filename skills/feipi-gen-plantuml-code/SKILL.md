@@ -47,8 +47,8 @@ bash scripts/check_plantuml.sh <input.puml>
 - 仅当 `syntax_result=ok` 才可交付最终代码。
 
 2. 渲染器优先级
-- 统一从 `assets/server_candidates.txt` 读取单一候选列表，按顺序逐个尝试，不区分“本地/远程”分支。
-- 本地 server 端口默认 `8199`，可通过环境变量 `AGENT_PLANTUML_PORT` 覆盖。
+- 统一从 `assets/server_candidates.txt` 读取单一候选列表，候选前两项固定为本地 server，必须先尝试本地再回退公网。
+- 本地 server 端口默认 `8199`，可通过环境变量 `AGENT_PLANTUML_SERVER_PORT` 覆盖。
 - 若语法错误，直接返回错误，不继续切换其他 server 掩盖问题。
 
 3. 宽度控制

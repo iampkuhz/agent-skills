@@ -1,5 +1,9 @@
 # 变更记录
 
+## 2026-03-22
+- `feipi-gen-plantuml-code` v3：本地优先并切换新端口变量。
+- `feipi-gen-skills` v3：收紧边界并抽象命名规则。
+
 ## 2026-03-21
 - `feipi-summarize-video-url` v4：拆分摘要背景触发并补单问模式。
 
