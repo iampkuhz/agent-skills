@@ -1,147 +1,104 @@
 ---
 name: feipi-gen-skills
-description: 用于在本仓库创建、更新与重构中文 skills，覆盖结构设计、文案完善、版本维护、脚本补齐与验证闭环。在新建 skill、统一规范或批量提升已有 skill 质量时使用。
+description: 用于在本仓库创建、更新与重构中文 skills，帮助定位触发、流程、模板与验证问题，并把改动收敛为可执行、可验证、可维护的 skill 变更。
 ---
 
 # Skill Creator（中文）
 
 ## 核心目标
-- 以最小上下文成本，产出可发现、可触发、可执行、可验证、可迭代的高质量 skills。
-- 保持规则集中、实现可复用、验证可追溯，并把失败样例转成下一轮改进输入。
+- 让目标 skill 更容易被正确触发、更容易稳定产出、更容易验证，而不只是在目录上“看起来规范”。
+- 以最小改动修复触发边界、执行流程、模板脚手架、验证入口和版本记录之间的不一致。
+- 交付可追溯：说明改了什么、为什么改、怎么验证、还有什么风险。
 
 ## 适用场景
-- 新建 skill（含结构初始化与文案落地）。
-- 更新/重构 skill（规则对齐、脚本补齐、验证闭环）。
-- 批量统一规范（命名、结构、验证、文档同步）。
-- 优化已有 skill 的触发描述、测试样例与评测流程。
+- 新建 repo 内 skill，并补齐脚手架、元数据与统一测试入口。
+- 重构已有 skill 的 `description`、`SKILL.md`、`references/`、`scripts/`、`assets/`。
+- 修复“会触发但做不对”“不会触发/乱触发”“模板和规范互相打架”“验证太弱”等问题。
+- 调整 skill 维护约定，并同步到直接关联的共享脚本、模板与文档。
 
-## 使用方式
-- 先区分“目标 skill”和“执行 skill”：用户明确要求交付变更的对象才是目标 skill；调用 `feipi-gen-skills` 只代表采用其工作流，不代表要修改 `skills/feipi-gen-skills/**`。
-- 若用户只点名一个目标 skill，默认改动范围仅限该 skill 与直接关联的仓库级共享文件（如根目录 `.env.example`、`CHANGELOG.md`）；除非用户明确要求 repo 级规范调整，否则不要顺手修改其他 skill、其 `agents/openai.yaml` 或其 `references/`。
-- 先判断用户处于哪个阶段：想法澄清、已有草稿、已有 skill 待优化、已有失败案例待修复。
-- 优先从当前对话和现有文件提取信息，再补问真正缺失的关键项，不重复让用户描述已经给出的内容。
-- 默认给出一个推荐方案并直接推进；只有在目标、目录或风险存在明显分叉时才暂停确认。
-- 与用户沟通时按对方熟悉度调整术语密度；需要使用 `frontmatter`、`eval`、`assertion` 等词时，优先配一句中文解释。
+## 不适用场景
+- 普通业务代码开发、缺陷修复或仓库脚本维护，但任务本身与 skill 工作流无关。
+- 仅使用某个 skill 完成一次用户任务，而不是创建或优化 skill 本身。
+- 只想讨论创意方向、暂不落地文件改动的纯脑暴场景。
 
-## 内容分层
-- `SKILL.md`：入口说明、阶段判断、执行流程摘要、规则索引与关键命令。
-- `references/`：规则细节、清单、命名规范、流程、评测与策略。
-- `scripts/`：可重复执行的确定性操作；能脚本化就不要让后续维护者手工重复。
-- `agents/openai.yaml`：skill 元数据与版本入口；每次更新目标 skill 时都要同步递增 `version`，仅作为工作流被调用的 skill 不算目标 skill。
-- `assets/`：输出时使用的模板或静态文件（如 skill 初始化模板）。
+## 先判断问题落在哪一层
+1. 触发层：`description`、`short_description`、`default_prompt` 是否准确描述“做什么、什么时候用、什么时候别用”。
+2. 执行层：`SKILL.md` 是否明确输入、输出、默认策略、失败处理和验证方式。
+3. 资源层：`references/` 是否按需拆分，`scripts/` / `assets/` 是否真正复用，而不是复制粘贴。
+4. 脚手架层：初始化模板、目录标准、共享脚本是否与规约一致，能否生成可通过校验的骨架。
+5. 验证层：校验与测试是否同时覆盖结构正确性和行为正确性，而不是只搜关键词。
 
-## 目录标准
+## 默认交付要求
+- 优先给出一个最小但完整的可执行方案，不把维护者留在“规则很多但不知道先改哪里”。
+- 若用户只点名一个目标 skill，默认只改该 skill 与直接关联的共享文件；不顺手扩散到其他 skill。
+- 若目标就是 `feipi-gen-skills`，允许同时改它自己的 `references/`、`scripts/`，以及直接关联的共享模板/脚本。
+- 只要改动影响初始化、校验、版本或文档入口，就要同步检查 `templates/`、`feipi-scripts/`、`CHANGELOG.md`，必要时补查 `README.md`。
 
-```txt
-<skill-name>/
-├── SKILL.md             # 唯一必需文件，定义触发与执行规则
-├── agents/openai.yaml   # UI 元数据（展示名、短描述、默认提示词）
-├── scripts/             # 确定性、可重复执行的脚本
-├── references/          # 按需加载的详细资料
-└── assets/              # 输出时使用的模板或静态文件
-```
+## 决策顺序
+1. 先修会直接影响效果的问题：误触发、漏触发、默认策略错误、模板产出不合规、验证失真。
+2. 再修会放大维护成本的问题：重复规则、入口不一致、目录拆分过细但缺少导航。
+3. 最后再做纯文案整理，避免“改了很多字，但行为没有更稳”。
 
-## 接入步骤
-1. 识别当前阶段：
-   - 只有想法：先澄清目标、触发时机、输入输出和成功标准。
-   - 已有草稿：直接审阅结构、描述、目录分层和缺失验证。
-   - 已有失败案例：先归因，再决定改 `description`、正文流程还是脚本/参考资料。
-2. 收集最小必要信息：
-   - 这个 skill 要让模型稳定完成什么事。
-   - 用户会用什么话触发它，哪些相似场景不该触发。
-   - 输入是什么，输出长什么样，完成后如何判断“做对了”。
-   - 是否需要测试样例；客观任务默认建议做，主观写作类任务可弱化。
-3. 先定验收，再实现：
-   - 至少准备正常、边界、异常三类场景。
-   - 若是优化现有 skill，优先保留一份旧版本对照，避免“改了很多但不知道是否更好”。
-4. 明确版本与变更记录：
-   - 先锁定这次交付的目标 skill；只有目标 skill 更新时才判断“当天是否已升版”。
-   - 若该 skill 当天尚未升版，则同步递增 `agents/openai.yaml` 中的 `version`。
-   - 若该 skill 当天已经升版且继续迭代，则保持当天版本，只合并当天 changelog 摘要。
-   - `CHANGELOG.md` 继续按日期写，但每条要带上该 skill 的版本与汇总后的改动内容。
-   - 同一天同一个 skill 只能升级一个版本；若一天内改动多次，最后合并成同一条版本摘要。
-   - changelog 摘要必须精简，优先压成一行短语，不写解释性长句。
+## 仓库落地结构
+### 便携最小结构
+- `SKILL.md`：skill 的入口说明与执行规则。
+
+### 本仓库交付结构
+- `SKILL.md`
+- `agents/openai.yaml`
+- `scripts/test.sh`
+- `references/`：按需存在，放长规则、样例和清单。
+- `scripts/`：放确定性脚本；若修改初始化或校验逻辑，优先脚本化。
+- `assets/`：放模板或静态资源；只有真的被初始化或输出流程复用时才新增。
 
 ## 执行流程（开发态摘要）
-1. Explore：明确目标、输入输出、触发条件、边界与风险；优先从对话和现有文件抽取信息。
-2. Plan：列出改动文件、理由、对照基线与验证方式；批量或高风险任务先生成中间计划。
-3. Implement：先落脚本/参考/资产，再更新 `SKILL.md`；把重复操作收敛成脚本或模板；若目标 skill 被修改，先判断该 skill 当天是否已升版：未升则递增 `version`，已升则保持当天版本并只更新同日 changelog 摘要。
-   - 仅因为读取或调用 `feipi-gen-skills`，不得修改 `skills/feipi-gen-skills/**`；只有用户明确把它列为目标 skill，或明确要求 repo 级规范调整时，才允许改动它自身。
-4. Verify：运行 `bash scripts/validate.sh <skill-dir>`，并完成至少一种任务级验证；能做对照测试时优先做。
-5. Iterate：根据失败样例、误触发/漏触发、执行成本与用户反馈修订 skill，而不是凭感觉改文案。
-6. 收尾：按 `references/changelog-policy.md` 用“日期分组 + skill 版本摘要”格式更新 `CHANGELOG.md`，并检查 `README.md`。
+1. Explore：锁定目标 skill、用户想达成的效果、当前失真点和直接关联的共享文件。
+2. Plan：列出要改的文件，并写清每个文件是在修触发、修流程、修模板、修验证还是修版本同步。
+3. Implement：先改最能影响结果稳定性的层，再补文档与导航；若引入新入口，必须同步旧入口或明确废弃。
+4. Verify：默认执行 `make validate DIR=<skill-dir>`；若目标 skill 有统一测试入口，再执行 `make test SKILL=<name>` 或等价脚本；涉及初始化模板时，至少生成一个临时 skill 并验证生成结果。
+5. Iterate：根据失败样例、误触发/漏触发案例和维护成本继续收敛，而不是凭感觉扩写规则。
+6. Close：更新目标 skill 版本与 `CHANGELOG.md`；入口命令或维护说明变化时，补查 `README.md`。
 
-详细流程与约束见 `references/workflow.md`。
+详细执行细节见 `references/workflow.md`。
 
-## 编写与优化重点
+## 何时改哪个文件
+- `description` / `agents/openai.yaml`：
+  当问题主要是不会触发、乱触发、默认提示偏离目标时优先改这里。
+- `SKILL.md`：
+  当问题主要是输入输出不清、步骤顺序混乱、默认策略缺失、失败处理不完整时优先改这里。
+- `references/`：
+  当正文太长、规则需要复用、反模式或清单需要独立维护时再下沉。
+- `scripts/` / `assets/`：
+  当动作稳定、重复、可判定，或需要让初始化、校验、测试变成可复用流程时优先落这里。
+- `templates/` / `feipi-scripts/`：
+  当共享脚手架和 skill 规约不一致，或本 skill 依赖共享实现时同步修这里。
 
-### 1. 先写“触发说明”，再写正文
-- `description` 是 skill 的第一入口，必须同时回答“做什么”和“什么时候该用”。
-- 不只写能力，要写用户意图与典型触发语境，避免描述成纯实现细节。
-- 为避免漏触发，可以比普通说明更主动一点；但不要堆砌一长串具体句子导致过拟合。
-- 若优化的是已有 skill，优先根据误触发/漏触发案例重写 `description`，再决定是否改正文。
-
-### 2. 让 `SKILL.md` 只承担高价值导航
-- 正文优先保留：适用场景、阶段步骤、决策规则、输出模板、关键命令、跳转索引。
-- 详细规范、长示例、命名清单、反模式、评测细则放入 `references/`。
-- 当正文接近 500 行或开始出现多个并列变体时，立即拆分到 `references/` 并在正文中一跳链接。
-
-### 3. 用案例驱动迭代
-- 为 skill 准备 2 至 3 个接近真实用户说法的测试提示词，不要只写“理想化命令”。
-- 客观任务记录预期结果与检查点；主观任务至少记录评价维度与人工判断标准。
-- 若在优化已有 skill，尽量保留旧版本输出作为 baseline；新版本只有“看起来更顺眼”不算完成。
-
-### 4. 决定哪些内容要脚本化
-- 稳定、重复、可判定的动作优先写进 `scripts/`。
-- 大段背景知识、命名字典、模板说明放进 `references/` 或 `assets/`，不要塞满正文。
-- 环境变量由上下文预先加载，skill 脚本直接使用，无需手动加载 `.env`。
-
-### 5. 版本号与变更记录一起维护
-- 更新任意 skill 时，先检查该 skill 当天是否已经升版。
-- 默认按整数递增 `1`；不要跨 skill 共用一个全仓库版本号。
-- 被调用来指导流程的 skill 不自动进入版本维护范围；没有被用户明确列为目标 skill 时，不得给它升版。
-- 若该 skill 当天尚未升版，则在当天首次修改时递增 `version`。
-- 若该 skill 当天已经升版且继续修改，则保持当天版本，不重复升版。
-- `CHANGELOG.md` 继续只按日期做二级标题；日期下的每条记录写成“skill 名 + version + 合并后的更新摘要”。
-- 同一天同一个 skill 只能递增一次版本；若当天多次修改，必须把改动合并到同一条 changelog 记录中。
-- changelog 摘要必须极简：
-  - 保持单行。
-  - 冒号后的摘要建议不超过 18 个汉字，最多不超过 24 个汉字。
-  - 优先写结果词组，如“补强版本规则与摘要约束”，不要写“新增规则：……并同步……”这类解释句。
-- 若只更新仓库级脚本或说明、未改动某个 skill 自身，不要误升无关 skill 的版本号。
-
-## 评测与迭代要求
-- 至少准备 3 个评估场景：正常、边界、异常。
-- 优先真实任务回放；如果用户已经给过失败对话，直接把它们转成测试样例。
-- 评测时至少回答 4 个问题：
-  - 触发是否正确：该触发时有没有触发，不该触发时有没有误触发。
-  - 结果是否正确：输出是否满足关键检查点。
-  - 成本是否合理：步骤、依赖、环境变量是否被不必要地复杂化。
-  - 说明是否清晰：后续维护者能否按 `SKILL.md` 和 `references/` 接手。
-- 每轮优化后记录“为什么改、拿什么验证、还有什么风险”，再进入下一轮。
-
-## 规则索引（必读）
-- `references/repo-constraints.md`：仓库落地硬约束与使用/开发分离。
-- `references/naming-conventions.md`：命名规范（action 字典与示例）。
-- `references/frontmatter-policy.md`：Frontmatter 规范。
-- `references/chinese-policy.md`：中文维护政策。
-- `references/version-policy.md`：版本约束与升版时机。
-- `references/skill-directory-policy.md`：新建 skill 目录判定。
-- `references/workflow.md`：工作流、验证与反模式导航。
-- `references/anti-patterns.md`：反模式与修复。
-- `references/changelog-policy.md`：变更记录与 README 同步规则。
-- `references/quality-checklist.md`：交付清单（复制打勾）。
+## 规则索引
+- `references/repo-constraints.md`：仓库落地硬约束与结构边界。
+- `references/naming-conventions.md`：命名规范与 action 字典。
+- `references/frontmatter-policy.md`：frontmatter 约束。
+- `references/chinese-policy.md`：中文维护要求。
+- `references/version-policy.md`：版本与兼容策略。
+- `references/skill-directory-policy.md`：新建 skill 根目录判定。
+- `references/workflow.md`：工作流、改动优先级与验证策略。
+- `references/anti-patterns.md`：常见失真与修复方式。
+- `references/changelog-policy.md`：版本记录与 README 同步规则。
+- `references/quality-checklist.md`：交付前核查清单。
 - `references/sources.md`：来源说明。
 
-## 常用命令（开发态）
-
+## 常用命令
 ```bash
-# 初始化新 skill（默认优先 skills/，可切换到 .agents/skills）
-bash scripts/init_skill.sh <name> [RESOURCES=scripts,references,assets]
+# 新建 skill（仓库统一入口，默认会补 scripts/references）
+make new SKILL=<name> [RESOURCES=scripts,references,assets] [TARGET=auto|skills|repo|<path>]
 
-# 校验单个 skill 目录
+# 校验单个 skill
+make validate DIR=<skill-dir>/<name>
+
+# 执行统一测试入口
+make test SKILL=<name>
+
+# feipi-gen-skills 自己的本地封装入口
+bash scripts/init_skill.sh <name> [resources] [target]
 bash scripts/validate.sh <skill-dir>
-
-# 统一入口执行 skill 测试
-bash scripts/test.sh <skill-name>
+bash scripts/test.sh
 ```

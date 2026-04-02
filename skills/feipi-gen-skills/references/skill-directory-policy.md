@@ -12,3 +12,4 @@
 
 - 优先 `skills/`（若存在）。
 - 回退 `.agents/skills/`（若 `skills/` 不存在）。
+- `make new` 与 `bash skills/feipi-gen-skills/scripts/init_skill.sh` 采用同一套目录判定逻辑。

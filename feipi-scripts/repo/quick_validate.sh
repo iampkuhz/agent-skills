@@ -128,6 +128,20 @@ if [[ ${#DESC_VALUE} -gt 1024 ]]; then
   exit 1
 fi
 
+for placeholder in \
+  '{{SKILL_NAME}}' \
+  '{{SKILL_DESCRIPTION}}' \
+  '{{TITLE}}' \
+  '{{DISPLAY_NAME}}' \
+  '{{SHORT_DESCRIPTION}}' \
+  '{{DEFAULT_PROMPT}}'
+do
+  if rg -Fq "$placeholder" "$SKILL_FILE"; then
+    echo "SKILL.md 存在未替换模板占位符: $placeholder" >&2
+    exit 1
+  fi
+done
+
 if printf "%s" "$DESC_VALUE" | rg -q '(我|我们|你|您)'; then
   echo "description 建议使用第三人称，避免“我/我们/你/您”" >&2
   exit 1
@@ -165,31 +179,86 @@ if rg -q '[A-Za-z]:\\|\\[A-Za-z0-9._-]+' "$SKILL_FILE"; then
   exit 1
 fi
 
+while IFS= read -r ref_path; do
+  [[ -z "$ref_path" ]] && continue
+  if [[ ! -e "$DIR/$ref_path" ]]; then
+    echo "SKILL.md 引用了不存在的 reference: $ref_path" >&2
+    exit 1
+  fi
+done < <(rg -o 'references/[A-Za-z0-9._/-]+\.md' "$SKILL_FILE" | sort -u)
+
 if [[ "$BASE" != "feipi-gen-skills" ]]; then
-  if rg -n 'make[[:space:]]+test[[:space:]]+SKILL=|make[[:space:]]+validate[[:space:]]+DIR=|^##[[:space:]]*维护与回归' "$SKILL_FILE" >&2; then
-    echo "非 feipi-gen-skills 的 SKILL.md 禁止包含测试/维护命令（make test/make validate）或“维护与回归”章节" >&2
+  if rg -n 'make[[:space:]]+(new|test|validate)|bash[[:space:]]+scripts/(init_skill|validate|test)\.sh|^##[[:space:]]*维护与回归' "$SKILL_FILE" >&2; then
+    echo "非 feipi-gen-skills 的 SKILL.md 禁止包含 repo 维护命令或“维护与回归”章节" >&2
     exit 1
   fi
 fi
 
-if [[ -f "$DIR/agents/openai.yaml" ]]; then
-  # 若存在 UI 元数据文件，则要求关键字段齐全。
-  if ! rg -q '^interface:' "$DIR/agents/openai.yaml"; then
-    echo "agents/openai.yaml 缺少 interface 根字段" >&2
+OPENAI_FILE="$DIR/agents/openai.yaml"
+if [[ ! -f "$OPENAI_FILE" ]]; then
+  echo "缺少文件: $OPENAI_FILE" >&2
+  exit 1
+fi
+
+if ! rg -q '^version:[[:space:]]*[0-9]+[[:space:]]*$' "$OPENAI_FILE"; then
+  echo "agents/openai.yaml 缺少顶层整数 version 字段" >&2
+  exit 1
+fi
+
+if ! rg -q '^interface:' "$OPENAI_FILE"; then
+  echo "agents/openai.yaml 缺少 interface 根字段" >&2
+  exit 1
+fi
+
+for k in display_name short_description default_prompt; do
+  if ! rg -q "^[[:space:]]+$k:" "$OPENAI_FILE"; then
+    echo "agents/openai.yaml 缺少 $k 字段" >&2
     exit 1
   fi
+done
 
-  for k in display_name short_description default_prompt; do
-    if ! rg -q "^[[:space:]]+$k:" "$DIR/agents/openai.yaml"; then
-      echo "agents/openai.yaml 缺少 $k 字段" >&2
-      exit 1
-    fi
-  done
-
-  if ! rg -Pq '\p{Han}' "$DIR/agents/openai.yaml"; then
-    echo "agents/openai.yaml 必须包含中文描述字段" >&2
+for placeholder in \
+  '{{SKILL_NAME}}' \
+  '{{SKILL_DESCRIPTION}}' \
+  '{{TITLE}}' \
+  '{{DISPLAY_NAME}}' \
+  '{{SHORT_DESCRIPTION}}' \
+  '{{DEFAULT_PROMPT}}'
+do
+  if rg -Fq "$placeholder" "$OPENAI_FILE"; then
+    echo "agents/openai.yaml 存在未替换模板占位符: $placeholder" >&2
     exit 1
   fi
+done
+
+if ! rg -Pq '\p{Han}' "$OPENAI_FILE"; then
+  echo "agents/openai.yaml 必须包含中文描述字段" >&2
+  exit 1
+fi
+
+TEST_SCRIPT="$DIR/scripts/test.sh"
+if [[ ! -x "$TEST_SCRIPT" ]]; then
+  echo "缺少可执行测试脚本: $TEST_SCRIPT" >&2
+  exit 1
+fi
+
+for placeholder in \
+  '{{SKILL_NAME}}' \
+  '{{SKILL_DESCRIPTION}}' \
+  '{{TITLE}}' \
+  '{{DISPLAY_NAME}}' \
+  '{{SHORT_DESCRIPTION}}' \
+  '{{DEFAULT_PROMPT}}'
+do
+  if rg -Fq "$placeholder" "$TEST_SCRIPT"; then
+    echo "scripts/test.sh 存在未替换模板占位符: $placeholder" >&2
+    exit 1
+  fi
+done
+
+if ! bash -n "$TEST_SCRIPT"; then
+  echo "scripts/test.sh 存在语法错误" >&2
+  exit 1
 fi
 
 echo "校验通过: $DIR"

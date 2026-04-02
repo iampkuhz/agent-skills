@@ -5,7 +5,8 @@ set -euo pipefail
 # 脚本会执行命名规则校验，并创建：
 # - SKILL.md
 # - agents/openai.yaml
-# - 可选资源目录（scripts/references/assets）
+# - scripts/test.sh
+# - 可选资源目录（references/assets）
 
 usage() {
   cat <<'USAGE'
@@ -31,7 +32,7 @@ TEMPLATES_ROOT="$REPO_ROOT/templates"
 SKILL_NAME="$1"
 shift
 
-RESOURCES=""
+RESOURCES="scripts,references"
 TARGET="auto"
 # `feipi-<action>-<target...>` 命名里的 action 白名单。
 ALLOWED_ACTIONS="coding gen read write analyze review test debug refactor docs data git web ops build deploy migrate automate monitor summarize translate design planning"
@@ -57,6 +58,47 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+normalize_resources() {
+  local raw="$1"
+  local item=""
+  local normalized=()
+  local seen="|"
+
+  if [[ -z "$raw" ]]; then
+    raw="scripts,references"
+  fi
+
+  IFS=',' read -r -a items <<< "$raw"
+  for item in "${items[@]}"; do
+    item="$(printf "%s" "$item" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [[ -z "$item" ]] && continue
+    case "$item" in
+      scripts|references|assets) ;;
+      *)
+        echo "未知资源类型: $item (仅支持 scripts,references,assets)" >&2
+        exit 1
+        ;;
+    esac
+    if [[ "$seen" != *"|$item|"* ]]; then
+      normalized+=("$item")
+      seen="${seen}${item}|"
+    fi
+  done
+
+  if [[ "$seen" != *"|scripts|"* ]]; then
+    normalized=("scripts" "${normalized[@]}")
+  fi
+
+  local joined=""
+  for item in "${normalized[@]}"; do
+    if [[ -n "$joined" ]]; then
+      joined+=","
+    fi
+    joined+="$item"
+  done
+  printf "%s" "$joined"
+}
 
 resolve_target_root() {
   local target="$1"
@@ -125,9 +167,11 @@ if [[ -e "$ROOT_DIR" ]]; then
   exit 1
 fi
 
+RESOURCES="$(normalize_resources "$RESOURCES")"
+
 mkdir -p "$ROOT_DIR/agents"
 
-TITLE="$(echo "$SKILL_NAME" | tr '-' ' ' | awk '{for (i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) substr($i,2)}; print}')"
+TITLE="${SKILL_NAME}（待补中文名）"
 DESCRIPTION="处理相关任务并输出可验证结果。在用户提出对应场景需求时使用。"
 
 sed \
@@ -137,8 +181,8 @@ sed \
   "$TEMPLATES_ROOT/SKILL.template.md" > "$ROOT_DIR/SKILL.md"
 
 DISPLAY_NAME="$TITLE"
-SHORT_DESCRIPTION="使用中文完成任务，并提供可验证交付证据。"
-DEFAULT_PROMPT="请按 $SKILL_NAME 的四阶段流程执行：先探索与规划，再实现与验证；输出需包含验证步骤与结果。"
+SHORT_DESCRIPTION="使用中文完成任务，并提供可验证交付结果。"
+DEFAULT_PROMPT="请先确认用户目标、输入、边界和成功标准，再按 Explore -> Plan -> Implement -> Verify 执行；输出需包含验证步骤、验证结果和剩余风险。"
 
 sed \
   -e "s/{{DISPLAY_NAME}}/$DISPLAY_NAME/g" \
@@ -150,17 +194,14 @@ if [[ -n "$RESOURCES" ]]; then
   # 根据参数创建可选资源目录。
   IFS=',' read -r -a ARR <<< "$RESOURCES"
   for r in "${ARR[@]}"; do
-    case "$r" in
-      scripts|references|assets)
-        mkdir -p "$ROOT_DIR/$r"
-        ;;
-      *)
-        echo "未知资源类型: $r (仅支持 scripts,references,assets)" >&2
-        exit 1
-        ;;
-    esac
+    mkdir -p "$ROOT_DIR/$r"
   done
 fi
+
+sed \
+  -e "s/{{SKILL_NAME}}/$SKILL_NAME/g" \
+  "$TEMPLATES_ROOT/test.template.sh" > "$ROOT_DIR/scripts/test.sh"
+chmod +x "$ROOT_DIR/scripts/test.sh"
 
 if [[ "$SKILLS_ROOT" == "$REPO_ROOT" ]]; then
   ROOT_DISPLAY="."

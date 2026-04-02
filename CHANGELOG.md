@@ -1,5 +1,8 @@
 # 变更记录
 
+## 2026-04-02
+- `feipi-gen-skills` v4：收敛脚手架并补强效果校验。
+
 ## 2026-03-22
 - `feipi-gen-plantuml-code` v3：本地优先并切换新端口变量。
 - `feipi-gen-skills` v3：收紧边界并抽象命名规则。
