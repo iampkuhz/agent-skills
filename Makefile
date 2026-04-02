@@ -36,14 +36,14 @@ list:
 		if [[ -d .agents/skills ]]; then find .agents/skills -maxdepth 1 -mindepth 1 -type d; fi; \
 	} | sort
 
-# 将仓库 `skills/` 下各 skill 软链接到目标目录（默认 ~/.agents/skills）。
+# 将仓库 `skills/` 下各 skill 软链接到目标目录。
+# 默认行为：自动检测所有 agent 目标目录（~/.codex/skills, ~/.qwen/skills, ~/.qoder/skills, ~/.claude/skills, ~/.openclaw/skills），存在即安装。
 # 示例：
-# - make install-links
-# - AGENT=qwen make install-links
-# - AGENT=qoder make install-links
-# - AGENT=openclaw make install-links
+# - make install-links                           # 自动安装到所有已存在的 agent 目录
+# - AGENT=claudecode make install-links          # 仅安装到 ~/.claude/skills
+# - AGENT=qwen make install-links                # 仅安装到 ~/.qwen/skills
 install-links:
-	./feipi-scripts/repo/install_skills_links.sh
+	AGENT="$(AGENT)" ./feipi-scripts/repo/install_skills_links.sh
 
 # 将仓库 `skills/` 下各 skill 复制安装到指定项目目录（覆盖式）。
 # 示例：

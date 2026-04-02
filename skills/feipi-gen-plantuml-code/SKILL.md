@@ -80,6 +80,32 @@ bash scripts/lint_layout.sh <input.puml>
 - 当前索引见：`references/reference-index.md`。
 - 新图类型按模板新增：`references/diagram-reference-template.md`。
 
+### 7. 架构组件图元素规范（必须）
+
+**元素类型映射表**：
+
+| 元素类型 | 形状 | 颜色 | PlantUML 语法 |
+|----------|------|------|---------------|
+| 组件 (Component) | 矩形 | 蓝色系 | `component [名称]` |
+| 外部角色 (Actor) | 人形 | 灰色系 | `actor [名称]` |
+| 数据存储 (Storage) | 圆柱体 | 绿色系 | `database [名称]` |
+| 数据对象 (Data) | 矩形 (note) | 黄色系 | `note "名称" as 别名` |
+| 接口/边界 (Interface) | 圆形 | 橙色系 | `[名称] as 名称 <<接口>>` |
+| 队列/通道 (Queue) | 队列形状 | 紫色系 | `queue [名称]` |
+
+**箭头语义**：
+
+| 关系类型 | 箭头样式 | 标注 |
+|----------|----------|------|
+| 调用/请求 | 实线箭头 | `: 请求内容` |
+| 数据流 | 虚线箭头 | `: 数据名称` |
+| 依赖 | 虚线无箭头 | `..` |
+| 创建 | 虚线箭头 + create | `create` |
+| 生命周期 | 实线 + 销毁标记 | `destroy` |
+
+**样式库引用**：
+- 生成架构组件图时，推荐引用 `assets/architecture-diagram-styles.puml` 统一配色。
+
 ## 输入与输出
 
 1. 输入
