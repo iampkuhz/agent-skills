@@ -1,4 +1,0 @@
-# feipi-gen-skills 自测项
-validate-self
-check-version-rule
-check-changelog-rule

@@ -28,6 +28,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 - `references/`：规则细节、清单、命名规范、流程、评测与策略。
 - `scripts/`：可重复执行的确定性操作；能脚本化就不要让后续维护者手工重复。
 - `agents/openai.yaml`：skill 元数据与版本入口；每次更新目标 skill 时都要同步递增 `version`，仅作为工作流被调用的 skill 不算目标 skill。
+- `assets/`：输出时使用的模板或静态文件（如 skill 初始化模板）。
 
 ## 目录标准
 
@@ -66,7 +67,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 2. Plan：列出改动文件、理由、对照基线与验证方式；批量或高风险任务先生成中间计划。
 3. Implement：先落脚本/参考/资产，再更新 `SKILL.md`；把重复操作收敛成脚本或模板；若目标 skill 被修改，先判断该 skill 当天是否已升版：未升则递增 `version`，已升则保持当天版本并只更新同日 changelog 摘要。
    - 仅因为读取或调用 `feipi-gen-skills`，不得修改 `skills/feipi-gen-skills/**`；只有用户明确把它列为目标 skill，或明确要求 repo 级规范调整时，才允许改动它自身。
-4. Verify：运行 `make validate DIR=<skill-root>/<name>`，并完成至少一种任务级验证；能做对照测试时优先做。
+4. Verify：运行 `bash scripts/validate.sh <skill-dir>`，并完成至少一种任务级验证；能做对照测试时优先做。
 5. Iterate：根据失败样例、误触发/漏触发、执行成本与用户反馈修订 skill，而不是凭感觉改文案。
 6. 收尾：按 `references/changelog-policy.md` 用“日期分组 + skill 版本摘要”格式更新 `CHANGELOG.md`，并检查 `README.md`。
 
@@ -93,7 +94,7 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 ### 4. 决定哪些内容要脚本化
 - 稳定、重复、可判定的动作优先写进 `scripts/`。
 - 大段背景知识、命名字典、模板说明放进 `references/` 或 `assets/`，不要塞满正文。
-- 只有在必须依赖外部输入或凭据时才引入环境变量，并同步根目录 `.env.example`。
+- 环境变量由上下文预先加载，skill 脚本直接使用，无需手动加载 `.env`。
 
 ### 5. 版本号与变更记录一起维护
 - 更新任意 skill 时，先检查该 skill 当天是否已经升版。
@@ -122,8 +123,12 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 ## 规则索引（必读）
 - `references/repo-constraints.md`：仓库落地硬约束与使用/开发分离。
 - `references/naming-conventions.md`：命名规范（action 字典与示例）。
-- `references/env-policy.md`：环境变量最小化策略。
-- `references/workflow.md`：工作流、验证与反模式修复。
+- `references/frontmatter-policy.md`：Frontmatter 规范。
+- `references/chinese-policy.md`：中文维护政策。
+- `references/version-policy.md`：版本约束与升版时机。
+- `references/skill-directory-policy.md`：新建 skill 目录判定。
+- `references/workflow.md`：工作流、验证与反模式导航。
+- `references/anti-patterns.md`：反模式与修复。
 - `references/changelog-policy.md`：变更记录与 README 同步规则。
 - `references/quality-checklist.md`：交付清单（复制打勾）。
 - `references/sources.md`：来源说明。
@@ -132,11 +137,11 @@ description: 用于在本仓库创建、更新与重构中文 skills，覆盖结
 
 ```bash
 # 初始化新 skill（默认优先 skills/，可切换到 .agents/skills）
-make new SKILL=<name> [RESOURCES=scripts,references,assets] [TARGET=auto|skills|repo|<path>]
+bash scripts/init_skill.sh <name> [RESOURCES=scripts,references,assets]
 
 # 校验单个 skill 目录
-make validate DIR=<skill-dir>/<name>
+bash scripts/validate.sh <skill-dir>
 
 # 统一入口执行 skill 测试
-make test SKILL=<name>
+bash scripts/test.sh <skill-name>
 ```
