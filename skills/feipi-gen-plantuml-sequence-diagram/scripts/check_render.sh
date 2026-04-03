@@ -187,17 +187,15 @@ LAST_ERROR=""
 
 for candidate in "${CANDIDATES[@]}"; do
   TXT_BODY="$(mktemp)"
-  TXT_CODE="$(mktemp)"
   TXT_ERR="$(mktemp)"
-  if ! curl -sS --max-time "$TIMEOUT" -o "$TXT_BODY" -w '%{http_code}' "$candidate/txt/$ENCODED" >"$TXT_ERR"; then
+  if ! STATUS="$(curl -sS --max-time "$TIMEOUT" -o "$TXT_BODY" -w '%{http_code}' "$candidate/txt/$ENCODED" 2>"$TXT_ERR")"; then
     LAST_ERROR="$(cat "$TXT_ERR")"
-    rm -f "$TXT_BODY" "$TXT_CODE" "$TXT_ERR"
+    rm -f "$TXT_BODY" "$TXT_ERR"
     continue
   fi
 
-  STATUS="$(cat "$TXT_CODE")"
   BODY="$(cat "$TXT_BODY")"
-  rm -f "$TXT_CODE" "$TXT_ERR" "$TXT_BODY"
+  rm -f "$TXT_ERR" "$TXT_BODY"
 
   if [[ "$STATUS" == "200" ]] && printf '%s\n' "$BODY" | grep -Eqi 'syntax error|\[from string'; then
     echo "render_result=syntax_error"
@@ -214,16 +212,14 @@ for candidate in "${CANDIDATES[@]}"; do
     SVG_OUTPUT="$(mktemp -t plantuml-render-XXXXXX.svg)"
   fi
 
-  SVG_CODE="$(mktemp)"
   SVG_ERR="$(mktemp)"
-  if ! curl -sS --max-time "$TIMEOUT" -o "$SVG_OUTPUT" -w '%{http_code}' "$candidate/svg/$ENCODED" >"$SVG_ERR"; then
+  if ! STATUS="$(curl -sS --max-time "$TIMEOUT" -o "$SVG_OUTPUT" -w '%{http_code}' "$candidate/svg/$ENCODED" 2>"$SVG_ERR")"; then
     LAST_ERROR="$(cat "$SVG_ERR")"
-    rm -f "$SVG_CODE" "$SVG_ERR"
+    rm -f "$SVG_ERR"
     continue
   fi
 
-  STATUS="$(cat "$SVG_CODE")"
-  rm -f "$SVG_CODE" "$SVG_ERR"
+  rm -f "$SVG_ERR"
   if [[ "$STATUS" != "200" ]] || ! grep -qi '<svg' "$SVG_OUTPUT"; then
     LAST_ERROR="svg 接口不可用，HTTP $STATUS"
     continue

@@ -122,14 +122,11 @@ def validate_semantics(data: dict[str, Any], errors: list[str], warnings: list[s
 
     participant_ids = ensure_unique(participants, "id", "participants", errors)
     participant_names = ensure_unique(participants, "name", "participants", errors)
-    message_ids = ensure_unique(messages, "id", "messages", errors)
 
     participant_id_set = set(participant_ids)
 
     if len(set(participant_names)) != len(participant_names):
         errors.append("participants.name 必须唯一")
-
-    component_flow_count: dict[str, int] = {pid: 0 for pid in participant_ids}
 
     numeric_message_ids: list[int] = []
     return_message_ids: list[int] = []
@@ -142,13 +139,9 @@ def validate_semantics(data: dict[str, Any], errors: list[str], warnings: list[s
 
         if from_id not in participant_id_set:
             errors.append(f"messages[{index}].from 引用了未定义参与者：{from_id}")
-        else:
-            component_flow_count[from_id] += 1
 
         if to_id not in participant_id_set:
             errors.append(f"messages[{index}].to 引用了未定义参与者：{to_id}")
-        else:
-            component_flow_count[to_id] += 1
 
         if from_id == to_id:
             warnings.append(f"messages[{index}] 是自环消息，确认是否真的需要")
@@ -171,37 +164,34 @@ def validate_semantics(data: dict[str, Any], errors: list[str], warnings: list[s
         if actual != expected:
             warnings.append(f"返回消息编号建议连续，从 R1 开始，当前为 {actual}")
 
-    for pid, count in component_flow_count.items():
-        if count == 0:
-            warnings.append(f"参与者 {pid} 未出现在任何消息中")
+    # Validate groups (optional field)
+    if groups:
+        group_ids = ensure_unique(groups, "id", "groups", errors)
+        group_names = ensure_unique(groups, "name", "groups", errors)
+        if len(set(group_names)) != len(group_names):
+            errors.append("groups.name 必须唯一")
 
-    # Validate groups
-    group_ids = ensure_unique(groups, "id", "groups", errors)
-    group_names = ensure_unique(groups, "name", "groups", errors)
-    if len(set(group_names)) != len(group_names):
-        errors.append("groups.name 必须唯一")
-
-    all_group_participants: set[str] = set()
-    for index, group in enumerate(groups):
-        if not isinstance(group, dict):
-            continue
-        group_participants = group.get("participants", [])
-        if not isinstance(group_participants, list):
-            errors.append(f"groups[{index}].participants 必须是数组")
-            continue
-        for pidx, pid in enumerate(group_participants):
-            if not isinstance(pid, str):
-                errors.append(f"groups[{index}].participants[{pidx}] 必须是字符串")
+        all_group_participants: set[str] = set()
+        for index, group in enumerate(groups):
+            if not isinstance(group, dict):
                 continue
-            if pid not in participant_id_set:
-                errors.append(f"groups[{index}].participants[{pidx}] 引用了未定义参与者：{pid}")
-            if pid in all_group_participants:
-                warnings.append(f"参与者 {pid} 出现在多个组中")
-            all_group_participants.add(pid)
+            group_participants = group.get("participants", [])
+            if not isinstance(group_participants, list):
+                errors.append(f"groups[{index}].participants 必须是数组")
+                continue
+            for pidx, pid in enumerate(group_participants):
+                if not isinstance(pid, str):
+                    errors.append(f"groups[{index}].participants[{pidx}] 必须是字符串")
+                    continue
+                if pid not in participant_id_set:
+                    errors.append(f"groups[{index}].participants[{pidx}] 引用了未定义参与者：{pid}")
+                if pid in all_group_participants:
+                    warnings.append(f"参与者 {pid} 出现在多个组中")
+                all_group_participants.add(pid)
 
-    for pid in participant_ids:
-        if pid not in all_group_participants:
-            warnings.append(f"参与者 {pid} 未被分配到任何组")
+        for pid in participant_ids:
+            if pid not in all_group_participants:
+                warnings.append(f"参与者 {pid} 未被分配到任何组")
 
     out_of_scope = data.get("out_of_scope", [])
     if isinstance(out_of_scope, list):

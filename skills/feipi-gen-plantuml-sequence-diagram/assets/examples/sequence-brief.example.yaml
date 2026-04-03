@@ -74,6 +74,16 @@ messages:
     to: inventory_db
     description: 更新库存状态
     type: sync
+  - id: R3
+    from: order_service
+    to: web_portal
+    description: 返回下单结果
+    type: return
+  - id: R4
+    from: web_portal
+    to: user
+    description: 展示下单结果
+    type: return
 
 layout:
   direction: left_to_right

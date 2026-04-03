@@ -1,6 +1,7 @@
 # 变更记录
 
 ## 2026-04-03
+- `feipi-gen-plantuml-sequence-diagram` v2：补齐渲染覆盖与模板一致性。
 - `feipi-gen-plantuml-arch-diagram` v1：模板驱动并补前后置校验。
 
 ## 2026-04-02

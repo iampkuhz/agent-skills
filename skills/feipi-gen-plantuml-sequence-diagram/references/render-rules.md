@@ -17,21 +17,21 @@
 ## 消息
 
 - 同步消息使用 `->`，返回消息使用 `-->`。
+- 图中的每一条箭头消息都必须来自 brief；不得额外补一条“看起来合理”的返回或通知。
 - 每条消息必须在箭头标签里落地 `Mx/Rx + 描述`。
 - 标签过长时允许插入 `\\n` 换行，但不能删掉编号或改写关键命名。
-- 必须正确使用 `activate` / `deactivate` 表达调用激活关系（如 brief 中有隐含调用栈）。
+- `activate` / `deactivate` 由绘图阶段按调用栈酌情添加，不作为 brief 必填字段。
 - 数据存储类参与者（`type: database`）的消息一般不需要加 `activate` / `deactivate`。
 
-## 分支逻辑（不默认使用）
+## 分支逻辑（默认不支持）
 
-- 默认不画条件分支（`alt` / `else`），除非 brief 中明确要求。
-- 如 brief 中包含条件分支，应使用 `alt ... else ... end`，并给每个分支加标题。
-- 优先用线性流程表达主路径，避免图面过度复杂。
+- 当前模板和 schema 不建模 `alt` / `else` 分支。
+- 若需求强依赖条件分支，先把主路径拆清，再决定是否扩展 brief，而不是直接在图里临时发挥。
 
 ## 布局
 
 - 默认使用 `left_to_right direction`。
-- 建议同时设置 `skinparam nodesep` 与 `skinparam ranksep`。
+- 交付图必须同时设置 `skinparam nodesep` 与 `skinparam ranksep`。
 - `layout.include_legend=true` 时必须包含 `legend`。
 - 生命线过长时优先使用 `autonumber` 自动编号，不要手动维护序号。
 
@@ -39,6 +39,7 @@
 
 1. 参与者 alias 是否与 brief 中的 `id` 一一对应。
 2. 参与者名、消息编号、消息描述是否全部落图。
-3. 图中是否出现 brief 未定义的核心参与者。
+3. 图中是否出现 brief 未定义的额外消息或核心参与者。
 4. 如 brief 包含 `groups`，是否正确使用 `box` / `separator` 分层。
-5. 渲染图是否存在明显重叠、拥挤或标签遮挡。
+5. 是否包含 `nodesep` / `ranksep`，且 `layout.include_legend=true` 时已落 `legend`。
+6. 渲染图是否存在明显重叠、拥挤或标签遮挡。

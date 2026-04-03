@@ -11,6 +11,7 @@
 - skill 维护者负责：schema、模板、样例、校验脚本。
 - 任务发起方负责：具体业务 brief 的内容正确性。
 - 画图执行方负责：先指出 brief 问题，再生成图，不得偷偷改写业务含义。
+- 当前 brief 只建模主路径消息，不单独为 `activate` / `deactivate` 或 `alt` / `else` 建字段。
 
 ## 字段建议
 
@@ -58,3 +59,4 @@
 - `layout.direction`：支持 `left_to_right`（默认）或 `top_to_bottom`。
 - `layout.include_legend`：是否强制包含图例。
 - `out_of_scope`：明确不进入图中的内容，避免生成阶段脑补。
+- `groups`：可选分层信息；若存在且 `separator=true`，生成图时必须补对应的 `separator`。

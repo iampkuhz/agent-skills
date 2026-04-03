@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import re
 import subprocess
@@ -17,8 +18,38 @@ PARTICIPANT_RE = re.compile(
 )
 
 MESSAGE_RE = re.compile(
-    r'^[^\'"]*\b([A-Za-z_][A-Za-z0-9_]*)\s*(-{1,2}>|<-{1,2}|-->>|<<--|-[xX]->|<-[xX]-)\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*$'
+    r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(-{1,2}>|<-{1,2}|-->>|<<--|-[xX]->|<-[xX]-|->>|<-<)\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*$'
 )
+
+MESSAGE_LABEL_RE = re.compile(r"^(M[1-9][0-9]*|R[1-9][0-9]*)\s+(.+?)$")
+
+
+def canonical_arrow_type(arrow: str) -> str:
+    if "x" in arrow.lower():
+        return "destroy"
+    if ">>" in arrow:
+        return "async"
+    if "--" in arrow:
+        return "return"
+    return "sync"
+
+
+def normalize_message_direction(left: str, arrow: str, right: str) -> tuple[str, str]:
+    if arrow.startswith("<") or arrow.startswith("<<"):
+        return right, left
+    return left, right
+
+
+def expected_arrow_types(message_type: str) -> set[str]:
+    mapping = {
+        "sync": {"sync"},
+        "return": {"return"},
+        "async": {"async"},
+        # create 常见写法依赖具体 PlantUML 语法，这里允许同步/异步箭头落图。
+        "create": {"sync", "async"},
+        "destroy": {"destroy"},
+    }
+    return mapping.get(message_type, set())
 
 
 def load_yaml(path: Path) -> Any:
@@ -45,6 +76,38 @@ def load_yaml(path: Path) -> Any:
 
 def normalize_text(text: str) -> str:
     return re.sub(r"\s+", "", text.replace("\\n", ""))
+
+
+def parse_diagram_messages(raw_text: str, errors: list[str]) -> list[dict[str, str]]:
+    parsed: list[dict[str, str]] = []
+    for line_no, line in enumerate(raw_text.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("'") or stripped.startswith("//"):
+            continue
+
+        match = MESSAGE_RE.match(line)
+        if not match:
+            continue
+
+        left_alias, arrow, right_alias, label = match.groups()
+        label_match = MESSAGE_LABEL_RE.match(label.strip())
+        if not label_match:
+            errors.append(f"line {line_no} 的消息标签未使用 `Mx/Rx + 描述`：{label.strip()}")
+            continue
+
+        source_alias, target_alias = normalize_message_direction(left_alias, arrow, right_alias)
+        message_id, description = label_match.groups()
+        parsed.append(
+            {
+                "from": source_alias,
+                "to": target_alias,
+                "id": message_id,
+                "description": description,
+                "arrow_type": canonical_arrow_type(arrow),
+                "line_no": str(line_no),
+            }
+        )
+    return parsed
 
 
 def main() -> int:
@@ -87,6 +150,7 @@ def main() -> int:
 
     expected_participants = brief.get("participants", [])
     expected_messages = brief.get("messages", [])
+    layout = brief.get("layout", {})
 
     participant_ids = {item.get("id") for item in expected_participants if isinstance(item, dict)}
 
@@ -122,7 +186,33 @@ def main() -> int:
                 if isinstance(pid, str) and pid not in alias_to_name:
                     errors.append(f"groups[{index}].participants[{pidx}] 引用了未定义 alias: {pid}")
 
-    lines = raw_text.splitlines()
+        expected_separator_count = sum(
+            1 for group in expected_groups if isinstance(group, dict) and group.get("separator") is True
+        )
+        actual_separator_count = sum(
+            1 for line in raw_text.splitlines() if re.match(r"^\s*separator\b", line)
+        )
+        if actual_separator_count != expected_separator_count:
+            errors.append(
+                f"separator 数量与 brief 不一致：期望 {expected_separator_count}，实际 {actual_separator_count}"
+            )
+
+    if isinstance(layout, dict) and layout.get("include_legend") is True:
+        if not re.search(r"^\s*legend\b", raw_text, re.MULTILINE):
+            errors.append("layout.include_legend=true 时必须包含 legend")
+
+    diagram_messages = parse_diagram_messages(raw_text, errors)
+    diagram_message_counter = collections.Counter(
+        (
+            item["from"],
+            item["to"],
+            item["id"],
+            normalize_text(item["description"]),
+        )
+        for item in diagram_messages
+    )
+    expected_message_counter = collections.Counter()
+
     for index, message in enumerate(expected_messages):
         if not isinstance(message, dict):
             continue
@@ -130,20 +220,54 @@ def main() -> int:
         from_id = message.get("from")
         to_id = message.get("to")
         description = message.get("description")
+        message_type = message.get("type")
 
-        matched_line = False
-        if all(isinstance(value, str) for value in (msg_id, from_id, to_id)):
-            for line in lines:
-                if from_id in line and to_id in line and msg_id in line:
-                    matched_line = True
-                    break
-        if not matched_line:
-            errors.append(f"messages[{index}] 未找到包含 from/to/id 的连线：{msg_id}")
+        if all(isinstance(value, str) for value in (msg_id, from_id, to_id, description)):
+            signature = (from_id, to_id, msg_id, normalize_text(description))
+            expected_message_counter[signature] += 1
+            if diagram_message_counter[signature] < expected_message_counter[signature]:
+                errors.append(f"messages[{index}] 未找到完全匹配的连线：{msg_id}")
 
         if isinstance(msg_id, str) and msg_id not in raw_text:
             errors.append(f"messages[{index}].id 未落图：{msg_id}")
         if isinstance(description, str) and normalize_text(description) not in normalized_text:
             errors.append(f"messages[{index}].description 未落图：{description}")
+
+        if isinstance(message_type, str) and all(
+            isinstance(value, str) for value in (msg_id, from_id, to_id, description)
+        ):
+            expected_signature = (from_id, to_id, msg_id, normalize_text(description))
+            matching_messages = [
+                item
+                for item in diagram_messages
+                if (
+                    item["from"],
+                    item["to"],
+                    item["id"],
+                    normalize_text(item["description"]),
+                )
+                == expected_signature
+            ]
+            allowed_arrow_types = expected_arrow_types(message_type)
+            if allowed_arrow_types and matching_messages:
+                if any(item["arrow_type"] not in allowed_arrow_types for item in matching_messages):
+                    errors.append(
+                        f"messages[{index}] 箭头类型与 brief.type 不一致：{msg_id} 期望 {sorted(allowed_arrow_types)}"
+                    )
+
+    for item in diagram_messages:
+        signature = (
+            item["from"],
+            item["to"],
+            item["id"],
+            normalize_text(item["description"]),
+        )
+        if expected_message_counter[signature] == 0:
+            errors.append(
+                f"line {item['line_no']} 存在 brief 未定义的额外消息：{item['id']} {item['description']}"
+            )
+            continue
+        expected_message_counter[signature] -= 1
 
     if errors:
         for error in errors:
