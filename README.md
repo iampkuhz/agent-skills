@@ -3,7 +3,7 @@
 | Skill | 用途 | 特点                                    |
 |---|---|---------------------------------------|
 | `feipi-gen-skills` | 新建或升级其他 skill | 明确 skill 命名规范，基于 best-practice 生成高质量的 skills |
-| `feipi-gen-plantuml-code` | 根据指令生成 PlantUML 并自动校验语法 | 本地 server 优先，失败自动回退公网；内置宽度/布局约束与分类型 reference |
+| `feipi-gen-plantuml-arch-diagram` | 根据 architecture-brief 生成 PlantUML 架构图 | 先校验 brief，再检查命名覆盖、布局和渲染；把需求定义和画图执行分开 |
 | `feipi-read-youtube-video` | 下载 YouTube 视频或提取音频 | 支持下视频或只拿音频                            |
 
 ## 安装 Skill（最简单）

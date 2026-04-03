@@ -1,5 +1,8 @@
 # 变更记录
 
+## 2026-04-03
+- `feipi-gen-plantuml-arch-diagram` v1：模板驱动并补前后置校验。
+
 ## 2026-04-02
 - `feipi-gen-skills` v4：收敛脚手架并补强效果校验。
 
