@@ -1,63 +1,29 @@
 # 本仓库的常用命令入口：
-# - `make new`：初始化 skill 骨架
-# - `make validate`：校验单个 skill 目录
-# - `make list`：列出已有 skills
-# - `make install-links`：将本仓库 skills 软链接到用户目录
-# - `make install-project`：将本仓库 skills 拷贝到指定项目目录
-# - `make test`：按统一入口执行 skill 测试
+# - `make install`：将本仓库 skills 安装到 agent 目录（软链接或拷贝到项目）
+#
+# 用法：
+#   make install
+#     安装到所有已存在的用户级 agent 目录（软链接）
+#   make install AGENT=claudecode
+#     仅安装到 ~/.claude/skills（软链接）
+#   make install DIR=/path/to/project
+#     安装到项目目录 /path/to/project/.agents/skills（拷贝）
+#   make install AGENT=qwen DIR=/path/to/project
+#     安装到项目目录 /path/to/project/.qwen/skills（拷贝）
+#
+# 参数说明：
+#   AGENT: 指定 agent 类型（codex | qwen | qoder | claudecode | openclaw）
+#          未指定时，软链接模式安装到所有已存在目录，拷贝模式使用默认 .agents/skills
+#   DIR:   目标路径
+#          未指定时，安装到用户级目录（软链接模式）
+#          填写项目目录时，安装到该项目内（拷贝模式）
+
 SHELL := /bin/bash
 SKILL ?=
-RESOURCES ?=
-TARGET ?=
-DIR ?=
-PROJECT ?=
 AGENT ?=
+DIR ?=
 
-.PHONY: new validate list install-links install-project test
+.PHONY: install
 
-# 创建新 skill（默认优先 `skills/`，可切换到 `.agents/skills`）。
-# 示例：make new SKILL=gen-api-tests RESOURCES=scripts,references
-# 示例：make new SKILL=gen-api-tests TARGET=repo
-new:
-	@if [[ -z "$(SKILL)" ]]; then echo "用法: make new SKILL=<name> [RESOURCES=scripts,references,assets] [TARGET=auto|skills|repo|<path>]"; exit 1; fi
-	./feipi-scripts/repo/init_skill.sh "$(SKILL)" $(if $(RESOURCES),--resources "$(RESOURCES)") $(if $(TARGET),--target "$(TARGET)")
-
-# 校验一个 skill 目录。
-# 示例：make validate DIR=skills/feipi-gen-skills
-# 示例：make validate DIR=.agents/skills/feipi-gen-skills
-validate:
-	@if [[ -z "$(DIR)" ]]; then echo "用法: make validate DIR=<skill-dir>/<name>"; exit 1; fi
-	./feipi-scripts/repo/quick_validate.sh "$(DIR)"
-
-# 列出 `skills/` 与 `.agents/skills/` 下一层目录。
-list:
-	@{ \
-		if [[ -d skills ]]; then find skills -maxdepth 1 -mindepth 1 -type d; fi; \
-		if [[ -d .agents/skills ]]; then find .agents/skills -maxdepth 1 -mindepth 1 -type d; fi; \
-	} | sort
-
-# 将仓库 `skills/` 下各 skill 软链接到目标目录。
-# 默认行为：自动检测所有 agent 目标目录（~/.codex/skills, ~/.qwen/skills, ~/.qoder/skills, ~/.claude/skills, ~/.openclaw/skills），存在即安装。
-# 示例：
-# - make install-links                           # 自动安装到所有已存在的 agent 目录
-# - AGENT=claudecode make install-links          # 仅安装到 ~/.claude/skills
-# - AGENT=qwen make install-links                # 仅安装到 ~/.qwen/skills
-install-links:
-	AGENT="$(AGENT)" ./feipi-scripts/repo/install_skills_links.sh
-
-# 将仓库 `skills/` 下各 skill 复制安装到指定项目目录（覆盖式）。
-# 示例：
-# - make install-project PROJECT=/path/to/project
-# - AGENT=qwen make install-project PROJECT=/path/to/project
-# - make install-project PROJECT=/path/to/project AGENT=codex
-install-project:
-	@if [[ -z "$(PROJECT)" ]]; then echo "用法: make install-project PROJECT=<path> [AGENT=codex|qwen|qoder|coder|claudecode|openclaw]"; exit 1; fi
-	./feipi-scripts/repo/install_skills_project.sh "$(PROJECT)" $(if $(AGENT),--agent "$(AGENT)")
-
-# 统一执行 skill 测试入口。
-# 示例：
-# - make test SKILL=feipi-read-youtube-video
-# - make test SKILL=read-youtube-video
-test:
-	@if [[ -z "$(SKILL)" ]]; then echo "用法: make test SKILL=<name>"; exit 1; fi
-	./feipi-scripts/repo/run_skill_test.sh "$(SKILL)"
+install:
+	./feipi-scripts/repo/install_skills.sh $(if $(AGENT),--agent "$(AGENT)") $(if $(DIR),--dir "$(DIR)")
