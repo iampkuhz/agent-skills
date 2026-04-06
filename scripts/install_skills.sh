@@ -173,7 +173,38 @@ link_item() {
       echo "  已存在，跳过：$label"
       return 0
     fi
-    rm -f "$dest"
+
+    # 检查是否需要移除旧的软链接：
+    # 1. 软链接指向的源文件夹属于仓库文件
+    # 2. 原始 skill 文件夹已不存在
+    if [[ -d "$current_target" ]]; then
+      local current_target_dir
+      current_target_dir="$(cd "$current_target" && pwd)"
+      local repo_root
+      repo_root="$(cd "$REPO_ROOT" && pwd)"
+
+      # 判断软链接指向的目录是否在仓库根目录下（子孙目录都算）
+      if [[ "$current_target_dir" == "$repo_root"/* ]]; then
+        # 检查原始 skill 是否已不存在
+        local skill_name
+        skill_name="$(basename "$current_target")"
+        local src_dir
+        src_dir="$(cd "$SRC_ROOT" && pwd)"
+        local original_skill="$src_dir/$skill_name"
+
+        if [[ ! -e "$original_skill" ]]; then
+          rm -f "$dest"
+          echo "  移除失效的软链接：$label (原指向：$current_target)"
+        fi
+      else
+        # 软链接指向非仓库文件，保留或提示
+        echo "  警告：现有软链接指向非仓库文件，跳过：$dest -> $current_target" >&2
+        return 1
+      fi
+    else
+      # 软链接目标不存在，直接移除
+      rm -f "$dest"
+    fi
   elif [[ -e "$dest" ]]; then
     echo "  警告：目标已存在且非软链接，跳过：$dest" >&2
     return 1
