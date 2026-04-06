@@ -18,8 +18,6 @@ box "后端层" #EEEEEE
   participant "支付网关" as payment_gateway
 endbox
 
-separator
-
 box "数据层" #FFFFFF
   database "订单库" as order_db
   database "库存库" as inventory_db
