@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # feipi-skill-govern 自测入口。
-# 目标：除了校验自身结构，还验证初始化、命名规则、layer 归位和治理模板是否真的可用。
+# 目标：除了校验自身结构，还验证初始化、命名规则、layer 归位以及“临时治理产物不回流到 skill 内部”的约束。
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -39,7 +39,10 @@ run_case() {
     "$SKILL_DIR/references/skill-layering-policy.md"
     "$SKILL_DIR/references/workflow.md"
     "$SKILL_DIR/references/governance-process.md"
+    "$SKILL_DIR/references/governance-artifacts.md"
     "$SKILL_DIR/references/quality-checklist.md"
+    "$SKILL_DIR/references/repo-constraints.md"
+    "$SKILL_DIR/references/anti-patterns.md"
     "$SKILL_DIR/templates/SKILL.template.md"
     "$SKILL_DIR/templates/test.template.sh"
   )
@@ -112,13 +115,20 @@ run_case() {
       [[ "$code" -ne 0 ]]
       grep -Fq "skills/<layer>/<skill-name>" <<<"$output"
       ;;
-    governance-templates-present)
-      [[ -f "$SKILL_DIR/assets/governance/step-1-audit.template.md" ]]
-      [[ -f "$SKILL_DIR/assets/governance/step-1-5-rename-review.template.md" ]]
-      [[ -f "$SKILL_DIR/assets/governance/step-2-execution-checklist.template.md" ]]
-      [[ -f "$SKILL_DIR/assets/governance/rename-plan.template.md" ]]
-      [[ -f "$SKILL_DIR/assets/governance/governance-report.template.md" ]]
-      [[ -f "$SKILL_DIR/assets/governance/anti-pattern.template.md" ]]
+    governance-temp-artifacts-absent)
+      [[ ! -d "$SKILL_DIR/assets/governance" ]]
+      ! find "$SKILL_DIR" -type f \
+        \( \
+          -name 'step-1-audit.template.md' -o \
+          -name 'step-1-5-rename-review.template.md' -o \
+          -name 'step-2-execution-checklist.template.md' -o \
+          -name 'rename-plan.template.md' -o \
+          -name 'governance-report.template.md' -o \
+          -name 'anti-pattern.template.md' \
+        \) | grep -q .
+      ! rg -n 'assets/governance/' \
+        "$SKILL_DIR/SKILL.md" \
+        "$SKILL_DIR/references/"*.md
       ;;
     legacy-rule-scan)
       ! rg -n 'feipi-<action>-<target\.\.\.>|domain-action-object|prefix-domain-action-object' "${normative_files[@]}"
@@ -139,7 +149,7 @@ for case_name in \
   validate-detects-placeholder \
   validate-detects-maintenance-command \
   validate-detects-flat-repo-path \
-  governance-templates-present \
+  governance-temp-artifacts-absent \
   legacy-rule-scan
 do
   TOTAL=$((TOTAL + 1))

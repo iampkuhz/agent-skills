@@ -9,6 +9,7 @@
   - `scripts/test.sh`
 - `references/`、`assets/`、`templates/` 按需存在；没有复用价值时不要硬加目录。
 - 禁止在仓库根目录保留给多个 skill 兜底的公共 `templates/`；模板必须下沉到 `feipi-skill-govern/templates/` 或目标 skill 自己的 `templates/` / `assets/`。
+- Step 1 / Step 1.5 / Step 2 / Step 3 文档、rename plan、governance report、anti-pattern 草稿都属于临时治理产物，必须写到仓库根 `tmp/` 或系统临时目录，禁止提交到 skill 内部。
 
 ## 命名与目录
 

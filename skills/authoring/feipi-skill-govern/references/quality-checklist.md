@@ -29,6 +29,7 @@
 - [ ] assets/ 只保留真正复用的模板或静态资源
 - [ ] 核心流程可通过当前 skill 本地脚本闭环，不依赖仓库级共享脚本
 - [ ] 未继续依赖仓库根 `templates/` 或仓库根 `feipi-scripts/` 作为现役 skill 的运行时资源
+- [ ] Step 1 / Step 1.5 / Step 2 / Step 3 文档与 rename plan 未写回 skill 内部，已落到 `tmp/` 或系统临时目录
 
 验证
 - [ ] 已运行结构校验主入口

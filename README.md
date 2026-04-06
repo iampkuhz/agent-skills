@@ -18,6 +18,7 @@ make install-links
 
 这会把 `skills/` 下的技能以软链接方式安装到目标目录（默认 `~/.agents/skills`）。
 当前现役 skill 已不依赖仓库根共享运行时路径；安装脚本里保留的共享路径补齐逻辑仅用于兼容历史迁移场景。
+兼容旧入口 `make install`；未传项目路径时，它等价于 `make install-links`。
 
 可选示例：
 
@@ -46,6 +47,7 @@ make install-project PROJECT=/path/to/project
 
 这会把 `skills/` 下的技能以“实际拷贝”的方式安装到项目目录（默认 `<project>/.agents/skills`），并覆盖同名 skill。
 当前现役 skill 已不依赖仓库根共享运行时路径；安装脚本里保留的共享路径复制逻辑仅用于兼容历史迁移场景。
+兼容旧入口 `make install DIR=/path/to/project`。
 
 可选示例：
 
@@ -72,6 +74,18 @@ openclaw -> `<project>/.openclaw/skills`
 ```
 
 后续新增或修改环境变量时，统一更新此文件，不再按 skill 分散维护。
+
+## 仓库级包装器
+
+仓库根目录只保留极少数包装命令：
+
+```bash
+make help
+make install-links
+make install-project PROJECT=/path/to/project
+```
+
+更细的创建、治理、校验与测试动作，统一回到目标 skill 或 `feipi-skill-govern` 自己的本地脚本，不再在仓库根伪造一组平行 `make new / validate / test / list` 入口。
 
 ## 版本维护
 

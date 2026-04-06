@@ -1,19 +1,17 @@
-# 治理产物与模板索引
+# 治理产物落位与字段说明
 
-## 模板清单
+## 落位规则
 
-| 阶段 | 模板路径 | 用途 |
-|------|----------|------|
-| Step 1 | `assets/governance/step-1-audit.template.md` | 建立当前问题基线 |
-| Step 1.5 | `assets/governance/step-1-5-rename-review.template.md` | 评审 target_name / target_layer |
-| Step 1.5 | `assets/governance/rename-plan.template.md` | 规划重命名与迁移执行项 |
-| Step 2 | `assets/governance/step-2-execution-checklist.template.md` | 控制执行边界与修复项 |
-| 收口 | `assets/governance/governance-report.template.md` | 汇总问题、修复、验证与风险 |
-| 案例沉淀 | `assets/governance/anti-pattern.template.md` | 记录反模式、症状、修复与检测信号 |
+- Step 1 基线审计、Step 1.5 rename review、rename plan、Step 2 checklist、governance report、anti-pattern 草稿都属于临时治理产物。
+- 这些文件只能写到仓库根 `tmp/` 或系统临时目录，例如：
+  - `tmp/feipi-video-read-url-step1-audit.md`
+  - `tmp/feipi-video-read-url-rename-plan.md`
+  - `tmp/feipi-video-read-url-governance-report.md`
+- 禁止把这些临时文档提交到任意 skill 的 `assets/`、`references/`、`templates/` 或其他内部目录。
 
 ## 通用字段
 
-以下字段应在相关模板中出现，并保持同名：
+以下字段应在相关临时文档中按需出现，并保持同名：
 
 - `current_name`
 - `target_name`
@@ -29,6 +27,6 @@
 
 ## 使用原则
 
-- 模板是治理产物骨架，不替代真实分析与验证。
+- 临时文档只提供治理过程记录，不替代真实分析与验证。
 - 若本次不涉及命名迁移，可跳过 Step 1.5，但仍需在 report 中说明原因。
-- 旧 rename 结论若不符合 v2，必须通过 Step 1.5 重审，不能直接复用历史模板。
+- 旧 rename 结论若不符合 v2，必须通过 Step 1.5 重审，不能直接复用历史结论。

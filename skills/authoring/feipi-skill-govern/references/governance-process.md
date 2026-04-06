@@ -24,7 +24,7 @@
 - 区分哪些是命名 / layer 问题，哪些是触发、执行、资源、脚本、验证问题。
 
 输出：
-- `assets/governance/step-1-audit.template.md`
+- Step 1 基线审计文档（临时文件）
 
 必须填写的核心字段：
 - `current_name`
@@ -41,8 +41,8 @@
 - 已有 rename 结论来自旧的 action-first 规则
 
 输出：
-- `assets/governance/step-1-5-rename-review.template.md`
-- `assets/governance/rename-plan.template.md`
+- Step 1.5 rename review 文档（临时文件）
+- rename plan 文档（临时文件）
 
 必须填写的核心字段：
 - `current_name`
@@ -62,7 +62,7 @@
 - 让触发、执行、资源、脚本、验证重新对齐。
 
 输出：
-- `assets/governance/step-2-execution-checklist.template.md`
+- Step 2 execution checklist（临时文件）
 
 必须做到：
 - 不无边界扩散到其他 skills
@@ -75,8 +75,13 @@
 - 证明这次治理不是只改文案，而是真正可运行、可验证、可追溯。
 
 输出：
-- `assets/governance/governance-report.template.md`
+- governance report（临时文件）
 - `references/reassessment-backlog.md` 中的新增待重审项
+
+临时产物落位：
+- 统一写到仓库根 `tmp/` 或系统临时目录。
+- 禁止写回任意 skill 的 `assets/`、`references/`、`templates/` 或其他内部目录。
+- 若需要示例文件名，优先使用 `tmp/<skill-name>-step1-audit.md`、`tmp/<skill-name>-rename-plan.md`、`tmp/<skill-name>-governance-report.md`。
 
 ## 暂停与重启规则
 

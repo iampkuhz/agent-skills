@@ -47,7 +47,7 @@ description: 用于治理 repo 内 skill 的命名、触发、执行、模板、
 - 问题清单：哪些文件残留旧规则、违反了什么。
 - 修复结果：改了什么、为什么这样改、边界控制在哪里。
 - 验证结果：主验证入口、执行命令、通过/失败、剩余风险。
-- 治理产物：Step 1 / Step 1.5 / Step 2 模板、rename plan、governance report、待重审清单。
+- 治理产物：Step 1 / Step 1.5 / Step 2 / Step 3 的临时工作文档、待重审清单。
 
 ## 决策顺序
 
@@ -73,23 +73,23 @@ description: 用于治理 repo 内 skill 的命名、触发、执行、模板、
 1. Step 1：基线审计
 - 读取目标 skill 的入口文件和直接资源。
 - 产出问题清单，标记命名、layer、触发、执行、资源、脚本归位、验证七类状态。
-- 模板见 `assets/governance/step-1-audit.template.md`。
+- 产物必须写到仓库根 `tmp/` 或系统临时目录，不得写回 skill 内部目录。
 
 2. Step 1.5：命名与归位评审
 - 只有涉及命名、layer 或迁移路径时进入此步。
 - 先定 `target_domain`，再定 `target_action`，再定 `target_object`，最后定 `target_layer`。
-- 模板见 `assets/governance/step-1-5-rename-review.template.md` 与 `assets/governance/rename-plan.template.md`。
+- 产出 rename review 与 rename plan 草稿；统一放到仓库根 `tmp/` 或系统临时目录。
 
 3. Step 2：定点修复
 - 只修改目标 skill 与直接共享文件。
 - 同步修触发配置、`SKILL.md`、`references/`、`scripts/`、`assets/`、`templates/` 的一致性。
 - 若发现仓库根目录残留的公共模板或运行时脚本，优先迁回目标 skill 内部；无法证明仍被现役 skill 使用时，直接删除。
-- 检查项见 `assets/governance/step-2-execution-checklist.template.md`。
+- Step 2 检查清单属于临时执行文档，只能写到 `tmp/` 或系统临时目录。
 
 4. Step 3：验证与收口
 - 先做结构校验，再做行为校验，再做旧规则残留搜索。
 - 输出 governance report、validation status 与待重审清单。
-- 模板见 `assets/governance/governance-report.template.md`。
+- governance report 属于临时治理文档，不得沉淀回当前 skill。
 
 ## 失败处理
 
@@ -104,7 +104,7 @@ description: 用于治理 repo 内 skill 的命名、触发、执行、模板、
 - `references/skill-layering-policy.md`：layer 的职责、边界与禁忌。
 - `references/workflow.md`：执行顺序、边界、失败处理、验证矩阵。
 - `references/governance-process.md`：Step 1 / Step 1.5 / Step 2 / Step 3 的治理流程。
-- `references/governance-artifacts.md`：治理模板与字段说明。
+- `references/governance-artifacts.md`：临时治理产物的落位规则与字段说明。
 - `references/quality-checklist.md`：交付前核查清单。
 - `references/reassessment-backlog.md`：既有治理结论待重审清单。
 - 其他规则见 `references/repo-constraints.md`、`references/changelog-policy.md`、`references/version-policy.md`、`references/anti-patterns.md`。

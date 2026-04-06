@@ -219,6 +219,27 @@ if [[ -f "$TARGET_DIR/references/.env.example" ]]; then
   exit 1
 fi
 
+if [[ "$BASE" == "feipi-skill-govern" ]]; then
+  if [[ -d "$TARGET_DIR/assets/governance" ]]; then
+    echo "feipi-skill-govern 禁止在 skill 内部提交临时治理产物目录 assets/governance/" >&2
+    exit 1
+  fi
+
+  if find "$TARGET_DIR" -type f \
+    \( \
+      -name 'step-1-audit.template.md' -o \
+      -name 'step-1-5-rename-review.template.md' -o \
+      -name 'step-2-execution-checklist.template.md' -o \
+      -name 'rename-plan.template.md' -o \
+      -name 'governance-report.template.md' -o \
+      -name 'anti-pattern.template.md' \
+    \) | grep -q .
+  then
+    echo "feipi-skill-govern 检测到误提交的临时治理文档模板，请移到 tmp/ 或系统临时目录" >&2
+    exit 1
+  fi
+fi
+
 if rg -q '[A-Za-z]:\\|\\[A-Za-z0-9._-]+' "$SKILL_FILE"; then
   echo "SKILL.md 检测到 Windows 风格路径，请统一使用正斜杠" >&2
   exit 1

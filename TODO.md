@@ -1,5 +1,4 @@
 # TODO
 
-## remove feipi-scripts/repo/*.sh
-1. 简化 makefile, 不要引用
-
+当前无仓库级阻塞待办。
+后续若新增包装器，优先放在仓库根 `scripts/`，不要回到 `feipi-scripts/repo/`。

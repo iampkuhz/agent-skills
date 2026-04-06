@@ -47,3 +47,9 @@
 **症状**：Step 2C / Step 2D 继续沿用旧规则产出的 rename plan。
 
 **修复**：暂停后续迁移，回到 Step 1 和 Step 1.5 重新审计与评审。
+
+## 把临时治理文档提交进 skill
+
+**症状**：Step 1 基线审计、Step 1.5 rename review、Step 2 checklist、governance report 或 anti-pattern 草稿出现在 skill 的 `assets/`、`references/`、`templates/` 内。
+
+**修复**：把这类文档移到仓库根 `tmp/` 或系统临时目录；skill 内只保留长期规则、脚本和可复用模板。

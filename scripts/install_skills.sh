@@ -7,17 +7,17 @@ set -euo pipefail
 # 2. 拷贝模式：安装到项目目录内（<project>/.agents/skills 等）
 #
 # 用法：
-#   ./install_skills.sh
+#   ./scripts/install_skills.sh
 #     软链接到所有已存在的用户级 agent 目录
-#   ./install_skills.sh --agent claudecode
+#   ./scripts/install_skills.sh --agent claudecode
 #     软链接到 ~/.claude/skills
-#   ./install_skills.sh --dir /path/to/project
+#   ./scripts/install_skills.sh --dir /path/to/project
 #     拷贝到 /path/to/project/.agents/skills
-#   ./install_skills.sh --agent qwen --dir /path/to/project
+#   ./scripts/install_skills.sh --agent qwen --dir /path/to/project
 #     拷贝到 /path/to/project/.qwen/skills
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SRC_ROOT="$REPO_ROOT/skills"
 
 AGENT_NAME=""
@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]]; do
       fi
       TARGET_DIR="$1"
       ;;
-    -* )
+    -*)
       echo "未知参数：$1" >&2
       exit 1
       ;;
@@ -76,8 +76,8 @@ get_user_dest_root() {
   local agent="$1"
   case "$agent" in
     codex)
-      local CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
-      echo "$CODEX_HOME_DIR/skills"
+      local codex_home_dir="${CODEX_HOME:-$HOME/.codex}"
+      echo "$codex_home_dir/skills"
       ;;
     qoder)
       echo "$HOME/.qoder/skills"
@@ -89,8 +89,8 @@ get_user_dest_root() {
       echo "$HOME/.claude/skills"
       ;;
     openclaw)
-      local OPENCLAW_HOME_DIR="${OPENCLAW_HOME:-$HOME/.openclaw}"
-      echo "$OPENCLAW_HOME_DIR/skills"
+      local openclaw_home_dir="${OPENCLAW_HOME:-$HOME/.openclaw}"
+      echo "$openclaw_home_dir/skills"
       ;;
     "")
       echo "$HOME/.agents/skills"
@@ -146,11 +146,19 @@ find_existing_agents() {
 }
 
 collect_shared_roots() {
+  local root_name=""
+
   rg -o --no-filename '\$REPO_ROOT/[A-Za-z0-9._/-]+' "$SRC_ROOT" -g '*.sh' 2>/dev/null \
     | sed -E 's#^\$REPO_ROOT/##' \
     | cut -d'/' -f1 \
-    | rg -v '^[[:space:]]*$' \
-    | sort -u || true
+    | sort -u \
+    | while IFS= read -r root_name; do
+      [[ -z "$root_name" ]] && continue
+      [[ "$root_name" == "skills" ]] && continue
+      [[ "$root_name" == .* ]] && continue
+      [[ -e "$REPO_ROOT/$root_name" ]] || continue
+      printf '%s\n' "$root_name"
+    done
 }
 
 link_item() {
@@ -252,20 +260,19 @@ install_skills() {
   echo "$installed $skipped"
 }
 
-TOTAL_INSTALLED=0
-TOTAL_SKIPPED=0
+total_installed=0
+total_skipped=0
 
 if [[ -n "$TARGET_DIR" ]]; then
-  # ========== 拷贝模式：安装到项目目录 ==========
   if [[ ! -d "$TARGET_DIR" ]]; then
     echo "项目路径不存在或不是目录：$TARGET_DIR" >&2
     exit 1
   fi
 
-  PROJECT_ROOT="$(cd "$TARGET_DIR" && pwd)"
-  DEST_ROOT="$(get_project_dest_root "$AGENT_NAME" "$PROJECT_ROOT")"
+  project_root="$(cd "$TARGET_DIR" && pwd)"
+  dest_root="$(get_project_dest_root "$AGENT_NAME" "$project_root")"
 
-  if [[ -z "$DEST_ROOT" ]]; then
+  if [[ -z "$dest_root" ]]; then
     if [[ -n "$AGENT_NAME" ]]; then
       echo "未知 AGENT: ${AGENT_NAME}（支持 codex | qwen | qoder | claudecode | openclaw）" >&2
     else
@@ -274,20 +281,18 @@ if [[ -n "$TARGET_DIR" ]]; then
     exit 1
   fi
 
-  if [[ "$DEST_ROOT" != "$PROJECT_ROOT"/* ]]; then
-    echo "目标路径不在项目目录内，已拒绝：$DEST_ROOT" >&2
+  if [[ "$dest_root" != "$project_root"/* ]]; then
+    echo "目标路径不在项目目录内，已拒绝：$dest_root" >&2
     exit 1
   fi
 
-  result=$(install_skills "copy" "$DEST_ROOT" "copy_dir" "安装到项目：$DEST_ROOT")
-  installed=$(echo "$result" | tail -1 | cut -d' ' -f1)
-  skipped=$(echo "$result" | tail -1 | cut -d' ' -f2)
-  TOTAL_INSTALLED=$((TOTAL_INSTALLED + installed))
-  TOTAL_SKIPPED=$((TOTAL_SKIPPED + skipped))
-
+  result="$(install_skills "copy" "$dest_root" "copy_dir" "安装到项目：$dest_root")"
+  installed="$(echo "$result" | tail -1 | cut -d' ' -f1)"
+  skipped="$(echo "$result" | tail -1 | cut -d' ' -f2)"
+  total_installed=$((total_installed + installed))
+  total_skipped=$((total_skipped + skipped))
 else
-  # ========== 软链接模式：安装到用户级目录 ==========
-  declare -a TARGET_AGENTS=()
+  declare -a target_agents=()
 
   if [[ -n "$AGENT_NAME" ]]; then
     dest="$(get_user_dest_root "$AGENT_NAME")"
@@ -296,40 +301,40 @@ else
       exit 1
     fi
     mkdir -p "$(dirname "$dest")"
-    TARGET_AGENTS+=("$AGENT_NAME:$dest")
+    target_agents+=("$AGENT_NAME:$dest")
   else
     existing="$(find_existing_agents)"
     if [[ -z "$existing" ]]; then
       dest="$(get_user_dest_root "")"
       mkdir -p "$(dirname "$dest")"
-      TARGET_AGENTS+=(":$dest")
+      target_agents+=(":$dest")
       echo "未发现任何 agent 目标目录，使用默认：$dest"
     else
       for agent in $existing; do
         dest="$(get_user_dest_root "$agent")"
         mkdir -p "$(dirname "$dest")"
-        TARGET_AGENTS+=("$agent:$dest")
+        target_agents+=("$agent:$dest")
       done
       echo "检测到已存在的 agent 目录：$existing"
     fi
   fi
 
-  for agent_entry in "${TARGET_AGENTS[@]}"; do
+  for agent_entry in "${target_agents[@]}"; do
     agent="${agent_entry%%:*}"
-    DEST_ROOT="${agent_entry#*:}"
+    dest_root="${agent_entry#*:}"
 
     if [[ -n "$agent" ]]; then
-      result=$(install_skills "link" "$DEST_ROOT" "link_item" "安装到 $agent -> $DEST_ROOT")
+      result="$(install_skills "link" "$dest_root" "link_item" "安装到 $agent -> $dest_root")"
     else
-      result=$(install_skills "link" "$DEST_ROOT" "link_item" "安装到 $DEST_ROOT")
+      result="$(install_skills "link" "$dest_root" "link_item" "安装到 $dest_root")"
     fi
-    installed=$(echo "$result" | tail -1 | cut -d' ' -f1)
-    skipped=$(echo "$result" | tail -1 | cut -d' ' -f2)
-    TOTAL_INSTALLED=$((TOTAL_INSTALLED + installed))
-    TOTAL_SKIPPED=$((TOTAL_SKIPPED + skipped))
+    installed="$(echo "$result" | tail -1 | cut -d' ' -f1)"
+    skipped="$(echo "$result" | tail -1 | cut -d' ' -f2)"
+    total_installed=$((total_installed + installed))
+    total_skipped=$((total_skipped + skipped))
   done
 fi
 
 echo ""
 echo "========================================"
-echo "总计：安装/更新 ${TOTAL_INSTALLED}，跳过 ${TOTAL_SKIPPED}"
+echo "总计：安装/更新 ${total_installed}，跳过 ${total_skipped}"

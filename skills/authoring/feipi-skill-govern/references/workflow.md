@@ -28,6 +28,7 @@
 - 触发问题：优先改 frontmatter、`agents/openai.yaml`。
 - 执行问题：优先改 `SKILL.md`、直接关联的 `references/`。
 - 资源和脚本问题：优先改本地 `scripts/`、`assets/`、`templates/`，不要继续把仓库级包装器当核心依赖。
+- 临时治理文档：只输出到仓库根 `tmp/` 或系统临时目录，禁止写回 skill 内部。
 
 5. Step 3 验证与收口
 - 结构校验：`bash scripts/validate.sh <skill-dir>`。
@@ -44,7 +45,7 @@
 - 执行边界不清：
   改 `SKILL.md` 与 `references/governance-process.md`。
 - 模板漂移：
-  改 `templates/` 与 `assets/governance/`。
+  改 `templates/` 与 `references/governance-artifacts.md` 的字段约束，不把临时治理文档提交进 skill。
 - 本地闭环不足：
   改 `scripts/init_skill*.sh`、`scripts/validate.sh`、`scripts/test.sh`。
 
