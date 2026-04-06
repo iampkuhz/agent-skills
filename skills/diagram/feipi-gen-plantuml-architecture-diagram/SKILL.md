@@ -1,5 +1,5 @@
 ---
-name: feipi-gen-plantuml-arch-diagram
+name: feipi-gen-plantuml-architecture-diagram
 description: 用于根据 architecture-brief 模板生成并校验 PlantUML 架构图。在用户希望把需求定义和画图执行分离，并要求结果可渲染、可覆盖核对时使用。
 ---
 

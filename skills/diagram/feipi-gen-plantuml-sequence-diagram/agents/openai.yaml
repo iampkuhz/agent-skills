@@ -1,4 +1,4 @@
-version: 2
+version: 4
 interface:
   display_name: "PlantUML 时序图生成与校验（中文）"
   short_description: "根据 sequence-brief 生成 PlantUML 时序图，并校验覆盖、布局与渲染。"
