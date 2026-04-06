@@ -1,5 +1,5 @@
 ---
-name: feipi-automate-dingtalk-webhook
+name: feipi-web-dingtalk-webhook
 description: 用于向钉钉群机器人 webhook 发送文本或 Markdown 消息，覆盖环境变量读取、可选加签、Markdown 语法收敛和结果校验。在用户要发送部署通知、告警推送、任务结果播报或测试钉钉机器人连通性时使用。
 ---
 

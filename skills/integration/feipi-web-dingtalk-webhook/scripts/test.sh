@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# feipi-automate-dingtalk-webhook 统一测试入口。
+# feipi-web-dingtalk-webhook 统一测试入口。
 # 目标：做离线自测，覆盖目录有效性、文本/Markdown 脚本的基础报错路径。
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -90,4 +90,4 @@ if [[ "$FAILED" -ne 0 ]]; then
   exit 1
 fi
 
-echo "测试通过: feipi-automate-dingtalk-webhook"
+echo "测试通过: feipi-web-dingtalk-webhook"

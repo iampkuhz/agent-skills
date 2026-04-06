@@ -1,5 +1,4 @@
-# feipi-automate-dingtalk-webhook 离线自测项
-validate-self
+# feipi-web-dingtalk-webhook 离线自测项
 text-missing-env
 markdown-missing-env
 markdown-missing-secret
