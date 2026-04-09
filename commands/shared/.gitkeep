@@ -1,0 +1,41 @@
+# Shared Commands
+
+> 存放所有客户端共享的 Slash Commands
+
+---
+
+## 当前 Commands
+
+（待创建）
+
+## 创建指南
+
+1. 在 `commands/shared/` 目录下创建 `.md` 文件
+2. 文件名即为 command 名称（不含斜杠）
+3. 文件内容以 `# /<command-name>` 开头
+
+### 示例：help.md
+
+```markdown
+# /help
+
+显示仓库级帮助信息。
+
+## 用法
+
+```
+/help [主题]
+```
+
+## 可用主题
+
+- `skills` - Skills 列表
+- `commands` - Commands 列表
+- `tools` - Tools 列表
+
+## 示例
+
+```
+/help skills
+```
+```

@@ -1,0 +1,15 @@
+# Diagram Rules
+
+> 图表绘制规范，适用于架构图/时序图场景
+
+---
+
+## 当前规则
+
+（待创建）
+
+## 计划规则
+
+- `plantuml.md` - PlantUML 规范
+- `naming.md` - 图表命名约定
+- `review-checklist.md` - 图表审查清单

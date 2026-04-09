@@ -1,0 +1,16 @@
+# Review Rules
+
+> 代码审查规范，适用于 PR/变更审查场景
+
+---
+
+## 当前规则
+
+（待创建）
+
+## 计划规则
+
+- `checklist.md` - 审查清单
+- `security.md` - 安全审查
+- `performance.md` - 性能审查
+- `accessibility.md` - 可访问性审查

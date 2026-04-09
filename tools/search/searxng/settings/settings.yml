@@ -1,0 +1,87 @@
+# ============================================================
+# SearXNG 配置文件
+# 文档：https://docs.searxng.org/admin/settings/settings.html
+# ============================================================
+
+# 使用默认设置，只覆盖需要修改的部分
+use_default_settings: true
+
+# ------------------------------------------------------------
+# 通用设置
+# ------------------------------------------------------------
+general:
+  instance_name: "SearXNG"          # 实例名称，显示在页面标题和头部
+
+# ------------------------------------------------------------
+# 服务器设置
+# ------------------------------------------------------------
+server:
+  secret_key: "searxng-secret-key"  # 会话加密密钥，生产环境应改为随机字符串
+  # base_url: ""                    # 可选：自定义实例 URL（用于反向代理场景）
+  limiter:
+    enabled: false                  # 禁用速率限制（开发环境）
+  # 或者使用 public_instance 允许所有访问
+  public_instance: true             # 公开实例，允许所有访问
+
+# ------------------------------------------------------------
+# 出站请求设置
+# ------------------------------------------------------------
+outgoing:
+  # 代理配置 - 用于通过宿主机代理访问国外服务
+  # Podman 容器内访问宿主机需用 host.containers.internal
+  # Docker 容器内访问宿主机需用 host.docker.internal
+  # Linux 主机可用 172.17.0.1 (Docker 网桥) 或 10.0.2.2 (Podman 根少模式)
+  proxies:
+    http: "http://host.containers.internal:7890"
+    https: "http://host.containers.internal:7890"
+
+  # SSL 证书验证
+  # true = 验证 HTTPS 证书（推荐）
+  # false = 跳过验证（仅用于自签名证书测试环境）
+  verify_ssl: true
+
+# ------------------------------------------------------------
+# 引擎配置
+# ------------------------------------------------------------
+# 注意：当 use_default_settings: true 时，需要明确指定要禁用的引擎
+# 格式:
+#   - name: 引擎名称
+#     engine: 引擎类名（必须指定才能正确覆盖默认配置）
+#     disabled: true                # 禁用该引擎
+#   - name: 引擎名称
+#     enabled: true                 # 启用该引擎
+# ------------------------------------------------------------
+engines:
+  # --- 需要禁用的引擎（避免启动报错）---
+  - name: ahmia
+    engine: ahmia
+    inactive: true                  # 暗网搜索引擎，需要 Tor
+  - name: torch
+    engine: torch
+    inactive: true                  # 引擎文件不存在，设为 inactive
+  - name: karmasearch
+    engine: karmasearch
+    inactive: true                  # 返回 403 错误
+  - name: karmasearch videos
+    engine: karmasearch videos
+    inactive: true                  # 返回 403 错误
+
+  # --- 启用的搜索引擎 ---
+  - name: google
+    enabled: true
+  - name: bing
+    enabled: true
+  - name: duckduckgo
+    enabled: true
+
+  # --- 图片搜索 ---
+  - name: google images
+    enabled: true
+
+  # --- 知识库 ---
+  - name: wikipedia
+    enabled: true
+
+  # --- 代码 ---
+  - name: github
+    enabled: true

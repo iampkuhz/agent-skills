@@ -1,0 +1,6 @@
+# SearXNG 限流器配置
+# 文档：https://docs.searxng.org/admin/settings/settings-botdetection.html
+
+# 空配置表示使用默认限流设置
+# 如果要禁用限流，可以设置：
+# limiter = false
