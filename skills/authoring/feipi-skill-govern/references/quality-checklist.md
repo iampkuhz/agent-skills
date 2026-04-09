@@ -39,7 +39,7 @@
 - [ ] 已区分仓库根命令与 skill 本地命令
 
 收口
-- [ ] 已记录 current_name、target_name、target_layer、rename_reason、migration_risk
+- [ ] 已记录 current_name、target_name、target_layer、rename_reason
 - [ ] 已记录 script_localization_status 与 validation_status
 - [ ] 已按 version-policy 与 changelog-policy 收口
 - [ ] 已把其他 skill 的问题写入待重审清单，而不是顺手扩散修改

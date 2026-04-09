@@ -21,12 +21,10 @@
 - `target_object`
 - `rename_reason`
 - `rule_violation`
-- `migration_risk`
 - `script_localization_status`
 - `validation_status`
 
 ## 使用原则
 
 - 临时文档只提供治理过程记录，不替代真实分析与验证。
-- 若本次不涉及命名迁移，可跳过 Step 1.5，但仍需在 report 中说明原因。
 - 旧 rename 结论若不符合 v2，必须通过 Step 1.5 重审，不能直接复用历史结论。

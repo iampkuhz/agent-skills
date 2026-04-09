@@ -1,42 +1,40 @@
-"""FastMCP Server Template"""
+"""FastMCP Server Template
 
-from fastmcp import FastMCP
+使用统一的 runtime 框架启动服务
+"""
 
-mcp = FastMCP(
-    "template-mcp",
-    description="FastMCP service template"
-)
+from runtimes.fastmcp import create_mcp
+
+# 创建 MCP 实例
+mcp = create_mcp("template-mcp")
 
 
 @mcp.tool()
-async def example_tool(param: str) -> dict:
-    """
-    Example tool template.
+async def example_tool(query: str) -> dict:
+    """示例工具
 
     Args:
-        param: Parameter description
+        query: 查询字符串
 
     Returns:
-        dict with structure:
-        {
-            "result": str,
-            "status": str
-        }
+        处理结果
     """
     return {
-        "result": f"Processed: {param}",
-        "status": "success"
+        "result": f"Processed: {query}",
+        "status": "success",
     }
 
 
 @mcp.tool()
 async def health_check() -> dict:
-    """Check if service is healthy."""
+    """健康检查"""
     return {
         "healthy": True,
-        "service": "template-mcp"
+        "service": "template-mcp",
     }
 
 
+# 启动入口 - 使用统一的 runtime
 if __name__ == "__main__":
-    mcp.run()
+    from runtimes.fastmcp import run_service
+    run_service("template-mcp", __name__)

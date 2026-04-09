@@ -1,6 +1,38 @@
 # SearXNG 限流器配置
 # 文档：https://docs.searxng.org/admin/settings/settings-botdetection.html
 
-# 空配置表示使用默认限流设置
-# 如果要禁用限流，可以设置：
-# limiter = false
+[botdetection]
+
+# IPv4/IPv6 前缀长度
+ipv4_prefix = 32
+ipv6_prefix = 48
+
+# 信任的代理列表（如果使用反向代理）
+trusted_proxies = [
+  '127.0.0.0/8',
+  '::1',
+]
+
+[botdetection.ip_limit]
+
+# 禁用链路本地地址过滤（开发环境）
+filter_link_local = false
+
+# 禁用 link_token 方法
+link_token = false
+
+[botdetection.ip_lists]
+
+# 放行的 IP 列表（开发环境允许所有本地访问）
+pass_ip = [
+  '127.0.0.0/8',
+  '::1',
+  '0.0.0.0/0',      # 允许所有 IPv4
+  '::/0',           # 允许所有 IPv6
+]
+
+# 阻止的 IP 列表
+block_ip = []
+
+# 放行 SearXNG 组织的 IP
+pass_searxng_org = true

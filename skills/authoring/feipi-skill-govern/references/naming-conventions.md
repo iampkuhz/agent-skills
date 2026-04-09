@@ -118,5 +118,5 @@ feipi-<domain>-<action>-<object...>
 - [ ] 目标名符合 feipi-<domain>-<action>-<object...>
 - [ ] action 是动词原形，不是 web/ops/automate 等低语义词
 - [ ] 未与现有 skill 语义重复
-- [ ] 已在 Step 1.5 记录 rename_reason、rule_violation、migration_risk
+- [ ] 已在 Step 1.5 记录 rename_reason、rule_violation
 ```

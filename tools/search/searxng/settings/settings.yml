@@ -7,6 +7,17 @@
 use_default_settings: true
 
 # ------------------------------------------------------------
+# 搜索设置
+# ------------------------------------------------------------
+search:
+  # 允许的输出格式
+  formats:
+    - html
+    - json
+    - rss
+    - csv
+
+# ------------------------------------------------------------
 # 通用设置
 # ------------------------------------------------------------
 general:
@@ -18,10 +29,16 @@ general:
 server:
   secret_key: "searxng-secret-key"  # 会话加密密钥，生产环境应改为随机字符串
   # base_url: ""                    # 可选：自定义实例 URL（用于反向代理场景）
-  limiter:
-    enabled: false                  # 禁用速率限制（开发环境）
-  # 或者使用 public_instance 允许所有访问
-  public_instance: true             # 公开实例，允许所有访问
+  # limiter: true                   # 启用限流器需要 Valkey 数据库
+  # public_instance: true           # 公开实例（会强制启用 limiter）
+
+# ------------------------------------------------------------
+# Botdetection 配置
+# ------------------------------------------------------------
+# 参考：https://docs.searxng.org/admin/settings/settings-botdetection.html
+# 需要禁用所有检测方法以允许 API 访问
+botdetection:
+  disabled: true
 
 # ------------------------------------------------------------
 # 出站请求设置

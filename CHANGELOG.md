@@ -7,7 +7,7 @@
 - `feipi-plantuml-generate-architecture-diagram` v4：切换 v2 命名并补本地校验。
 - `feipi-plantuml-generate-sequence-diagram` v5：切换 v2 命名并补本地校验。
 - `feipi-dingtalk-send-webhook` v4：切换 v2 命名并补本地闭环。
-- Step 2B 迁移：`feipi-automate-dingtalk-webhook` → `skills/integration/feipi-web-dingtalk-webhook/`，action 从 `automate` 改为 `web`。
+- Step 2B：`feipi-automate-dingtalk-webhook` → `skills/integration/feipi-web-dingtalk-webhook/`，action 从 `automate` 改为 `web`。
 
 ## 2026-04-03
 - `feipi-gen-plantuml-sequence-diagram` v2：补齐渲染覆盖与模板一致性。

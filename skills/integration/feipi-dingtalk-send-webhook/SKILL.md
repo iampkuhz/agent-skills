@@ -21,7 +21,7 @@ description: 用于向钉钉群机器人 webhook 发送文本或 Markdown 消息
 1. 发送 `link`、`actionCard`、`feedCard` 等复杂消息类型。
 2. 需要 `@` 指定人员、手机号列表或群内精细化提醒。
 3. 用户未提供 webhook 环境变量名，且当前对话无法推断目标变量名。
-4. 需要治理、重构或迁移 skill 本身；这类任务应使用 `feipi-skill-govern`。
+4. 需要治理或重构 skill 本身；这类任务应使用 `feipi-skill-govern`。
 
 ## 先确认什么
 

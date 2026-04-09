@@ -56,13 +56,12 @@ agent-tools/
 ```
 tools/
 ├── search/             # 搜索服务
-│   ├── searxng/        # SearXNG 搜索引擎（迁移自外部）
-│   └── searxng-mcp/    # SearXNG MCP 服务（新建）
+│   └── searxng/        # SearXNG 搜索引擎
 ├── crawl/              # 抓取服务
 │   ├── crawl4ai/       # Crawl4AI 服务（占位）
 │   └── crawl4ai-mcp/   # Crawl4AI MCP 服务（占位）
 └── gateway/            # 模型网关
-    └── litellm/        # LiteLLM 代理（迁移自外部）
+    └── litellm/        # LiteLLM 代理
 ```
 
 ---
@@ -81,7 +80,7 @@ tools/
 
 ## 服务说明
 
-### LiteLLM（迁移）
+### LiteLLM
 
 **定位**：本地 AI 模型网关，提供统一的 OpenAI 兼容接口
 
@@ -94,7 +93,7 @@ make litellm-up
 
 **详情**：[tools/gateway/litellm/README.md](tools/gateway/litellm/README.md)
 
-### SearXNG（迁移）
+### SearXNG
 
 **定位**：私有化、无追踪的元搜索引擎
 
@@ -269,36 +268,15 @@ make searxng-mcp-run         # 运行 SearXNG MCP
 完成以下条件时，可判定重构已落地：
 
 - [x] `tools/` 目录结构已创建
-- [x] LiteLLM 已迁移到 `tools/gateway/litellm/`
-- [x] SearXNG 已迁移到 `tools/search/searxng/`
-- [x] SearXNG MCP 已创建于 `tools/search/searxng-mcp/`
+- [x] LiteLLM 已配置到 `tools/gateway/litellm/`
+- [x] SearXNG 已配置到 `tools/search/searxng/`
 - [x] `runtimes/fastmcp/` 已创建
 - [x] `rules/` 目录已创建
 - [x] `commands/` 目录已创建
 - [ ] Crawl4AI 服务已配置
-- [ ] Crawl4AI MCP 已实现
 - [ ] 所有服务可正常启动
-- [ ] MCP 服务可在 Claude Code 中使用
 
 ---
-
-## 迁移说明
-
-### 迁移内容
-
-| 来源 | 目标 | 状态 |
-|------|------|------|
-| `/Users/zhehan/Documents/tools/dotfiles/observability/litellm` | `tools/gateway/litellm/` | ✅ 已迁移 |
-| `/Users/zhehan/Documents/tools/dotfiles/web-tools/searxng` | `tools/search/searxng/` | ✅ 已迁移 |
-
-### 新增内容
-
-| 路径 | 描述 | 状态 |
-|------|------|------|
-| `tools/search/searxng-mcp/` | SearXNG MCP 服务 | 🆕 新建 |
-| `runtimes/fastmcp/` | FastMCP Runtime | 🆕 新建 |
-| `rules/` | 行为规则目录 | 🆕 新建 |
-| `commands/` | Commands 目录 | 🆕 新建 |
 
 ---
 

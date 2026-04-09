@@ -12,8 +12,7 @@
 
 不适用：
 - 普通业务需求
-- 未经授权的批量迁移
-- 没有目标 skill 的开放式“顺手都改一下”
+- 没有目标 skill 的开放式”顺手都改一下”
 
 ## 阶段总览
 
@@ -53,7 +52,6 @@
 - `target_object`
 - `rename_reason`
 - `rule_violation`
-- `migration_risk`
 
 ### Step 2：定点修复
 
@@ -108,5 +106,5 @@
 ## 必须重审的旧成果
 
 - 所有基于旧 action-first 命名产出的 rename 建议。
-- 所有把 `web`、`ops`、`automate` 当核心 action 的迁移结论。
+- 所有把 `web`、`ops`、`automate` 当核心 action 的命名结论。
 - 所有未经过 Step 1.5 重新评审的历史命名方案。

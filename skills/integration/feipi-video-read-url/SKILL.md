@@ -38,7 +38,7 @@ description: 用于按用户意图下载、提取或总结视频网站 URL，统
 1. 用户没有提供视频 URL。
 2. 用户只给本地音视频文件，不是 URL 来源。
 3. 用户要求跳过当前 skill、手工拼接下载/转写命令。
-4. 需要治理、重构或迁移 skill 本身；这类任务应使用 `feipi-skill-govern`。
+4. 需要治理或重构 skill 本身；这类任务应使用 `feipi-skill-govern`。
 
 ## 先确认什么
 

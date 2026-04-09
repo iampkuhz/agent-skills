@@ -29,7 +29,7 @@ TARGET_INPUT="${1:-$SKILL_DIR}"
 TARGET_DIR="$TARGET_INPUT"
 ALLOWED_LAYERS="authoring diagram integration platform"
 DISCOURAGED_ACTIONS="web ops automate misc helper utils tools temp tmp skill"
-LEGACY_ACTION_HINTS="read write summarize review analyze test debug refactor generate gen configure send plan planning design build deploy migrate translate govern code coding docs"
+LEGACY_ACTION_HINTS="read write summarize review analyze test debug refactor generate gen configure send plan planning design build deploy translate govern code coding docs"
 
 if [[ ! -d "$TARGET_DIR" && -d "$REPO_ROOT/$TARGET_INPUT" ]]; then
   TARGET_DIR="$REPO_ROOT/$TARGET_INPUT"

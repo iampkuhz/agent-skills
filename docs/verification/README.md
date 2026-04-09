@@ -185,10 +185,10 @@ asyncio.run(test())
 - [x] `commands/` 目录已创建
 - [x] `runtimes/fastmcp/` 已创建
 
-### 服务迁移
+### 服务验证
 
-- [x] LiteLLM 已迁移到 `tools/gateway/litellm/`
-- [x] SearXNG 已迁移到 `tools/search/searxng/`
+- [x] LiteLLM 已配置到 `tools/gateway/litellm/`
+- [x] SearXNG 已配置到 `tools/search/searxng/`
 - [x] 服务可正常启动和停止
 
 ### 新增服务
