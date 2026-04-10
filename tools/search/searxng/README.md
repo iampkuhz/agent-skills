@@ -36,7 +36,7 @@ cd tools/search/searxng
 
 ```bash
 # 检查容器状态
-docker compose -f compose/docker-compose.yml ps
+podman compose -f compose/docker-compose.yml ps
 
 # 检查健康端点
 curl http://localhost:8873/healthz
@@ -142,10 +142,10 @@ curl -s "http://localhost:8873/search?q=<query>&language=zh-CN&format=json"
 
 ```bash
 # 1. 检查容器状态
-docker compose -f compose/docker-compose.yml ps
+podman compose -f compose/docker-compose.yml ps
 
 # 2. 查看日志
-docker compose -f compose/docker-compose.yml logs --tail 50
+podman compose -f compose/docker-compose.yml logs --tail 50
 
 # 3. 验证健康端点
 curl http://localhost:8873/healthz

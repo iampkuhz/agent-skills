@@ -43,10 +43,10 @@ cd tools/gateway/litellm
 
 ```bash
 # 检查容器状态
-docker compose -f compose/docker-compose.yml ps
+podman compose -f compose/docker-compose.yml ps
 
-# 检查健康端点
-curl -s http://localhost:4000/health
+# 检查就绪状态（无需鉴权）
+curl -s http://localhost:4000/health/readiness
 
 # 检查模型列表
 curl -s http://localhost:4000/v1/models \
@@ -61,7 +61,7 @@ curl -s http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-plus",
+    "model": "bailian-openai-qwen-model",
     "messages": [{"role": "user", "content": "Hello"}],
     "stream": false
   }' | jq .
@@ -78,21 +78,30 @@ curl -s http://localhost:4000/v1/chat/completions \
 | `LITELLM_MASTER_KEY` | LiteLLM 访问密钥 | 必需 |
 | `BAILIAN_CODING_PLAN_API_KEY` | 百炼 API 密钥 | 必需 |
 | `BAILIAN_CODING_PLAN_OPENAI_BASE_URL` | 百炼 OpenAI 兼容端点 | 必需 |
+| `BAILIAN_CODING_PLAN_ANTHROPIC_BASE_URL` | 百炼 Anthropic 兼容端点 | 必需 |
 | `LITELLM_OPENAI_QWEN_MODEL` | OpenAI 协议模型名 | 必需 |
+| `LITELLM_ANTHROPIC_QWEN_MODEL` | Anthropic 协议模型名 | 必需 |
 
 ### config.yaml 结构
 
 ```yaml
 model_list:
-  - model_name: qwen-plus
+  - model_name: <逻辑模型名>
     litellm_params:
-      model: openai/bailian/qwen-plus
+      model: <provider/model-id>
       api_base: <端点>
       api_key: <密钥>
+
+litellm_settings:
+  success_callback: []
+  failure_callback: []
+  default_team_settings: {}
 
 general_settings:
   master_key: <访问密钥>
 ```
+
+注意：`litellm_settings:` 不能只写键名和注释、不写任何子项。那样在 YAML 里会被解析为 `null`，LiteLLM 1.81.x 的 Playground/UI 配置读取流程会报 `'NoneType' object has no attribute 'get'`。
 
 ---
 
@@ -130,7 +139,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3.5-plus",
+    model="bailian-openai-qwen-model",
     messages=[{"role": "user", "content": "Hello"}]
 )
 ```
@@ -141,14 +150,18 @@ response = client.chat.completions.create(
 
 ```bash
 # 1. 检查容器状态
-docker compose -f compose/docker-compose.yml ps
+podman compose -f compose/docker-compose.yml ps
 
 # 2. 查看日志
-docker compose -f compose/docker-compose.yml logs --tail 50 litellm
+podman compose -f compose/docker-compose.yml logs --tail 50 litellm
 
-# 3. 验证健康端点
-curl -s http://localhost:4000/health
+# 3. 验证就绪端点
+curl -s http://localhost:4000/health/readiness
 ```
+
+如果日志里出现 `P1001: Can't reach database server at litellm-db:5432`，优先检查 `compose/docker-compose.yml` 中 PostgreSQL 服务是否带有 `litellm-db` 的网络别名；Podman Compose 不能像部分 Docker 场景那样稳定依赖 `container_name` 做服务发现。
+
+如果 Playground 或 `/v1/chat/completions` 返回 `500 'NoneType' object has no attribute 'get'`，优先检查 [config/config.yaml](/Users/zhehan/Documents/tools/llm/skills/agent-skills/tools/gateway/litellm/config/config.yaml) 里的 `litellm_settings` 是否被写成了空 YAML 节点。
 
 ---
 

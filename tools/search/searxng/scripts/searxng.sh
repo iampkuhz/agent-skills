@@ -14,7 +14,7 @@ cd "$COMPOSE_DIR"
 case "${1:-up}" in
   up|start)
     echo "🚀 启动 SearXNG..."
-    docker compose -f "$COMPOSE_FILE" up -d
+    podman compose -f "$COMPOSE_FILE" up -d
     echo "✅ SearXNG 已启动"
     echo "📌 访问地址：http://localhost:8873"
     echo "📌 健康检查：curl http://localhost:8873/healthz"
@@ -22,22 +22,22 @@ case "${1:-up}" in
 
   down|stop)
     echo "🛑 停止 SearXNG..."
-    docker compose -f "$COMPOSE_FILE" down
+    podman compose -f "$COMPOSE_FILE" down
     echo "✅ SearXNG 已停止"
     ;;
 
   restart)
     echo "🔄 重启 SearXNG..."
-    docker compose -f "$COMPOSE_FILE" restart
+    podman compose -f "$COMPOSE_FILE" restart
     echo "✅ SearXNG 已重启"
     ;;
 
   logs)
-    docker compose -f "$COMPOSE_FILE" logs -f
+    podman compose -f "$COMPOSE_FILE" logs -f
     ;;
 
   status)
-    docker compose -f "$COMPOSE_FILE" ps
+    podman compose -f "$COMPOSE_FILE" ps
     ;;
 
   *)

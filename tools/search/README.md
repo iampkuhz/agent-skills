@@ -1,6 +1,6 @@
 # Search Tools
 
-SearXNG 搜索服务的基础设施配置（Docker Compose）。
+SearXNG 搜索服务的基础设施配置（Podman Compose）。
 
 ## 快速开始
 
@@ -43,6 +43,6 @@ curl -X POST http://localhost:18080/mcp \
 
 | 文件 | 说明 |
 |------|------|
-| `tools/search/searxng/compose/` | SearXNG Docker 配置 |
+| `tools/search/searxng/compose/` | SearXNG Podman 配置 |
 | `runtimes/fastmcp/searxng/` | MCP 服务实现 |
 | `runtimes/fastmcp/gateway/` | 统一网关入口 |
