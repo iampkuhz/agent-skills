@@ -43,7 +43,23 @@ case "${1:-up}" in
     ;;
 
   logs)
-    podman compose -f "$COMPOSE_FILE" logs -f
+    # 查看特定服务日志，默认查看 litellm 服务
+    # 用法：./litellm.sh logs [litellm|postgres|all]
+    case "${2:-litellm}" in
+      litellm)
+        podman compose -f "$COMPOSE_FILE" logs -f litellm
+        ;;
+      postgres)
+        podman compose -f "$COMPOSE_FILE" logs -f postgres
+        ;;
+      all)
+        podman compose -f "$COMPOSE_FILE" logs -f
+        ;;
+      *)
+        echo "用法：$0 logs [litellm|postgres|all]"
+        exit 1
+        ;;
+    esac
     ;;
 
   status)
