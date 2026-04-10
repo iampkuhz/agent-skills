@@ -4,17 +4,16 @@
 # 用法：./start-background.sh
 # 停止：pkill -f "runtimes.fastmcp.gateway"
 
-# 项目根目录（硬编码，确保路径正确）
-PROJECT_DIR="/Users/zhehan/Documents/tools/llm/skills/agent-skills"
-LOG_DIR="$PROJECT_DIR/runtimes/fastmcp/logs"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG_DIR="$PROJECT_DIR/logs"
 
 mkdir -p "$LOG_DIR"
 
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR/../.."
 
 # 加载环境变量
-if [ -f "$PROJECT_DIR/.env" ]; then
-    export $(grep -v '^#' "$PROJECT_DIR/.env" | xargs)
+if [ -f "$PROJECT_DIR/../../../.env" ]; then
+    export $(grep -v '^#' "$PROJECT_DIR/../../../.env" | xargs)
 fi
 
 # 默认配置
@@ -27,13 +26,12 @@ echo "  Host: $MCP_HOST"
 echo "  Port: $MCP_PORT"
 echo "  Log file: $LOG_DIR/gateway.log"
 
-# 后台启动 - 使用 env 命令确保 PYTHONPATH 正确传递
-env PYTHONPATH="$PROJECT_DIR:$PYTHONPATH" nohup python3 -m runtimes.fastmcp.gateway.server > "$LOG_DIR/gateway.log" 2>&1 &
-PID=$!
+env PYTHONPATH="$PROJECT_DIR/../..:$PYTHONPATH" nohup \
+    python3 -m runtimes.fastmcp.gateway.server > "$LOG_DIR/gateway.log" 2>&1 &
 
+PID=$!
 echo $PID > "$LOG_DIR/gateway.pid"
 echo "  PID: $PID"
-echo ""
 
 # 等待 2 秒后检查进程状态
 sleep 2
@@ -43,4 +41,6 @@ if ! ps -p $PID > /dev/null 2>&1; then
     exit 1
 fi
 
-echo "Gateway started. Use 'pkill -f runtimes.fastmcp.gateway' to stop."
+echo ""
+echo "Gateway started. Endpoint: http://localhost:$MCP_PORT/mcp"
+echo "Use 'pkill -f runtimes.fastmcp.gateway' to stop."

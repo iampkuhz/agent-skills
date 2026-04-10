@@ -12,9 +12,13 @@ MAX_RESULTS="${2:-5}"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-echo -e "${GREEN}=== SearXNG MCP 测试 ===${NC}"
+echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║     SearXNG MCP 测试脚本              ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
+echo ""
 echo "MCP URL: $MCP_URL"
 echo "查询：$QUERY"
 echo "最大结果数：$MAX_RESULTS"
