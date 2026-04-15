@@ -39,6 +39,8 @@ cd tools/gateway/litellm
 ./scripts/litellm.sh up
 ```
 
+说明：`compose/docker-compose.yml` 已固定 Compose 项目名为 `litellm`，这样即使你人在 `compose/` 子目录下直接执行 `podman compose up -d`，也不会和仓库里其它同名 `compose/` 目录的服务混到一个项目里。
+
 ### 3. 验证启动
 
 ```bash
@@ -169,6 +171,8 @@ curl -s http://localhost:4000/health/readiness
 如果日志里出现 `P1001: Can't reach database server at litellm-db:5432`，优先检查 `compose/docker-compose.yml` 中 PostgreSQL 服务是否带有 `litellm-db` 的网络别名；Podman Compose 不能像部分 Docker 场景那样稳定依赖 `container_name` 做服务发现。
 
 如果 Playground 或 `/v1/chat/completions` 返回 `500 'NoneType' object has no attribute 'get'`，优先检查 [config/config.yaml](/Users/zhehan/Documents/tools/llm/skills/agent-skills/tools/gateway/litellm/config/config.yaml) 里的 `litellm_settings` 是否被写成了空 YAML 节点。
+
+如果 `podman compose up -d` 一开始就打印 `no container with name or ID ... found`、`not all containers could be removed from pod ...`、`compose_default has associated containers with it` 这类报错，通常不是 LiteLLM 配置本身坏了，而是多个服务都曾从各自的 `compose/` 目录启动，默认项目名都变成了 `compose`。当前配置已固定项目名为 `litellm`；若本机还残留旧的 `compose` 项目，可先在对应目录执行一次 `podman compose down`，或手动清理旧的 `pod_compose` / `compose_default` 资源后再重启。
 
 ---
 

@@ -3,6 +3,9 @@
 # 依赖：PostgreSQL（用于存储配置、日志、元数据）
 # 健康检查：4000 端口可访问即视为健康
 
+# 固定 Compose 项目名，避免多个 tools/**/compose 目录都落到默认的 compose 项目下。
+name: litellm
+
 services:
   # PostgreSQL 数据库 - LiteLLM 必需的最小依赖
   postgres:

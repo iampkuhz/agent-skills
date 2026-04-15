@@ -32,6 +32,8 @@ cd tools/search/searxng
 ./scripts/searxng.sh up
 ```
 
+说明：`compose/docker-compose.yml` 已固定 Compose 项目名为 `searxng`，避免和仓库里其它 `tools/**/compose` 目录的服务共享默认的 `compose` 项目名。
+
 ### 2. 验证启动
 
 ```bash

@@ -1,6 +1,9 @@
 # Crawl4AI Service - Docker Compose 配置
 # 定位：Web 内容抓取和提取服务
 
+# 固定 Compose 项目名，避免多个 tools/**/compose 目录都落到默认的 compose 项目下。
+name: crawl4ai
+
 services:
   crawl4ai:
     image: unclecode/crawl4ai:latest

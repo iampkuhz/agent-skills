@@ -1,5 +1,8 @@
 version: '3.8'
 
+# 固定 Compose 项目名，避免多个 tools/**/compose 目录都落到默认的 compose 项目下。
+name: searxng
+
 services:
   searxng:
     image: docker.io/searxng/searxng:latest

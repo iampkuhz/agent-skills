@@ -17,16 +17,18 @@ docker pull unclecode/crawl4ai:latest
 ### 运行服务
 
 ```bash
-# 进入 compose 目录
-cd tools/crawl/crawl4ai/compose
+# 进入服务目录
+cd tools/crawl/crawl4ai
 
 # 复制环境变量文件
 cp ../env/.env.example ../env/.env
 
 # 启动服务
-podman compose up -d
+podman compose -f compose/docker-compose.yml up -d
 # 或 docker compose up -d
 ```
+
+说明：`compose/docker-compose.yml` 已固定 Compose 项目名为 `crawl4ai`，即使在 `compose/` 子目录下直接启动，也不会与仓库里其它服务共享默认的 `compose` 项目名。
 
 ### 验证服务
 
