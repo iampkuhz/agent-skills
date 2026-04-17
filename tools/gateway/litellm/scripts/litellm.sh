@@ -23,7 +23,10 @@ case "${1:-up}" in
       echo "⚠️  未找到 env/.env 文件，请确保已 source 环境变量"
     fi
 
+    POSTGRES_DATA_DIR="/Users/zhehan/Documents/service-data/postgres"
+
     echo "🚀 启动 LiteLLM..."
+    echo "📁 PostgreSQL 数据目录：$POSTGRES_DATA_DIR"
     podman compose -f "$COMPOSE_FILE" up -d
     echo "✅ LiteLLM 已启动"
     echo "📌 访问地址：http://localhost:4000"

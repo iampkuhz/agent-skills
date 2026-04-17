@@ -41,6 +41,8 @@ cd tools/gateway/litellm
 
 说明：`compose/docker-compose.yml` 已固定 Compose 项目名为 `litellm`，这样即使你人在 `compose/` 子目录下直接执行 `podman compose up -d`，也不会和仓库里其它同名 `compose/` 目录的服务混到一个项目里。
 
+PostgreSQL 固定绑定到宿主机目录 `/Users/zhehan/Documents/service-data/postgres`，容器删除重建后只要这个目录不删，账号、密码和业务数据都会保留。
+
 ### 3. 验证启动
 
 ```bash
@@ -112,6 +114,25 @@ general_settings:
 
 注意：`litellm_settings:` 不能只写键名和注释、不写任何子项。那样在 YAML 里会被解析为 `null`，LiteLLM 1.81.x 的 Playground/UI 配置读取流程会报 `'NoneType' object has no attribute 'get'`。
 
+### PostgreSQL 数据持久化
+
+当前配置使用宿主机绑定挂载，而不是 Podman 命名卷：
+
+```yaml
+volumes:
+  - type: bind
+    source: /Users/zhehan/Documents/service-data/postgres
+    target: /var/lib/postgresql/data
+```
+
+LiteLLM 容器本身当前没有单独的业务数据卷，只有配置文件只读挂载：
+
+```bash
+../config/config.yaml:/app/config.yaml:ro
+```
+
+如果你后续想给 LiteLLM 额外挂载日志或导出目录，可以再单独加到 `/Users/zhehan/Documents/service-data/litellm`，但按当前配置并不是必需项。
+
 ---
 
 ## 常用命令
@@ -173,6 +194,8 @@ curl -s http://localhost:4000/health/readiness
 如果 Playground 或 `/v1/chat/completions` 返回 `500 'NoneType' object has no attribute 'get'`，优先检查 [config/config.yaml](/Users/zhehan/Documents/tools/llm/skills/agent-skills/tools/gateway/litellm/config/config.yaml) 里的 `litellm_settings` 是否被写成了空 YAML 节点。
 
 如果 `podman compose up -d` 一开始就打印 `no container with name or ID ... found`、`not all containers could be removed from pod ...`、`compose_default has associated containers with it` 这类报错，通常不是 LiteLLM 配置本身坏了，而是多个服务都曾从各自的 `compose/` 目录启动，默认项目名都变成了 `compose`。当前配置已固定项目名为 `litellm`；若本机还残留旧的 `compose` 项目，可先在对应目录执行一次 `podman compose down`，或手动清理旧的 `pod_compose` / `compose_default` 资源后再重启。
+
+如果你删除的是容器，但保留了宿主机数据目录，数据库账号、密码和业务数据都会保留；如果把宿主机数据目录一并删掉，PostgreSQL 下次启动时就会重新初始化。
 
 ---
 
