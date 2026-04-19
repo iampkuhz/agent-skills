@@ -5,7 +5,7 @@ name: searxng
 
 services:
   searxng:
-    image: docker.io/searxng/searxng:latest
+    image: docker.io/searxng/searxng:2026.4.17-e8299a4c3
     container_name: searxng
     ports:
       - "8873:8080"

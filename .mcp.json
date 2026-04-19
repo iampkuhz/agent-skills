@@ -1,37 +1,12 @@
 {
   "mcpServers": {
     "fastmcp-gateway": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "http://localhost:18080/mcp",
-        "--allow-http",
-        "--transport",
-        "http-only"
-      ],
-      "env": {
-        "NPM_CONFIG_CACHE": "/tmp/npm-cache",
-        "NO_PROXY": "localhost,127.0.0.1,::1"
-      }
+      "type": "http",
+      "url": "http://127.0.0.1:18080/mcp"
     },
     "crawl4ai": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "http://127.0.0.1:11235/mcp/sse",
-        "--allow-http",
-        "--transport",
-        "sse-only"
-      ],
-      "env": {
-        "NPM_CONFIG_CACHE": "/tmp/npm-cache",
-        "NO_PROXY": "127.0.0.1,localhost,::1"
-      },
-      "description": "Crawl4AI MCP via official SSE endpoint bridged to local stdio by mcp-remote"
+      "type": "sse",
+      "url": "http://127.0.0.1:11235/mcp/sse"
     }
   }
 }

@@ -6,12 +6,15 @@ name: crawl4ai
 
 services:
   crawl4ai:
-    image: unclecode/crawl4ai:latest
+    image: docker.io/unclecode/crawl4ai:0.8.6
     container_name: crawl4ai
     ports:
       - "11235:11235"
     env_file:
       - ../env/.env
+    environment:
+      NO_PROXY: 127.0.0.1,localhost,0.0.0.0,::1,host.containers.internal
+      no_proxy: 127.0.0.1,localhost,0.0.0.0,::1,host.containers.internal
     volumes:
       - /dev/shm:/dev/shm
     deploy:

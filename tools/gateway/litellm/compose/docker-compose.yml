@@ -38,7 +38,7 @@ services:
 
   # LiteLLM Proxy - 模型网关
   litellm:
-    image: docker.litellm.ai/berriai/litellm:main-latest
+    image: docker.litellm.ai/berriai/litellm:v1.83.7-stable
     container_name: litellm-proxy-podman
     restart: unless-stopped
     ports:

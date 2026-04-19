@@ -30,6 +30,8 @@ podman compose -f compose/docker-compose.yml up -d
 
 说明：`compose/docker-compose.yml` 已固定 Compose 项目名为 `crawl4ai`，即使在 `compose/` 子目录下直接启动，也不会与仓库里其它服务共享默认的 `compose` 项目名。
 
+如果需要通过宿主机代理访问外网，请在 `env/.env` 中同时设置 `HTTP_PROXY`、`HTTPS_PROXY` 以及有效的 `NO_PROXY` / `no_proxy`。至少应包含 `127.0.0.1,localhost,0.0.0.0,::1,host.containers.internal`；否则 Crawl4AI 的 MCP handler 在容器内部回调 `/md`、`/crawl` 等本地接口时，可能会误走代理并返回 `502 Bad Gateway`，即使 GUI 页面仍能正常使用。
+
 ### 验证服务
 
 ```bash
