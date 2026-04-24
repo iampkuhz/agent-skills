@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% set active_page = 'projects' %}
+
+{% block title %}{{ project.project_name }} - Agent Session Browser{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-2 mb-4">
+    <a href="/projects" class="link">&larr; Back to Projects</a>
+</div>
+
+<h2 class="mb-2">{{ project.project_name }}</h2>
+<p class="text-muted text-sm mb-4">{{ project.project_key }}</p>
+
+<!-- Project Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Sessions</div>
+        <div class="value">{{ project.total_sessions }}</div>
+        <div class="sub">{{ project.claude_sessions }} CC &middot; {{ project.codex_sessions }} CX</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total Tokens</div>
+        <div class="value">{{ (project.total_input_tokens + project.total_output_tokens) | format_number }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Tool Calls</div>
+        <div class="value">{{ project.total_tool_calls | format_number }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Active Period</div>
+        <div class="value text-sm" style="font-size:16px">
+            {% if project.first_seen and project.last_seen %}
+            {{ project.first_seen[:10] }} &rarr; {{ project.last_seen | relative_time }}
+            {% else %}
+            N/A
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Session List -->
+<div class="section">
+    <h2>Sessions ({{ sessions | length }})</h2>
+    {% if sessions %}
+    <table>
+        <thead>
+            <tr>
+                <th>Agent</th>
+                <th>Title</th>
+                <th>Model</th>
+                <th>Messages</th>
+                <th>Tokens</th>
+                <th>Tools</th>
+                <th>Duration</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in sessions %}
+            <tr>
+                <td>
+                    <span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">
+                        {{ 'CC' if s.agent == 'claude_code' else 'CX' }}
+                    </span>
+                </td>
+                <td>
+                    <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:300px; display:inline-block">
+                        {{ s.title[:80] or 'Untitled' }}
+                    </a>
+                    <div class="text-xs text-muted">{{ s.session_id[:12] }}...</div>
+                </td>
+                <td class="text-sm">{{ s.model or '-' }}</td>
+                <td class="text-sm">{{ s.user_message_count + s.assistant_message_count }}</td>
+                <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
+                <td class="text-sm">{{ s.tool_call_count }}</td>
+                <td class="text-sm">{{ s.duration_seconds | format_duration }}</td>
+                <td class="text-sm">{{ s.ended_at | relative_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No sessions found for this project.</p>
+    {% endif %}
+</div>
+{% endblock %}

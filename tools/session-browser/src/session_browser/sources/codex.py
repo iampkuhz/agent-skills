@@ -1,0 +1,395 @@
+"""Parser for Codex local session data.
+
+Data sources:
+- ~/.codex/session_index.jsonl: thread index (id, thread_name, updated_at)
+- ~/.codex/sessions/{year}/{month}/{day}/rollout-*.jsonl: full session event stream
+- ~/.codex/state_5.sqlite.threads: thread metadata (title, cwd, branch, model, tokens)
+- ~/.codex/history.jsonl: user input history (optional)
+
+All paths configurable via CODEX_DATA_DIR env var.
+"""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+from typing import Iterator
+
+from session_browser.config import CODEX_DATA_DIR
+from session_browser.domain.models import SessionSummary, ChatMessage, ToolCall
+
+
+def parse_session_index() -> list[dict]:
+    """Parse ~/.codex/session_index.jsonl.
+
+    Returns list of dicts with: id, thread_name, updated_at.
+    """
+    path = CODEX_DATA_DIR / "session_index.jsonl"
+    if not path.exists():
+        return []
+
+    entries = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                entries.append({
+                    "id": obj.get("id", ""),
+                    "thread_name": obj.get("thread_name", ""),
+                    "updated_at": obj.get("updated_at", ""),
+                })
+            except json.JSONDecodeError:
+                continue
+    return entries
+
+
+def read_threads_db() -> dict[str, dict]:
+    """Read ~/.codex/state_5.sqlite threads table.
+
+    Returns dict keyed by thread id.
+    """
+    db_path = CODEX_DATA_DIR / "state_5.sqlite"
+    if not db_path.exists():
+        return {}
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.execute(
+            "SELECT id, title, cwd, model, tokens_used, created_at, updated_at, "
+            "git_branch, source, model_provider, cli_version "
+            "FROM threads"
+        )
+        result = {}
+        for row in cursor:
+            tid = row["id"]
+            result[tid] = {
+                "id": tid,
+                "title": row["title"],
+                "cwd": row["cwd"],
+                "model": row["model"] or "",
+                "tokens_used": row["tokens_used"] or 0,
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "git_branch": row["git_branch"] or "",
+                "source": row["source"] or "",
+                "model_provider": row["model_provider"] or "",
+                "cli_version": row["cli_version"] or "",
+            }
+        return result
+    finally:
+        conn.close()
+
+
+def _find_session_file(session_id: str) -> Path | None:
+    """Find a Codex session file under ~/.codex/sessions/.
+
+    Sessions are stored as: {year}/{month}/{day}/rollout-{timestamp}-{uuid}.jsonl
+    The uuid in the filename is the session id.
+    """
+    sessions_dir = CODEX_DATA_DIR / "sessions"
+    if not sessions_dir.exists():
+        return None
+
+    # Walk the year/month/day hierarchy
+    for year_dir in sorted(sessions_dir.iterdir()):
+        if not year_dir.is_dir():
+            continue
+        for month_dir in sorted(year_dir.iterdir()):
+            if not month_dir.is_dir():
+                continue
+            for day_dir in sorted(month_dir.iterdir()):
+                if not day_dir.is_dir():
+                    continue
+                candidate = day_dir / f"rollout-*-{session_id}.jsonl"
+                found = list(day_dir.glob(f"rollout-*-{session_id}.jsonl"))
+                if found:
+                    return found[0]
+    return None
+
+
+def _parse_session_events(path: Path) -> list[dict]:
+    """Parse a single Codex session .jsonl event stream."""
+    events = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                events.append(obj)
+            except json.JSONDecodeError:
+                continue
+    return events
+
+
+def parse_session_detail(
+    session_id: str,
+    threads_db: dict | None = None,
+) -> tuple[SessionSummary, list[ChatMessage], list[ToolCall]]:
+    """Parse a single Codex session.
+
+    Args:
+        session_id: The Codex thread/session ID.
+        threads_db: Pre-loaded threads DB data (from read_threads_db).
+
+    Returns: (SessionSummary, chat_messages, tool_calls).
+    """
+    # Get metadata from threads DB
+    thread_info = (threads_db or {}).get(session_id, {})
+
+    # Find and parse session event stream
+    session_file = _find_session_file(session_id)
+    if session_file is None:
+        return _empty_session(session_id, thread_info), [], []
+
+    events = _parse_session_events(session_file)
+
+    # Extract session_meta for cwd, source
+    session_meta = {}
+    for ev in events:
+        if ev.get("type") == "session_meta":
+            session_meta = ev.get("payload", {})
+            break
+
+    summary = _build_summary_from_events(
+        events, session_id, thread_info, session_meta
+    )
+    messages = _extract_messages(events)
+    tool_calls = _extract_tool_calls(events)
+
+    return summary, messages, tool_calls
+
+
+def _empty_session(session_id: str, thread_info: dict) -> SessionSummary:
+    from pathlib import PurePosixPath
+    cwd = thread_info.get("cwd", "")
+    project_key = cwd
+    project_name = PurePosixPath(cwd).name if cwd else "unknown"
+    return SessionSummary(
+        agent="codex",
+        session_id=session_id,
+        title=thread_info.get("title", ""),
+        project_key=project_key,
+        project_name=project_name,
+        cwd=cwd,
+        started_at="",
+        ended_at="",
+        model=thread_info.get("model", ""),
+        git_branch=thread_info.get("git_branch", ""),
+    )
+
+
+def _ts_iso(ts_str: str) -> str:
+    """Convert ISO8601 string to canonical form."""
+    if not ts_str:
+        return ""
+    # Normalize: ensure it ends with +00:00 or Z
+    return ts_str.replace("Z", "+00:00")
+
+
+def _ts_to_epoch(ts_str: str) -> float:
+    """Convert ISO8601 to epoch seconds."""
+    if not ts_str:
+        return 0
+    from datetime import datetime
+    try:
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        return dt.timestamp()
+    except (ValueError, TypeError):
+        return 0
+
+
+def _build_summary_from_events(
+    events: list[dict],
+    session_id: str,
+    thread_info: dict,
+    session_meta: dict,
+) -> SessionSummary:
+    """Build SessionSummary from Codex events + threads DB."""
+    from pathlib import PurePosixPath
+
+    user_count = 0
+    assistant_count = 0
+    tool_count = 0
+    tokens_used = thread_info.get("tokens_used", 0)
+
+    # Track first/last timestamps
+    first_ts = ""
+    last_ts = ""
+
+    # Process event_msg for message counts
+    for ev in events:
+        etype = ev.get("type", "")
+        payload = ev.get("payload", {})
+        ts = ev.get("timestamp", "")
+
+        if not first_ts:
+            first_ts = ts
+
+        if etype == "event_msg":
+            msg_type = payload.get("type", "")
+            if msg_type == "user_message":
+                user_count += 1
+            elif msg_type == "agent_message":
+                assistant_count += 1
+            elif msg_type == "token_count":
+                # Take the last/largest total
+                total = payload.get("total_token_usage", 0)
+                if total:
+                    tokens_used = total
+
+        elif etype == "response_item":
+            rtype = payload.get("type", "")
+            if rtype == "function_call":
+                tool_count += 1
+
+        last_ts = ts
+
+    # Get metadata from thread_info (priority from DB)
+    cwd = thread_info.get("cwd", "")
+    if not cwd:
+        cwd = session_meta.get("cwd", "")
+    title = thread_info.get("title", "")
+    model = thread_info.get("model", "")
+    if not model:
+        model = session_meta.get("model_provider", "")
+    git_branch = thread_info.get("git_branch", "")
+    source = thread_info.get("source", "")
+
+    # Compute duration
+    start_epoch = _ts_to_epoch(first_ts)
+    end_epoch = _ts_to_epoch(last_ts)
+    duration = end_epoch - start_epoch if (start_epoch and end_epoch) else 0
+
+    # Compute project info
+    project_key = cwd
+    project_name = PurePosixPath(cwd).name if cwd else "unknown"
+
+    return SessionSummary(
+        agent="codex",
+        session_id=session_id,
+        title=title,
+        project_key=project_key,
+        project_name=project_name,
+        cwd=cwd,
+        started_at=_ts_iso(first_ts),
+        ended_at=_ts_iso(last_ts),
+        duration_seconds=round(duration, 1),
+        model=model,
+        git_branch=git_branch,
+        source=source,
+        user_message_count=user_count,
+        assistant_message_count=assistant_count,
+        tool_call_count=tool_count,
+        input_tokens=tokens_used,  # Codex uses total tokens
+        output_tokens=0,  # Not separately available
+        cached_input_tokens=0,
+    )
+
+
+def _extract_messages(events: list[dict]) -> list[ChatMessage]:
+    """Extract user and agent messages from Codex events.
+
+    Uses event_msg with type=user_message and type=agent_message.
+    """
+    messages = []
+    for ev in events:
+        etype = ev.get("type", "")
+        payload = ev.get("payload", {})
+        ts = ev.get("timestamp", "")
+
+        if etype == "event_msg":
+            msg_type = payload.get("type", "")
+            if msg_type == "user_message":
+                content = payload.get("message", "")
+                if isinstance(content, list):
+                    content = "\n".join(str(c) for c in content)
+                messages.append(ChatMessage(
+                    role="user",
+                    content=str(content),
+                    timestamp=ts,
+                ))
+            elif msg_type == "agent_message":
+                phase = payload.get("phase", "")
+                # Include commentary and final as assistant messages
+                content = payload.get("message", "")
+                if isinstance(content, list):
+                    content = "\n".join(str(c) for c in content)
+                if phase in ("commentary", "final"):
+                    messages.append(ChatMessage(
+                        role="assistant",
+                        content=str(content),
+                        timestamp=ts,
+                    ))
+
+    return messages
+
+
+def _extract_tool_calls(events: list[dict]) -> list[ToolCall]:
+    """Extract tool calls from Codex response_items.
+
+    Only counts function_call, not function_call_output (to avoid double counting).
+    """
+    tool_calls = []
+    for ev in events:
+        etype = ev.get("type", "")
+        payload = ev.get("payload", {})
+        ts = ev.get("timestamp", "")
+
+        if etype == "response_item":
+            rtype = payload.get("type", "")
+            if rtype == "function_call":
+                name = payload.get("name", "")
+                args = payload.get("arguments", {})
+                if isinstance(args, str):
+                    try:
+                        import json
+                        args = json.loads(args)
+                    except json.JSONDecodeError:
+                        args = {"raw": args[:200]}
+                call_id = payload.get("call_id", "")
+                # Try to find matching output for status
+                status = "completed"
+                result = ""
+                for ev2 in events:
+                    if ev2.get("type") == "response_item":
+                        p2 = ev2.get("payload", {})
+                        if (p2.get("type") == "function_call_output"
+                                and p2.get("call_id") == call_id):
+                            result = str(p2.get("output", ""))[:500]
+                            break
+                tool_calls.append(ToolCall(
+                    name=name,
+                    parameters=args if isinstance(args, dict) else {},
+                    result=result,
+                    status=status,
+                    timestamp=ts,
+                ))
+
+    return tool_calls
+
+
+def scan_all_sessions(
+    threads_db: dict | None = None,
+) -> Iterator[SessionSummary]:
+    """Scan all Codex sessions and yield SessionSummary for each.
+
+    This is the main entry point for the indexer.
+    """
+    index = parse_session_index()
+    if threads_db is None:
+        threads_db = read_threads_db()
+
+    for entry in index:
+        sid = entry["id"]
+        summary, _msgs, _tcs = parse_session_detail(sid, threads_db)
+        # Ensure title from index if empty
+        if not summary.title and entry.get("thread_name"):
+            summary.title = entry["thread_name"][:120]
+        yield summary

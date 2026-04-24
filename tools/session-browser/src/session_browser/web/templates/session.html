@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Session - Agent Session Browser{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-2 mb-4">
+    <a href="/projects/{{ session.project_key | urlencode }}" class="link">&larr; Back to {{ session.project_name }}</a>
+</div>
+
+<!-- Session Meta -->
+<div class="section">
+    <div class="flex justify-between items-center mb-4">
+        <h2>{{ session.title[:100] or 'Untitled Session' }}</h2>
+        <span class="badge {{ 'badge-claude' if session.agent == 'claude_code' else 'badge-codex' }}">
+            {{ 'Claude Code' if session.agent == 'claude_code' else 'Codex' }}
+        </span>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:16px">
+        <div>
+            <div class="text-xs text-muted">Session ID</div>
+            <div class="text-sm" style="font-family:monospace; word-break:break-all">{{ session.session_id }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-muted">Model</div>
+            <div class="text-sm">{{ session.model or '-' }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-muted">CWD</div>
+            <div class="text-sm truncate" style="max-width:250px">{{ session.cwd or '-' }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-muted">Branch</div>
+            <div class="text-sm">{{ session.git_branch or '-' }}</div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="label">Duration</div>
+            <div class="value text-sm" style="font-size:20px">{{ session.duration_seconds | format_duration }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Messages</div>
+            <div class="value">{{ session.user_message_count + session.assistant_message_count }}</div>
+            <div class="sub">User: {{ session.user_message_count }} &middot; Assistant: {{ session.assistant_message_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Tool Calls</div>
+            <div class="value">{{ session.tool_call_count | format_number }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Tokens</div>
+            <div class="value">{{ (session.input_tokens + session.output_tokens) | format_number }}</div>
+            <div class="sub">In: {{ session.input_tokens | format_number }} &middot; Out: {{ session.output_tokens | format_number }} &middot; Cache: {{ session.cached_input_tokens | format_number }}</div>
+        </div>
+    </div>
+
+    <div class="text-xs text-muted mt-4">
+        Started: {{ session.started_at or 'N/A' }} &middot;
+        Ended: {{ session.ended_at or 'N/A' }}
+    </div>
+</div>
+
+<!-- Conversation -->
+<div class="section">
+    <h2>Conversation ({{ messages | length }} messages)</h2>
+    {% if messages %}
+    <div class="message-list">
+        {% for msg in messages %}
+        <div class="message {{ msg.role }}">
+            <div class="meta">
+                {{ '👤 User' if msg.role == 'user' else '🤖 Assistant' }}
+                {% if msg.model %} ({{ msg.model }}){% endif %}
+                &middot; {{ msg.timestamp[:19] if msg.timestamp else '' }}
+            </div>
+            <div class="content">
+                {# Truncate very long messages #}
+                {% if msg.content | length > 500 %}
+                    {{ msg.content[:500] }}...
+                    <details style="margin-top:4px">
+                        <summary class="link" style="cursor:pointer; font-size:12px">Show full</summary>
+                        <pre style="margin-top:4px; font-size:12px; background:#F9FAFB; padding:8px; border-radius:4px; overflow-x:auto">{{ msg.content }}</pre>
+                    </details>
+                {% else %}
+                    {{ msg.content or '(empty)' }}
+                {% endif %}
+            </div>
+            {% if msg.tool_calls %}
+            <div style="margin-top:8px">
+                {% for tc in msg.tool_calls %}
+                <span class="badge badge-token" title="{{ tc.name }}">{{ tc.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No conversation data available.</p>
+    {% endif %}
+</div>
+
+<!-- Tool Calls -->
+{% if tool_calls %}
+<div class="section">
+    <h2>Tool Calls ({{ tool_calls | length }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tool</th>
+                <th>Parameters</th>
+                <th>Result</th>
+                <th>Status</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tc in tool_calls %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><span class="badge badge-token">{{ tc.name }}</span></td>
+                <td class="truncate text-sm">{{ tc.parameters | tojson[:100] if tc.parameters else '-' }}</td>
+                <td class="truncate text-sm">{{ tc.result[:100] if tc.result else '-' }}</td>
+                <td>{{ '✅' if tc.status == 'completed' else '❌' }}</td>
+                <td class="text-sm">{{ tc.timestamp[:19] if tc.timestamp else '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

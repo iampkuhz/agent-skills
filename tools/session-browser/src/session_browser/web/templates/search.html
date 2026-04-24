@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Search - Agent Session Browser{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Search Results{% if query %}: "{{ query }}"{% endif %}</h2>
+
+<div class="section">
+    {% if results %}
+    <table>
+        <thead>
+            <tr>
+                <th>Agent</th>
+                <th>Title</th>
+                <th>Project</th>
+                <th>Model</th>
+                <th>Tokens</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in results %}
+            <tr>
+                <td>
+                    <span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">
+                        {{ 'CC' if s.agent == 'claude_code' else 'CX' }}
+                    </span>
+                </td>
+                <td><a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link">{{ s.title[:80] or 'Untitled' }}</a></td>
+                <td class="truncate text-sm">{{ s.project_name }}</td>
+                <td class="text-sm">{{ s.model or '-' }}</td>
+                <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
+                <td class="text-sm">{{ s.ended_at | relative_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No results found{% if query %} for "{{ query }}"{% endif %}.</p>
+    {% endif %}
+</div>
+{% endblock %}

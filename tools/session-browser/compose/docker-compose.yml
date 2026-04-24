@@ -1,0 +1,15 @@
+services:
+  session-browser:
+    build: .
+    container_name: session-browser
+    ports:
+      - "8899:8899"
+    volumes:
+      # Host agent data -> container data dirs
+      - ~/.claude:/data/claude:ro
+      - ~/.codex:/data/codex:ro
+      # Persistent index
+      - ./data/index:/data/index
+    restart: unless-stopped
+    # First run needs scan; uncomment to auto-scan on startup:
+    # command: ["sh", "-c", "./scripts/session-browser.sh scan && ./scripts/session-browser.sh serve"]

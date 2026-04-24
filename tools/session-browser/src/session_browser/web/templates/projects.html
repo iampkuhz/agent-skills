@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% set active_page = 'projects' %}
+
+{% block title %}Projects - Agent Session Browser{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">All Projects ({{ projects | length }})</h2>
+
+<div class="section">
+    <table>
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>Path</th>
+                <th>Sessions</th>
+                <th>Claude</th>
+                <th>Codex</th>
+                <th>Tokens</th>
+                <th>Tool Calls</th>
+                <th>First Seen</th>
+                <th>Last Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in projects %}
+            <tr>
+                <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
+                <td class="truncate text-sm">{{ p.project_key }}</td>
+                <td>{{ p.total_sessions }}</td>
+                <td>{{ p.claude_sessions }}</td>
+                <td>{{ p.codex_sessions }}</td>
+                <td>{{ (p.total_input_tokens + p.total_output_tokens) | format_number }}</td>
+                <td>{{ p.total_tool_calls | format_number }}</td>
+                <td class="text-sm">{{ p.first_seen[:10] if p.first_seen else '-' }}</td>
+                <td class="text-sm">{{ p.last_seen | relative_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
