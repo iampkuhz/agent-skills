@@ -29,9 +29,11 @@ def cmd_scan(args: argparse.Namespace) -> None:
     conn = _get_connection()
     init_schema(conn)
 
-    print("Starting full scan...")
+    agent = args.agent if hasattr(args, 'agent') else None
+    label = f" ({agent})" if agent else ""
+    print(f"Starting full scan{label}...")
     start = time.time()
-    result = full_scan(conn, verbose=True)
+    result = full_scan(conn, verbose=True, agent=agent)
     elapsed = time.time() - start
 
     print(f"\nScan complete in {elapsed:.1f}s")
@@ -76,6 +78,8 @@ def main() -> None:
 
     # scan command
     scan_p = sub.add_parser("scan", help="Scan and index all local sessions")
+    scan_p.add_argument("--agent", choices=["claude_code", "codex"],
+                        help="Scan only a specific agent (claude_code or codex)")
 
     # serve command
     serve_p = sub.add_parser("serve", help="Start local web server")

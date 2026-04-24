@@ -29,6 +29,7 @@ class SessionSummary:
     input_tokens: int = 0
     output_tokens: int = 0
     cached_input_tokens: int = 0
+    cached_output_tokens: int = 0  # cache_creation_input_tokens (write cache)
     has_sensitive_data: bool = True
 
     @property
@@ -51,6 +52,55 @@ class ChatMessage:
     model: str = ""
     tool_calls: list[dict] = field(default_factory=list)  # for assistant messages
     usage: Optional[dict] = None  # token usage for assistant messages
+    content_html: str = ""  # pre-rendered markdown HTML
+    token_ratio: float = 0  # proportion of session tokens used in this message
+
+
+@dataclass
+class ConversationRound:
+    """One exchange: user message + assistant response + tool calls."""
+
+    user_msg: ChatMessage
+    assistant_msg: ChatMessage
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    total_tokens: int = 0
+    token_ratio: float = 0  # proportion of total session tokens
+
+    @property
+    def input_tokens(self) -> int:
+        if self.assistant_msg.usage:
+            return self.assistant_msg.usage.get("input_tokens", 0)
+        return 0
+
+    @property
+    def output_tokens(self) -> int:
+        if self.assistant_msg.usage:
+            return self.assistant_msg.usage.get("output_tokens", 0)
+        return 0
+
+    @property
+    def cached_tokens(self) -> int:
+        if self.assistant_msg.usage:
+            return self.assistant_msg.usage.get("cache_read_input_tokens", 0)
+        return 0
+
+    @property
+    def cache_write_tokens(self) -> int:
+        """cache_creation_input_tokens: tokens being written to cache this turn."""
+        if self.assistant_msg.usage:
+            return self.assistant_msg.usage.get("cache_creation_input_tokens", 0)
+        return 0
+
+    def token_breakdown(self) -> dict:
+        """Return a dict of token categories for this round."""
+        if not self.assistant_msg.usage:
+            return {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
+        return {
+            "input": self.assistant_msg.usage.get("input_tokens", 0),
+            "cache_read": self.assistant_msg.usage.get("cache_read_input_tokens", 0),
+            "cache_write": self.assistant_msg.usage.get("cache_creation_input_tokens", 0),
+            "output": self.assistant_msg.usage.get("output_tokens", 0),
+        }
 
 
 @dataclass

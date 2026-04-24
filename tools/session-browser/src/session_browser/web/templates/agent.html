@@ -1,63 +1,55 @@
 {% extends "base.html" %}
-{% set active_page = 'projects' %}
+{% set active_page = 'agents' %}
 
-{% block title %}{{ project.project_name }} - Session Browser{% endblock %}
+{% block title %}{{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }} - Session Browser{% endblock %}
 
 {% block topbar %}
 <div class="topbar-breadcrumb">
     <a href="/dashboard">Dashboard</a>
     <span class="sep">/</span>
-    <a href="/projects">Projects</a>
+    <a href="/agents">Agents</a>
     <span class="sep">/</span>
-    <span class="current">{{ project.project_name }}</span>
+    <span class="current">{{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }}</span>
 </div>
 {% endblock %}
 
 {% block content %}
 
-<h1 style="font-size:20px; font-weight:700; margin-bottom:4px">{{ project.project_name }}</h1>
-<p class="text-sm text-muted mono mb-4">{{ project.project_key }}</p>
-
-<!-- Project Stats -->
+{% if agent_info %}
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-label">Sessions</div>
-        <div class="stat-value">{{ project.total_sessions }}</div>
-        <div class="stat-sub">
-            <span class="badge badge-claude" style="margin-right:4px">{{ project.claude_sessions }} CC</span>
-            <span class="badge badge-codex">{{ project.codex_sessions }} CX</span>
-        </div>
+        <div class="stat-value">{{ agent_info.session_count | format_number }}</div>
     </div>
     <div class="stat-card">
-        <div class="stat-label">Total Tokens</div>
-        <div class="stat-value">{{ (project.total_input_tokens + project.total_output_tokens) | format_number }}</div>
+        <div class="stat-label">Projects</div>
+        <div class="stat-value">{{ agent_info.project_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Tokens</div>
+        <div class="stat-value">{{ agent_info.total_tokens | format_number }}</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Tool Calls</div>
-        <div class="stat-value">{{ project.total_tool_calls | format_number }}</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Active Period</div>
-        <div class="stat-value" style="font-size:16px">
-            {% if project.first_seen and project.last_seen %}
-            {{ project.first_seen[:10] }} → {{ project.last_seen | relative_time }}
-            {% else %}
-            N/A
-            {% endif %}
-        </div>
+        <div class="stat-value">{{ agent_info.total_tool_calls | format_number }}</div>
     </div>
 </div>
+{% endif %}
 
-<!-- Session List -->
 <div class="card">
-    <div class="card-title">Sessions ({{ sessions | length }})</div>
+    <div class="card-title">
+        <span class="badge {{ 'badge-claude' if current_agent == 'claude_code' else 'badge-codex' }}" style="margin-right:8px">
+            {{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }}
+        </span>
+        Sessions ({{ sessions | length }})
+    </div>
     {% if sessions %}
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th></th>
                     <th>Title</th>
+                    <th>Project</th>
                     <th>Model</th>
                     <th>Messages</th>
                     <th>Tokens</th>
@@ -69,12 +61,13 @@
             <tbody>
                 {% for s in sessions %}
                 <tr>
-                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
                     <td>
                         <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:320px; display:block">
                             {{ s.title[:80] or 'Untitled' }}
                         </a>
-                        <div class="text-xs text-muted mono">{{ s.session_id[:12] }}…</div>
+                    </td>
+                    <td class="text-sm">
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link">{{ s.project_name }}</a>
                     </td>
                     <td class="text-sm text-muted">{{ s.model or '—' }}</td>
                     <td class="text-sm">{{ s.user_message_count + s.assistant_message_count }}</td>
@@ -88,7 +81,7 @@
         </table>
     </div>
     {% else %}
-    <div class="empty-state">No sessions found for this project.</div>
+    <div class="empty-state">No sessions found for this agent.</div>
     {% endif %}
 </div>
 

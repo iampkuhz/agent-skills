@@ -51,17 +51,20 @@ def read_threads_db() -> dict[str, dict]:
     """Read ~/.codex/state_5.sqlite threads table.
 
     Returns dict keyed by thread id.
+    Includes rollout_path for direct session file lookup.
+    Uses a timeout to avoid blocking when Codex is actively writing.
     """
     db_path = CODEX_DATA_DIR / "state_5.sqlite"
     if not db_path.exists():
         return {}
 
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), timeout=5)
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.execute(
             "SELECT id, title, cwd, model, tokens_used, created_at, updated_at, "
-            "git_branch, source, model_provider, cli_version "
+            "git_branch, source, model_provider, cli_version, rollout_path, "
+            "first_user_message "
             "FROM threads"
         )
         result = {}
@@ -79,18 +82,31 @@ def read_threads_db() -> dict[str, dict]:
                 "source": row["source"] or "",
                 "model_provider": row["model_provider"] or "",
                 "cli_version": row["cli_version"] or "",
+                "rollout_path": row["rollout_path"] or "",
+                "first_user_message": row["first_user_message"] or "",
             }
         return result
+    except sqlite3.OperationalError:
+        return {}
     finally:
         conn.close()
 
 
-def _find_session_file(session_id: str) -> Path | None:
+def _find_session_file(session_id: str, rollout_path: str = "") -> Path | None:
     """Find a Codex session file under ~/.codex/sessions/.
+
+    If rollout_path is provided (from state_5.sqlite threads table), use it directly.
+    Otherwise walk the year/month/day hierarchy to find the file.
 
     Sessions are stored as: {year}/{month}/{day}/rollout-{timestamp}-{uuid}.jsonl
     The uuid in the filename is the session id.
     """
+    if rollout_path:
+        p = Path(rollout_path)
+        if p.exists():
+            return p
+        # rollout_path may be stale — fall through to hierarchy search
+
     sessions_dir = CODEX_DATA_DIR / "sessions"
     if not sessions_dir.exists():
         return None
@@ -105,7 +121,6 @@ def _find_session_file(session_id: str) -> Path | None:
             for day_dir in sorted(month_dir.iterdir()):
                 if not day_dir.is_dir():
                     continue
-                candidate = day_dir / f"rollout-*-{session_id}.jsonl"
                 found = list(day_dir.glob(f"rollout-*-{session_id}.jsonl"))
                 if found:
                     return found[0]
@@ -143,8 +158,9 @@ def parse_session_detail(
     # Get metadata from threads DB
     thread_info = (threads_db or {}).get(session_id, {})
 
-    # Find and parse session event stream
-    session_file = _find_session_file(session_id)
+    # Find and parse session event stream (use rollout_path from DB if available)
+    rollout_path = thread_info.get("rollout_path", "")
+    session_file = _find_session_file(session_id, rollout_path)
     if session_file is None:
         return _empty_session(session_id, thread_info), [], []
 
@@ -380,16 +396,53 @@ def scan_all_sessions(
 ) -> Iterator[SessionSummary]:
     """Scan all Codex sessions and yield SessionSummary for each.
 
-    This is the main entry point for the indexer.
+    Primary source is state_5.sqlite threads table (complete and authoritative).
+    session_index.jsonl is used as a fallback to catch sessions that exist
+    but haven't been flushed to the threads DB yet (e.g. active sessions).
     """
-    index = parse_session_index()
     if threads_db is None:
         threads_db = read_threads_db()
 
-    for entry in index:
-        sid = entry["id"]
+    # Load session_index.jsonl for title enrichment AND fallback discovery
+    index_entries = {e["id"]: e for e in parse_session_index()}
+
+    seen_ids: set[str] = set()
+
+    for sid, thread_info in threads_db.items():
+        seen_ids.add(sid)
         summary, _msgs, _tcs = parse_session_detail(sid, threads_db)
-        # Ensure title from index if empty
-        if not summary.title and entry.get("thread_name"):
-            summary.title = entry["thread_name"][:120]
+        # Enrich title from index if empty in threads DB
+        if not summary.title:
+            idx_entry = index_entries.get(sid)
+            if idx_entry and idx_entry.get("thread_name"):
+                summary.title = idx_entry["thread_name"][:120]
+            # Fallback to first_user_message from threads DB
+            elif thread_info.get("first_user_message"):
+                summary.title = thread_info["first_user_message"][:120]
+        yield summary
+
+    # Fallback: scan session_index.jsonl for sessions not in threads DB
+    # This catches active sessions that haven't been flushed to state_5.sqlite yet
+    for sid, idx_entry in index_entries.items():
+        if sid in seen_ids:
+            continue
+        # Session exists in index but not in threads DB yet
+        thread_info = {
+            "id": sid,
+            "title": idx_entry.get("thread_name", ""),
+            "cwd": "",
+            "model": "",
+            "tokens_used": 0,
+            "created_at": 0,
+            "updated_at": 0,
+            "git_branch": "",
+            "source": "",
+            "model_provider": "",
+            "cli_version": "",
+            "rollout_path": "",
+            "first_user_message": "",
+        }
+        summary, _msgs, _tcs = parse_session_detail(sid, {sid: thread_info})
+        if not summary.title and idx_entry.get("thread_name"):
+            summary.title = idx_entry["thread_name"][:120]
         yield summary

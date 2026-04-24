@@ -1,166 +1,187 @@
 {% extends "base.html" %}
 {% set active_page = 'dashboard' %}
 
-{% block title %}Dashboard - Agent Session Browser{% endblock %}
+{% block title %}Dashboard - Session Browser{% endblock %}
+
+{% block topbar %}
+<span class="topbar-title">Dashboard</span>
+{% endblock %}
 
 {% block content %}
-<!-- Stats Cards -->
+
+<!-- Stats -->
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="label">Total Sessions</div>
-        <div class="value">{{ stats.total_sessions | format_number }}</div>
-        <div class="sub">{{ stats.claude_sessions }} Claude &middot; {{ stats.codex_sessions }} Codex</div>
+        <div class="stat-label">Total Sessions</div>
+        <div class="stat-value">{{ stats.total_sessions | format_number }}</div>
+        <div class="stat-sub">{{ stats.claude_sessions }} Claude · {{ stats.codex_sessions }} Codex</div>
     </div>
     <div class="stat-card">
-        <div class="label">Active Projects</div>
-        <div class="value">{{ stats.project_count }}</div>
+        <div class="stat-label">Active Projects</div>
+        <div class="stat-value">{{ stats.project_count }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Total Tokens</div>
-        <div class="value">{{ (tokens.total_input + tokens.total_output + tokens.total_cached) | format_number }}</div>
-        <div class="sub">In: {{ tokens.total_input | format_number }} &middot; Out: {{ tokens.total_output | format_number }} &middot; Cache: {{ tokens.total_cached | format_number }}</div>
+        <div class="stat-label">Total Tokens</div>
+        <div class="stat-value">{{ (tokens.total_input + tokens.total_output + tokens.total_cached) | format_number }}</div>
+        <div class="stat-sub">In: {{ tokens.total_input | format_number }} · Out: {{ tokens.total_output | format_number }} · Cache: {{ tokens.total_cached | format_number }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Tool Calls</div>
-        <div class="value">{{ tokens.total_tool_calls | format_number }}</div>
+        <div class="stat-label">Tool Calls</div>
+        <div class="stat-value">{{ tokens.total_tool_calls | format_number }}</div>
     </div>
 </div>
 
-<!-- Trend Chart (SVG) -->
-<div class="section">
-    <h2>Session Trend (30 days)</h2>
+<!-- Trend -->
+<div class="card">
+    <div class="card-title">Session Trend (30 days)</div>
     {% if trend %}
     <div id="trend-chart" style="width:100%; height:160px;"></div>
     <script>
-        (function() {
-            var data = {{ trend | tojson }};
-            var container = document.getElementById('trend-chart');
-            if (!data.length) { container.innerHTML = '<p class="text-muted">No data</p>'; return; }
-            var W = container.clientWidth, H = 160;
-            var pad = {t:20, r:20, b:30, l:40};
-            var cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
-            var maxVal = Math.max.apply(null, data.map(function(d){return d.total_count;})) || 1;
-            var svg = '<svg width="'+W+'" height="'+H+'">';
-            // Grid lines
-            for (var i = 0; i <= 4; i++) {
-                var y = pad.t + ch - (i/4)*ch;
-                svg += '<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#E5E7EB" stroke-width="1"/>';
-                svg += '<text x="'+(pad.l-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#6B7280">'+Math.round(i/4*maxVal)+'</text>';
+    (function() {
+        var data = {{ trend | tojson }};
+        var container = document.getElementById('trend-chart');
+        if (!data.length) { container.innerHTML = '<p class="text-muted">No data</p>'; return; }
+        var W = container.clientWidth, H = 160;
+        var pad = {t:16, r:16, b:28, l:40};
+        var cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+        var maxVal = Math.max.apply(null, data.map(function(d){return d.total_count;})) || 1;
+        var svg = '<svg width="'+W+'" height="'+H+'" style="display:block">';
+        for (var i = 0; i <= 4; i++) {
+            var y = pad.t + ch - (i/4)*ch;
+            svg += '<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#e8ecf0" stroke-width="1"/>';
+            svg += '<text x="'+(pad.l-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#8b95a5" font-family="Inter,sans-serif">'+Math.round(i/4*maxVal)+'</text>';
+        }
+        var barW = Math.max(cw / data.length - 2, 2);
+        data.forEach(function(d, i) {
+            var x = pad.l + (i / data.length) * cw;
+            var h = (d.total_count / maxVal) * ch;
+            var y = pad.t + ch - h;
+            // Stacked bars: green (codex) at bottom, purple (claude) on top
+            var codexH = d.total_count > 0 ? (d.codex_count / d.total_count) * h : 0;
+            var claudeH = h - codexH;
+            // Codex bar at bottom
+            if (d.codex_count > 0) {
+                var cy = y + claudeH;
+                svg += '<rect x="'+x+'" y="'+cy+'" width="'+barW+'" height="'+codexH+'" fill="#10b981" rx="2" opacity="0.85"/>';
             }
-            // Bars
-            var barW = Math.max(cw / data.length - 2, 2);
-            data.forEach(function(d, i) {
-                var x = pad.l + (i / data.length) * cw;
-                var h = (d.total_count / maxVal) * ch;
-                var y = pad.t + ch - h;
-                var color = d.claude_count >= d.codex_count ? '#8B5CF6' : '#10B981';
-                svg += '<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+h+'" fill="'+color+'" rx="2"/>';
-                // Date labels on every 5th
-                if (i % Math.max(Math.floor(data.length / 6), 1) === 0) {
-                    var dateStr = d.date ? d.date.substring(5) : '';
-                    svg += '<text x="'+x+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="#6B7280">'+dateStr+'</text>';
-                }
-            });
-            svg += '</svg>';
-            container.innerHTML = svg;
-        })();
+            // Claude bar on top
+            if (d.claude_count > 0) {
+                svg += '<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+claudeH+'" fill="#8b5cf6" rx="2" opacity="0.85"/>';
+            }
+            if (i % Math.max(Math.floor(data.length / 8), 1) === 0) {
+                var dateStr = d.date ? d.date.substring(5) : '';
+                svg += '<text x="'+(x+barW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="#8b95a5" font-family="Inter,sans-serif">'+dateStr+'</text>';
+            }
+        });
+        svg += '</svg>';
+        container.innerHTML = svg;
+    })();
     </script>
     {% else %}
-    <p class="text-muted">No trend data available. Run <code>python -m session_browser scan</code> first.</p>
+    <p class="text-muted">No trend data. Run <code>python -m session_browser scan</code> first.</p>
     {% endif %}
 </div>
 
 <!-- Agent Distribution -->
-<div class="section">
-    <h2>Agent Distribution</h2>
-    <div class="flex gap-2 items-center mb-4">
+<div class="card">
+    <div class="card-title">Agent Distribution</div>
+    <div class="flex gap-3 items-center mb-3">
         {% for agent, count in agent_dist.items() %}
-        <span class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
             <span class="agent-dot {{ 'claude' if agent == 'claude_code' else 'codex' }}"></span>
-            <span>{{ agent }}: {{ count | format_number }}</span>
-        </span>
+            <span class="text-sm">{{ 'Claude Code' if agent == 'claude_code' else 'Codex' }}: {{ count | format_number }}</span>
+        </div>
         {% endfor %}
     </div>
     {% if model_dist %}
-    <h3 class="text-sm text-muted mb-2">Model Distribution</h3>
+    <div class="card-title" style="font-size:13px; margin-top:12px">Model Distribution</div>
     <div class="flex gap-2" style="flex-wrap: wrap;">
         {% for model, count in model_dist.items() %}
-        <span class="badge badge-token">{{ model }}: {{ count | format_number }}</span>
+        <span class="badge badge-muted">{{ model }}: {{ count | format_number }}</span>
         {% endfor %}
     </div>
     {% endif %}
 </div>
 
 <!-- Active Projects -->
-<div class="section">
-    <h2>Active Projects</h2>
+<div class="card">
+    <div class="card-title flex justify-between items-center">
+        Active Projects
+        <a href="/projects" class="link text-sm">View all →</a>
+    </div>
     {% if projects %}
-    <table>
-        <thead>
-            <tr>
-                <th>Project</th>
-                <th>Sessions</th>
-                <th>Claude</th>
-                <th>Codex</th>
-                <th>Last Active</th>
-                <th>Tool Calls</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in projects %}
-            <tr>
-                <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
-                <td>{{ p.total_sessions }}</td>
-                <td>{{ p.claude_sessions }}</td>
-                <td>{{ p.codex_sessions }}</td>
-                <td>{{ p.last_seen | relative_time }}</td>
-                <td>{{ p.total_tool_calls | format_number }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Sessions</th>
+                    <th>Claude</th>
+                    <th>Codex</th>
+                    <th>Last Active</th>
+                    <th>Tool Calls</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in projects %}
+                <tr>
+                    <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
+                    <td>{{ p.total_sessions }}</td>
+                    <td><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
+                    <td><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
+                    <td class="text-sm text-muted">{{ p.last_seen | relative_time }}</td>
+                    <td class="text-sm">{{ p.total_tool_calls | format_number }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p class="text-muted">No projects indexed yet.</p>
+    <div class="empty-state">No projects indexed yet.</div>
     {% endif %}
 </div>
 
 <!-- Recent Sessions -->
-<div class="section">
-    <h2>Recent Sessions</h2>
+<div class="card">
+    <div class="card-title">Recent Sessions</div>
     {% if recent %}
-    <table>
-        <thead>
-            <tr>
-                <th>Agent</th>
-                <th>First Message</th>
-                <th>Project</th>
-                <th>Model</th>
-                <th>Tokens</th>
-                <th>Tools</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s in recent %}
-            <tr>
-                <td>
-                    <span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span>
-                    <span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">
-                        {{ 'CC' if s.agent == 'claude_code' else 'CX' }}
-                    </span>
-                </td>
-                <td class="truncate"><a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link">{{ s.title[:80] or 'Untitled' }}</a></td>
-                <td class="truncate text-sm">{{ s.project_name }}</td>
-                <td class="text-sm">{{ s.model or '-' }}</td>
-                <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
-                <td class="text-sm">{{ s.tool_call_count }}</td>
-                <td class="text-sm">{{ s.ended_at | relative_time }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Title</th>
+                    <th>Project</th>
+                    <th>Model</th>
+                    <th>Tokens</th>
+                    <th>Tools</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in recent %}
+                <tr>
+                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
+                    <td>
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:320px; display:block">
+                            {{ s.title[:80] or 'Untitled' }}
+                        </a>
+                    </td>
+                    <td class="text-sm">
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link">{{ s.project_name }}</a>
+                    </td>
+                    <td class="text-sm text-muted">{{ s.model or '—' }}</td>
+                    <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
+                    <td class="text-sm">{{ s.tool_call_count }}</td>
+                    <td class="text-sm text-muted">{{ s.ended_at | relative_time }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p class="text-muted">No sessions indexed yet.</p>
+    <div class="empty-state">No sessions indexed yet.</div>
     {% endif %}
 </div>
+
 {% endblock %}

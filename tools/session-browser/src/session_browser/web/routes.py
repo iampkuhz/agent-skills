@@ -12,6 +12,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 import jinja2
+from markdown_it import MarkdownIt
 
 from session_browser.index.indexer import (
     _get_connection,
@@ -23,13 +24,18 @@ from session_browser.index.indexer import (
     get_session,
     search_sessions,
     get_trend_data,
+    list_agents,
 )
 from session_browser.index.metrics import (
     get_token_breakdown,
     get_model_distribution,
     get_agent_distribution,
 )
-
+from session_browser.domain.models import (
+    ChatMessage,
+    ConversationRound,
+    ToolCall,
+)
 
 # Template directory
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -39,25 +45,35 @@ _template_env = jinja2.Environment(
     autoescape=True,
 )
 
-
-def _format_number(n: int) -> str:
-    """Format large numbers with K/M suffix."""
-    if n >= 1_000_000:
-        return f"{n / 1_000_000:.1f}M"
-    if n >= 1_000:
-        return f"{n / 1_000:.1f}K"
-    return str(n)
+# Markdown renderer (shared instance)
+_md = MarkdownIt()
 
 
-def _format_duration(seconds: float) -> str:
-    """Format seconds to human-readable duration."""
-    if seconds < 60:
-        return f"{int(seconds)}s"
-    if seconds < 3600:
-        return f"{int(seconds // 60)}min {int(seconds % 60)}s"
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    return f"{hours}h {minutes}min"
+def _md_filter(text: str) -> str:
+    """Render markdown to HTML."""
+    if not text:
+        return ""
+    return _md.render(text)
+
+
+# Register template filters
+_template_env.filters["format_number"] = lambda n: (
+    f"{n / 1_000_000:.1f}M" if n >= 1_000_000
+    else f"{n / 1_000:.1f}K" if n >= 1_000
+    else str(n)
+)
+_template_env.filters["format_duration"] = lambda seconds: (
+    f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}min" if seconds >= 3600
+    else f"{int(seconds // 60)}min {int(seconds % 60)}s" if seconds >= 60
+    else f"{int(seconds)}s"
+)
+_template_env.filters["relative_time"] = lambda iso_str: (
+    _relative_time(iso_str)
+)
+_template_env.filters["urlencode"] = urllib.parse.quote
+_template_env.filters["urldecode"] = urllib.parse.unquote
+_template_env.filters["markdown"] = _md_filter
+_template_env.filters["tojson_safe"] = lambda v: json.dumps(v) if v else "null"
 
 
 def _relative_time(iso_str: str) -> str:
@@ -83,12 +99,155 @@ def _relative_time(iso_str: str) -> str:
         return iso_str[:16]
 
 
-# Register template filters
-_template_env.filters["format_number"] = _format_number
-_template_env.filters["format_duration"] = _format_duration
-_template_env.filters["relative_time"] = _relative_time
-_template_env.filters["urlencode"] = urllib.parse.quote
-_template_env.filters["urldecode"] = urllib.parse.unquote
+def _build_rounds(
+    messages: list[ChatMessage],
+    tool_calls: list[ToolCall],
+    session_input_tokens: int,
+    session_output_tokens: int,
+    session_cached_tokens: int,
+    session_cache_write_tokens: int,
+    agent: str,
+) -> list[ConversationRound]:
+    """Group messages into conversation rounds and compute token ratios.
+
+    Consecutive same-role messages are merged into a single round
+    (joined by \\n\\n). Orphan assistant messages (no preceding user) also
+    become their own rounds with an empty user_msg.
+
+    Each round = 1 user message (possibly merged) + 1 assistant message.
+    Token ratio is derived from the assistant message's usage data (Claude)
+    or distributed evenly (Codex).
+    """
+    if not messages:
+        return []
+
+    total_session_tokens = session_input_tokens + session_output_tokens + session_cached_tokens + session_cache_write_tokens
+
+    # Step 1: Merge consecutive same-role messages
+    grouped: list[list[ChatMessage]] = []
+    for msg in messages:
+        # Pre-render markdown for every message
+        msg.content_html = _md_filter(msg.content)
+
+        if grouped and grouped[-1][0].role == msg.role:
+            grouped[-1].append(msg)
+        else:
+            grouped.append([msg])
+
+    # Step 2: Pair user-groups with assistant-groups into rounds
+    rounds: list[ConversationRound] = []
+    i = 0
+    while i < len(grouped):
+        group = grouped[i]
+        role = group[0].role
+
+        if role == "user":
+            # Merge all consecutive user messages into one
+            merged_user = _merge_messages(group)
+
+            # Look ahead for the next assistant group
+            j = i + 1
+            if j < len(grouped) and grouped[j][0].role == "assistant":
+                merged_assistant = _merge_messages(grouped[j])
+                j += 1
+            else:
+                # Orphan user message — no assistant response
+                merged_assistant = ChatMessage(role="assistant", content="", timestamp="")
+                j = i + 1
+
+            rounds.append(
+                _make_round(merged_user, merged_assistant, tool_calls,
+                            total_session_tokens, agent, session_cache_write_tokens)
+            )
+            i = j
+
+        elif role == "assistant":
+            # Orphan assistant message — no preceding user
+            merged_assistant = _merge_messages(group)
+            rounds.append(
+                _make_round(
+                    ChatMessage(role="user", content="", timestamp=""),
+                    merged_assistant,
+                    tool_calls,
+                    total_session_tokens,
+                    agent,
+                    session_cache_write_tokens,
+                )
+            )
+            i += 1
+
+    return rounds
+
+
+def _merge_messages(msgs: list[ChatMessage]) -> ChatMessage:
+    """Merge a list of same-role messages into one ChatMessage."""
+    if len(msgs) == 1:
+        return msgs[0]
+
+    content = "\n\n".join(m.content for m in msgs if m.content)
+    content_html = "\n\n".join(m.content_html for m in msgs if m.content_html)
+    # Use the latest timestamp
+    timestamp = msgs[-1].timestamp
+    # Merge tool_calls from all messages
+    all_tool_calls = []
+    for m in msgs:
+        all_tool_calls.extend(m.tool_calls)
+    # Merge usage (take the last non-None)
+    usage = None
+    for m in msgs:
+        if m.usage:
+            usage = m.usage
+
+    return ChatMessage(
+        role=msgs[0].role,
+        content=content,
+        timestamp=timestamp,
+        model=msgs[-1].model,
+        tool_calls=all_tool_calls,
+        usage=usage,
+        content_html=content_html,
+    )
+
+
+def _make_round(
+    user_msg: ChatMessage,
+    assistant_msg: ChatMessage,
+    all_tool_calls: list[ToolCall],
+    total_session_tokens: int,
+    agent: str,
+    session_cache_write_tokens: int = 0,
+) -> ConversationRound:
+    """Create a ConversationRound with token calculation and tool call matching."""
+    # Match tool calls from assistant message
+    round_tool_calls = []
+    if assistant_msg.tool_calls:
+        for tc in all_tool_calls:
+            for mt in assistant_msg.tool_calls:
+                if mt.get("name") == tc.name:
+                    round_tool_calls.append(tc)
+                    break
+
+    # Token info (Claude only)
+    round_input = 0
+    round_output = 0
+    round_cached = 0
+    round_cache_write = 0
+    if agent == "claude_code" and assistant_msg.usage:
+        round_input = assistant_msg.usage.get("input_tokens", 0)
+        round_output = assistant_msg.usage.get("output_tokens", 0)
+        round_cached = assistant_msg.usage.get("cache_read_input_tokens", 0)
+        round_cache_write = assistant_msg.usage.get("cache_creation_input_tokens", 0)
+
+    round_total = round_input + round_output + round_cached + round_cache_write
+    token_ratio = round_total / total_session_tokens if total_session_tokens > 0 else 0
+
+    return ConversationRound(
+        user_msg=user_msg,
+        assistant_msg=assistant_msg,
+        tool_calls=round_tool_calls,
+        total_tokens=round_total,
+        token_ratio=token_ratio,
+    )
 
 
 class SessionBrowserHandler(BaseHTTPRequestHandler):
@@ -107,8 +266,12 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             elif path.startswith("/projects/"):
                 project_key = urllib.parse.unquote(path[len("/projects/"):])
                 self._serve_project(project_key)
+            elif path == "/agents":
+                self._serve_agents()
+            elif path.startswith("/agents/"):
+                agent = urllib.parse.unquote(path[len("/agents/"):])
+                self._serve_agent(agent)
             elif path.startswith("/sessions/"):
-                # /sessions/{agent}/{session_id}
                 parts = path[len("/sessions/"):].split("/", 1)
                 if len(parts) == 2:
                     agent, session_id = parts
@@ -161,6 +324,7 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             model_dist=model_dist.distribution,
             agent_dist=agent_dist,
             tokens=token_breakdown,
+            active_page="dashboard",
         )
         self._send_html(html)
 
@@ -172,6 +336,7 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         html = self._render_template(
             "projects.html",
             projects=projects,
+            active_page="projects",
         )
         self._send_html(html)
 
@@ -186,6 +351,7 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             project=pstats,
             sessions=sessions,
             project_key=project_key,
+            active_page="projects",
         )
         self._send_html(html)
 
@@ -209,11 +375,58 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             from session_browser.sources.codex import parse_session_detail
             _, messages, tool_calls = parse_session_detail(session_id)
 
+        # Build conversation rounds with token data and markdown rendering
+        rounds = _build_rounds(
+            messages,
+            tool_calls,
+            session.input_tokens,
+            session.output_tokens,
+            session.cached_input_tokens,
+            session.cached_output_tokens,
+            agent,
+        )
+
         html = self._render_template(
             "session.html",
             session=session,
-            messages=messages,
+            rounds=rounds,
             tool_calls=tool_calls,
+            current_agent=agent,
+        )
+        self._send_html(html)
+
+    def _serve_agent(self, agent: str) -> None:
+        conn = _get_connection()
+        agents = list_agents(conn)
+        sessions = list_sessions(conn, agent=agent, limit=100, order_by="ended_at")
+        conn.close()
+
+        agent_info = None
+        for a in agents:
+            if a["agent"] == agent:
+                agent_info = a
+                break
+
+        html = self._render_template(
+            "agent.html",
+            agents=agents,
+            agent_info=agent_info,
+            sessions=sessions,
+            current_agent=agent,
+            active_page="agents",
+        )
+        self._send_html(html)
+
+    def _serve_agents(self) -> None:
+        conn = _get_connection()
+        agents = list_agents(conn)
+        conn.close()
+
+        html = self._render_template(
+            "agents.html",
+            agents=agents,
+            current_agent="__all__",
+            active_page="agents",
         )
         self._send_html(html)
 
@@ -226,6 +439,7 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             "search.html",
             query=query,
             results=results,
+            active_page="search",
         )
         self._send_html(html)
 

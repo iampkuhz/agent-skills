@@ -1,134 +1,242 @@
 {% extends "base.html" %}
 
-{% block title %}Session - Agent Session Browser{% endblock %}
+{% block title %}{{ session.title[:80] or 'Untitled' }} - Session Browser{% endblock %}
+
+{% block topbar %}
+<div class="topbar-breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="sep">/</span>
+    <a href="/projects/{{ session.project_key | urlencode }}">{{ session.project_name }}</a>
+    <span class="sep">/</span>
+    <span class="current">{{ session.title[:50] or 'Untitled' }}</span>
+</div>
+{% endblock %}
 
 {% block content %}
-<div class="flex items-center gap-2 mb-4">
-    <a href="/projects/{{ session.project_key | urlencode }}" class="link">&larr; Back to {{ session.project_name }}</a>
-</div>
 
-<!-- Session Meta -->
-<div class="section">
-    <div class="flex justify-between items-center mb-4">
-        <h2>{{ session.title[:100] or 'Untitled Session' }}</h2>
-        <span class="badge {{ 'badge-claude' if session.agent == 'claude_code' else 'badge-codex' }}">
-            {{ 'Claude Code' if session.agent == 'claude_code' else 'Codex' }}
-        </span>
-    </div>
-
-    <div class="stats-grid" style="margin-bottom:16px">
-        <div>
-            <div class="text-xs text-muted">Session ID</div>
-            <div class="text-sm" style="font-family:monospace; word-break:break-all">{{ session.session_id }}</div>
-        </div>
-        <div>
-            <div class="text-xs text-muted">Model</div>
-            <div class="text-sm">{{ session.model or '-' }}</div>
-        </div>
-        <div>
-            <div class="text-xs text-muted">CWD</div>
-            <div class="text-sm truncate" style="max-width:250px">{{ session.cwd or '-' }}</div>
-        </div>
-        <div>
-            <div class="text-xs text-muted">Branch</div>
-            <div class="text-sm">{{ session.git_branch or '-' }}</div>
-        </div>
-    </div>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="label">Duration</div>
-            <div class="value text-sm" style="font-size:20px">{{ session.duration_seconds | format_duration }}</div>
-        </div>
-        <div class="stat-card">
-            <div class="label">Messages</div>
-            <div class="value">{{ session.user_message_count + session.assistant_message_count }}</div>
-            <div class="sub">User: {{ session.user_message_count }} &middot; Assistant: {{ session.assistant_message_count }}</div>
-        </div>
-        <div class="stat-card">
-            <div class="label">Tool Calls</div>
-            <div class="value">{{ session.tool_call_count | format_number }}</div>
-        </div>
-        <div class="stat-card">
-            <div class="label">Tokens</div>
-            <div class="value">{{ (session.input_tokens + session.output_tokens) | format_number }}</div>
-            <div class="sub">In: {{ session.input_tokens | format_number }} &middot; Out: {{ session.output_tokens | format_number }} &middot; Cache: {{ session.cached_input_tokens | format_number }}</div>
-        </div>
-    </div>
-
-    <div class="text-xs text-muted mt-4">
-        Started: {{ session.started_at or 'N/A' }} &middot;
-        Ended: {{ session.ended_at or 'N/A' }}
-    </div>
-</div>
-
-<!-- Conversation -->
-<div class="section">
-    <h2>Conversation ({{ messages | length }} messages)</h2>
-    {% if messages %}
-    <div class="message-list">
-        {% for msg in messages %}
-        <div class="message {{ msg.role }}">
-            <div class="meta">
-                {{ '👤 User' if msg.role == 'user' else '🤖 Assistant' }}
-                {% if msg.model %} ({{ msg.model }}){% endif %}
-                &middot; {{ msg.timestamp[:19] if msg.timestamp else '' }}
-            </div>
-            <div class="content">
-                {# Truncate very long messages #}
-                {% if msg.content | length > 500 %}
-                    {{ msg.content[:500] }}...
-                    <details style="margin-top:4px">
-                        <summary class="link" style="cursor:pointer; font-size:12px">Show full</summary>
-                        <pre style="margin-top:4px; font-size:12px; background:#F9FAFB; padding:8px; border-radius:4px; overflow-x:auto">{{ msg.content }}</pre>
-                    </details>
-                {% else %}
-                    {{ msg.content or '(empty)' }}
-                {% endif %}
-            </div>
-            {% if msg.tool_calls %}
-            <div style="margin-top:8px">
-                {% for tc in msg.tool_calls %}
-                <span class="badge badge-token" title="{{ tc.name }}">{{ tc.name }}</span>
-                {% endfor %}
-            </div>
+<!-- Session header -->
+<div class="session-header">
+    <div>
+        <h1 class="session-title">{{ session.title[:120] or 'Untitled Session' }}</h1>
+        <div style="margin-top:8px; display:flex; align-items:center; gap:8px">
+            <span class="badge {{ 'badge-claude' if session.agent == 'claude_code' else 'badge-codex' }}">
+                {{ 'Claude Code' if session.agent == 'claude_code' else 'Codex' }}
+            </span>
+            {% if session.model %}
+            <span class="badge badge-muted">{{ session.model }}</span>
+            {% endif %}
+            {% if session.git_branch %}
+            <span class="badge badge-muted">{{ session.git_branch }}</span>
             {% endif %}
         </div>
-        {% endfor %}
     </div>
-    {% else %}
-    <p class="text-muted">No conversation data available.</p>
+</div>
+
+<!-- Metadata strip -->
+<div class="meta-strip">
+    <div class="meta-item">
+        <strong>Session</strong>
+        <span class="mono">{{ session.session_id[:16] }}…</span>
+    </div>
+    {% if session.cwd %}
+    <div class="meta-item">
+        <strong>CWD</strong>
+        <span class="mono" title="{{ session.cwd }}">{{ session.cwd }}</span>
+    </div>
+    {% endif %}
+    {% if session.started_at %}
+    <div class="meta-item">
+        <strong>Started</strong> {{ session.started_at[:19].replace('T', ' ') }}
+    </div>
+    {% endif %}
+    {% if session.ended_at %}
+    <div class="meta-item">
+        <strong>Ended</strong> {{ session.ended_at[:19].replace('T', ' ') }}
+    </div>
     {% endif %}
 </div>
 
-<!-- Tool Calls -->
-{% if tool_calls %}
-<div class="section">
-    <h2>Tool Calls ({{ tool_calls | length }})</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Tool</th>
-                <th>Parameters</th>
-                <th>Result</th>
-                <th>Status</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for tc in tool_calls %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td><span class="badge badge-token">{{ tc.name }}</span></td>
-                <td class="truncate text-sm">{{ tc.parameters | tojson[:100] if tc.parameters else '-' }}</td>
-                <td class="truncate text-sm">{{ tc.result[:100] if tc.result else '-' }}</td>
-                <td>{{ '✅' if tc.status == 'completed' else '❌' }}</td>
-                <td class="text-sm">{{ tc.timestamp[:19] if tc.timestamp else '' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Stats cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Duration</div>
+        <div class="stat-value" style="font-size:22px">{{ session.duration_seconds | format_duration }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Messages</div>
+        <div class="stat-value">{{ session.user_message_count + session.assistant_message_count }}</div>
+        <div class="stat-sub">{{ session.user_message_count }} user · {{ session.assistant_message_count }} assistant</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Tool Calls</div>
+        <div class="stat-value">{{ session.tool_call_count | format_number }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Tokens</div>
+        <div class="stat-value">{{ (session.input_tokens + session.output_tokens + session.cached_input_tokens + session.cached_output_tokens) | format_number }}</div>
+        <div class="stat-sub">In: {{ session.input_tokens | format_number }} · Out: {{ session.output_tokens | format_number }} · Cache R: {{ session.cached_input_tokens | format_number }} · Cache W: {{ session.cached_output_tokens | format_number }}</div>
+    </div>
+</div>
+
+<!-- Token overview bar -->
+{% set total_tokens = session.input_tokens + session.output_tokens + session.cached_input_tokens + session.cached_output_tokens %}
+{% if total_tokens > 0 %}
+<div class="token-overview">
+    <div class="token-overview__bar">
+        <div class="token-bar token-bar--overview">
+            {% if session.input_tokens > 0 %}
+            <div class="token-bar__segment token-bar__input" style="width:{{ (session.input_tokens / total_tokens * 100) | round(1) }}%" title="Input: {{ session.input_tokens | format_number }}"></div>
+            {% endif %}
+            {% if session.output_tokens > 0 %}
+            <div class="token-bar__segment token-bar__output" style="width:{{ (session.output_tokens / total_tokens * 100) | round(1) }}%" title="Output: {{ session.output_tokens | format_number }}"></div>
+            {% endif %}
+            {% if session.cached_input_tokens > 0 %}
+            <div class="token-bar__segment token-bar__cache-read" style="width:{{ (session.cached_input_tokens / total_tokens * 100) | round(1) }}%" title="Cache Read: {{ session.cached_input_tokens | format_number }}"></div>
+            {% endif %}
+            {% if session.cached_output_tokens > 0 %}
+            <div class="token-bar__segment token-bar__cache-write" style="width:{{ (session.cached_output_tokens / total_tokens * 100) | round(1) }}%" title="Cache Write: {{ session.cached_output_tokens | format_number }}"></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="token-overview__labels">
+        {% if session.input_tokens > 0 %}
+        <span class="token-bar__label"><span class="token-bar__dot" style="background:#6366f1"></span> Input {{ session.input_tokens | format_number }}</span>
+        {% endif %}
+        {% if session.output_tokens > 0 %}
+        <span class="token-bar__label"><span class="token-bar__dot" style="background:#10b981"></span> Output {{ session.output_tokens | format_number }}</span>
+        {% endif %}
+        {% if session.cached_input_tokens > 0 %}
+        <span class="token-bar__label"><span class="token-bar__dot" style="background:#f59e0b"></span> Cache Read {{ session.cached_input_tokens | format_number }}</span>
+        {% endif %}
+        {% if session.cached_output_tokens > 0 %}
+        <span class="token-bar__label"><span class="token-bar__dot" style="background:#06b6d4"></span> Cache Write {{ session.cached_output_tokens | format_number }}</span>
+        {% endif %}
+    </div>
 </div>
 {% endif %}
+
+<!-- Conversation -->
+<div class="card">
+    <div class="card-title">Conversation ({{ rounds | length }} rounds)</div>
+
+    {% if rounds %}
+    {% for round in rounds %}
+    <div class="round">
+        <!-- Round header -->
+        <div class="round-header">
+            <span class="round-number">#{{ loop.index }}</span>
+            <span class="round-time">
+                {% if round.user_msg.timestamp %}{{ round.user_msg.timestamp[:19].replace('T', ' ') }}{% endif %}
+            </span>
+            {% if round.token_ratio > 0 %}
+            <div class="round-token-bar">
+                <div class="token-bar token-bar--round">
+                    {% set breakdown = round.token_breakdown() %}
+                    {% set round_total = breakdown.input + breakdown.cache_read + breakdown.cache_write + breakdown.output %}
+                    {% if breakdown.input > 0 %}
+                    <div class="token-bar__segment token-bar__input" style="width:{{ (breakdown.input / round_total * 100) | round(1) }}%" title="Input: {{ breakdown.input | format_number }}"></div>
+                    {% endif %}
+                    {% if breakdown.cache_read > 0 %}
+                    <div class="token-bar__segment token-bar__cache-read" style="width:{{ (breakdown.cache_read / round_total * 100) | round(1) }}%" title="Cache Read: {{ breakdown.cache_read | format_number }}"></div>
+                    {% endif %}
+                    {% if breakdown.cache_write > 0 %}
+                    <div class="token-bar__segment token-bar__cache-write" style="width:{{ (breakdown.cache_write / round_total * 100) | round(1) }}%" title="Cache Write: {{ breakdown.cache_write | format_number }}"></div>
+                    {% endif %}
+                    {% if breakdown.output > 0 %}
+                    <div class="token-bar__segment token-bar__output" style="width:{{ (breakdown.output / round_total * 100) | round(1) }}%" title="Output: {{ breakdown.output | format_number }}"></div>
+                    {% endif %}
+                </div>
+            </div>
+            <span class="text-xs text-muted">{{ round.total_tokens | format_number }} tokens</span>
+            {% endif %}
+        </div>
+
+        <!-- User message -->
+        {% if round.user_msg.content_html %}
+        <div class="msg msg--user">
+            <div class="msg__meta">User</div>
+            <div class="msg__body">
+                {{ round.user_msg.content_html | safe }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Assistant message -->
+        {% if round.assistant_msg.content_html %}
+        <div class="msg msg--assistant">
+            <div class="msg__meta">
+                Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}
+            </div>
+            <div class="msg__body">
+                {{ round.assistant_msg.content_html | safe }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tool calls -->
+        {% if round.tool_calls %}
+        <div class="tool-call-section">
+            <details>
+                <summary>{{ round.tool_calls | length }} tool call{{ 's' if round.tool_calls | length > 1 else '' }}</summary>
+                {% for tc in round.tool_calls %}
+                <div style="margin-top:8px">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="badge badge-primary">{{ tc.name }}</span>
+                        <span class="text-xs text-muted">{{ tc.timestamp[:19].replace('T', ' ') if tc.timestamp else '' }}</span>
+                    </div>
+                    {% if tc.parameters %}
+                    <details class="tool-call-detail-wrap">
+                        <summary class="text-xs" style="cursor:pointer; color:var(--text-muted); margin-bottom:4px">Parameters</summary>
+                        <div class="tool-call-detail">{{ tc.parameters | tojson }}</div>
+                    </details>
+                    {% endif %}
+                    {% if tc.result %}
+                    <details class="tool-call-detail-wrap">
+                        <summary class="text-xs" style="cursor:pointer; color:var(--text-muted); margin-bottom:4px">Result</summary>
+                        <div class="tool-call-detail">{{ tc.result[:1000] }}</div>
+                    </details>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </details>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">No conversation data available.</div>
+    {% endif %}
+</div>
+
+<!-- All tool calls summary -->
+{% if tool_calls %}
+<div class="card">
+    <div class="card-title">All Tool Calls ({{ tool_calls | length }})</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tool</th>
+                    <th>Parameters</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tc in tool_calls %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><span class="badge badge-primary">{{ tc.name }}</span></td>
+                    <td class="text-sm mono truncate" style="max-width:200px">{{ tc.parameters | tojson | truncate(80) if tc.parameters else '—' }}</td>
+                    <td class="text-sm">{{ 'completed' if tc.status == 'completed' else tc.status }}</td>
+                    <td class="text-sm text-muted">{{ tc.timestamp[:19].replace('T', ' ') if tc.timestamp else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

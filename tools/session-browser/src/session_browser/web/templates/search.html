@@ -1,42 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}Search - Agent Session Browser{% endblock %}
+{% block title %}Search - Session Browser{% endblock %}
+
+{% block topbar %}
+<div class="topbar-breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="sep">/</span>
+    <span class="current">Search{% if query %}: "{{ query }}"{% endif %}</span>
+</div>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Search Results{% if query %}: "{{ query }}"{% endif %}</h2>
 
-<div class="section">
+<div class="card">
+    <div class="card-title">Search Results{% if query %}: <span style="color:var(--primary)">"{{ query }}"</span>{% endif %}</div>
     {% if results %}
-    <table>
-        <thead>
-            <tr>
-                <th>Agent</th>
-                <th>Title</th>
-                <th>Project</th>
-                <th>Model</th>
-                <th>Tokens</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s in results %}
-            <tr>
-                <td>
-                    <span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">
-                        {{ 'CC' if s.agent == 'claude_code' else 'CX' }}
-                    </span>
-                </td>
-                <td><a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link">{{ s.title[:80] or 'Untitled' }}</a></td>
-                <td class="truncate text-sm">{{ s.project_name }}</td>
-                <td class="text-sm">{{ s.model or '-' }}</td>
-                <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
-                <td class="text-sm">{{ s.ended_at | relative_time }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Title</th>
+                    <th>Project</th>
+                    <th>Model</th>
+                    <th>Tokens</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in results %}
+                <tr>
+                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
+                    <td>
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link">
+                            {{ s.title[:80] or 'Untitled' }}
+                        </a>
+                    </td>
+                    <td class="text-sm">
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link">{{ s.project_name }}</a>
+                    </td>
+                    <td class="text-sm text-muted">{{ s.model or '—' }}</td>
+                    <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
+                    <td class="text-sm text-muted">{{ s.ended_at | relative_time }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p class="text-muted">No results found{% if query %} for "{{ query }}"{% endif %}.</p>
+    <div class="empty-state">
+        {% if query %}No results found for "{{ query }}".{% else %}Enter a search term above.{% endif %}
+    </div>
     {% endif %}
 </div>
+
 {% endblock %}

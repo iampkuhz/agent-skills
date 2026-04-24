@@ -58,6 +58,7 @@ def init_schema(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
             input_tokens INTEGER NOT NULL DEFAULT 0,
             output_tokens INTEGER NOT NULL DEFAULT 0,
             cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+            cached_output_tokens INTEGER NOT NULL DEFAULT 0,
             indexed_at REAL NOT NULL DEFAULT 0
         );
 
@@ -91,8 +92,8 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
             session_key, agent, session_id, title, project_key, project_name,
             cwd, started_at, ended_at, duration_seconds, model, git_branch,
             source, user_message_count, assistant_message_count, tool_call_count,
-            input_tokens, output_tokens, cached_input_tokens, indexed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            input_tokens, output_tokens, cached_input_tokens, cached_output_tokens, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_key) DO UPDATE SET
             title=excluded.title,
             project_key=excluded.project_key,
@@ -110,6 +111,7 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
             input_tokens=excluded.input_tokens,
             output_tokens=excluded.output_tokens,
             cached_input_tokens=excluded.cached_input_tokens,
+            cached_output_tokens=excluded.cached_output_tokens,
             indexed_at=excluded.indexed_at
         """,
         (
@@ -132,6 +134,7 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
             summary.input_tokens,
             summary.output_tokens,
             summary.cached_input_tokens,
+            summary.cached_output_tokens,
             time.time(),
         ),
     )
@@ -140,8 +143,14 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
 def full_scan(
     conn: sqlite3.Connection | None = None,
     verbose: bool = False,
+    agent: str | None = None,
 ) -> dict:
     """Run a full scan of both Claude Code and Codex data sources.
+
+    Args:
+        conn: SQLite connection. If None, creates a new one.
+        verbose: Print progress messages.
+        agent: If provided, only scan this agent ("claude_code" or "codex").
 
     Returns a dict with scan statistics.
     """
@@ -159,28 +168,33 @@ def full_scan(
     claude_count = 0
     codex_count = 0
 
-    # Scan Claude Code
-    if verbose:
-        print("Scanning Claude Code...")
-    for summary in claude_source.scan_all_sessions():
-        upsert_session(conn, summary)
-        claude_count += 1
-        if verbose and claude_count % 50 == 0:
-            print(f"  Claude: {claude_count} sessions")
+    scan_claude = agent is None or agent == "claude_code"
+    scan_codex = agent is None or agent == "codex"
 
-    conn.commit()
+    # Scan Claude Code
+    if scan_claude:
+        if verbose:
+            print("Scanning Claude Code...")
+        for summary in claude_source.scan_all_sessions():
+            upsert_session(conn, summary)
+            claude_count += 1
+            if verbose and claude_count % 50 == 0:
+                print(f"  Claude: {claude_count} sessions")
+
+        conn.commit()
 
     # Scan Codex (pre-load threads DB once)
-    if verbose:
-        print("Scanning Codex...")
-    threads_db = codex_source.read_threads_db()
-    for summary in codex_source.scan_all_sessions(threads_db):
-        upsert_session(conn, summary)
-        codex_count += 1
-        if verbose and codex_count % 50 == 0:
-            print(f"  Codex: {codex_count} sessions")
+    if scan_codex:
+        if verbose:
+            print("Scanning Codex...")
+        threads_db = codex_source.read_threads_db()
+        for summary in codex_source.scan_all_sessions(threads_db):
+            upsert_session(conn, summary)
+            codex_count += 1
+            if verbose and codex_count % 50 == 0:
+                print(f"  Codex: {codex_count} sessions")
 
-    conn.commit()
+        conn.commit()
 
     # Update log
     conn.execute(
@@ -418,6 +432,28 @@ def get_trend_data(
     ]
 
 
+def list_agents(conn: sqlite3.Connection) -> list[dict]:
+    """List all agents with session counts.
+
+    Returns list of {agent, session_count, last_active, total_tokens}.
+    """
+    rows = conn.execute(
+        """
+        SELECT
+            agent,
+            COUNT(*) as session_count,
+            MAX(ended_at) as last_active,
+            COALESCE(SUM(input_tokens + output_tokens), 0) as total_tokens,
+            COALESCE(SUM(tool_call_count), 0) as total_tool_calls,
+            COUNT(DISTINCT project_key) as project_count
+        FROM sessions
+        GROUP BY agent
+        ORDER BY MAX(ended_at) DESC
+        """
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def search_sessions(
     conn: sqlite3.Connection,
     query: str,
@@ -461,4 +497,5 @@ def _row_to_summary(row: sqlite3.Row) -> SessionSummary:
         input_tokens=row["input_tokens"],
         output_tokens=row["output_tokens"],
         cached_input_tokens=row["cached_input_tokens"],
+        cached_output_tokens=row["cached_output_tokens"],
     )

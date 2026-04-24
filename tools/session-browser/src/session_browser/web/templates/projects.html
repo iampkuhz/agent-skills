@@ -1,41 +1,58 @@
 {% extends "base.html" %}
 {% set active_page = 'projects' %}
 
-{% block title %}Projects - Agent Session Browser{% endblock %}
+{% block title %}Projects - Session Browser{% endblock %}
+
+{% block topbar %}
+<div class="topbar-breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="sep">/</span>
+    <span class="current">Projects</span>
+</div>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">All Projects ({{ projects | length }})</h2>
 
-<div class="section">
-    <table>
-        <thead>
-            <tr>
-                <th>Project</th>
-                <th>Path</th>
-                <th>Sessions</th>
-                <th>Claude</th>
-                <th>Codex</th>
-                <th>Tokens</th>
-                <th>Tool Calls</th>
-                <th>First Seen</th>
-                <th>Last Active</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in projects %}
-            <tr>
-                <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
-                <td class="truncate text-sm">{{ p.project_key }}</td>
-                <td>{{ p.total_sessions }}</td>
-                <td>{{ p.claude_sessions }}</td>
-                <td>{{ p.codex_sessions }}</td>
-                <td>{{ (p.total_input_tokens + p.total_output_tokens) | format_number }}</td>
-                <td>{{ p.total_tool_calls | format_number }}</td>
-                <td class="text-sm">{{ p.first_seen[:10] if p.first_seen else '-' }}</td>
-                <td class="text-sm">{{ p.last_seen | relative_time }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card">
+    <div class="card-title flex justify-between items-center">
+        All Projects ({{ projects | length }})
+    </div>
+    {% if projects %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Path</th>
+                    <th>Sessions</th>
+                    <th>Claude</th>
+                    <th>Codex</th>
+                    <th>Tokens</th>
+                    <th>Tool Calls</th>
+                    <th>First Seen</th>
+                    <th>Last Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in projects %}
+                <tr>
+                    <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
+                    <td class="text-sm mono truncate" style="max-width:200px" title="{{ p.project_key }}">{{ p.project_key }}</td>
+                    <td><strong>{{ p.total_sessions }}</strong></td>
+                    <td><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
+                    <td><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
+                    <td class="text-sm">{{ (p.total_input_tokens + p.total_output_tokens) | format_number }}</td>
+                    <td class="text-sm">{{ p.total_tool_calls | format_number }}</td>
+                    <td class="text-sm text-muted">{{ p.first_seen[:10] if p.first_seen else '—' }}</td>
+                    <td class="text-sm text-muted">{{ p.last_seen | relative_time }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No projects indexed yet.</div>
+    {% endif %}
 </div>
+
 {% endblock %}

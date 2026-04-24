@@ -86,8 +86,14 @@ def _parse_session_events(path: Path) -> list[dict]:
 def parse_session_detail(
     project_key: str,
     session_id: str,
+    history_entry: dict | None = None,
 ) -> tuple[SessionSummary, list[ChatMessage], list[ToolCall]]:
     """Parse a single Claude session's full event stream.
+
+    Args:
+        project_key: The project path from history.jsonl.
+        session_id: The session ID.
+        history_entry: Optional history.jsonl entry for metadata fallback.
 
     Returns (SessionSummary, chat_messages, tool_calls).
     """
@@ -98,7 +104,7 @@ def parse_session_detail(
         # Try to find it by scanning
         session_file = _find_session_file(project_key, session_id)
         if session_file is None:
-            return _empty_session(session_id, project_key), [], []
+            return _session_from_history(session_id, history_entry), [], []
 
     events = _parse_session_events(session_file)
 
@@ -155,6 +161,35 @@ def _empty_session(session_id: str, project_key: str) -> SessionSummary:
     )
 
 
+def _session_from_history(session_id: str, history_entry: dict | None = None) -> SessionSummary:
+    """Create a session summary from history.jsonl metadata when the event file is missing.
+
+    This ensures sessions with deleted .jsonl files still appear in the index
+    with valid timestamps and titles from history.jsonl.
+    """
+    from pathlib import PurePosixPath
+
+    project = (history_entry or {}).get("project", "")
+    display = (history_entry or {}).get("display", "")
+    ts_ms = (history_entry or {}).get("timestamp", 0)
+
+    # Use history timestamp as both started_at and ended_at since we don't
+    # have the actual event stream to determine session duration
+    ts_iso = _ts_ms_to_iso(ts_ms) if ts_ms else ""
+    project_name = PurePosixPath(project).name if project else "unknown"
+
+    return SessionSummary(
+        agent="claude_code",
+        session_id=session_id,
+        title=display[:120] if display else "",
+        project_key=project,
+        project_name=project_name,
+        cwd="",
+        started_at=ts_iso,
+        ended_at=ts_iso,
+    )
+
+
 def _build_summary_from_events(
     events: list[dict],
     session_id: str,
@@ -169,6 +204,7 @@ def _build_summary_from_events(
     input_tokens = 0
     output_tokens = 0
     cached_tokens = 0
+    cache_write_tokens = 0
     model = ""
     cwd = ""
     git_branch = ""
@@ -220,6 +256,7 @@ def _build_summary_from_events(
                     input_tokens += usage.get("input_tokens", 0)
                     output_tokens += usage.get("output_tokens", 0)
                     cached_tokens += usage.get("cache_read_input_tokens", 0)
+                    cache_write_tokens += usage.get("cache_creation_input_tokens", 0)
                 # Count tool_use in content
                 content = msg.get("content", [])
                 if isinstance(content, list):
@@ -264,6 +301,7 @@ def _build_summary_from_events(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cached_input_tokens=cached_tokens,
+        cached_output_tokens=cache_write_tokens,
     )
 
 
@@ -365,7 +403,7 @@ def scan_all_sessions() -> Iterator[SessionSummary]:
     for entry in history:
         sid = entry["session_id"]
         project = entry["project"]
-        summary, _msgs, _tcs = parse_session_detail(project, sid)
+        summary, _msgs, _tcs = parse_session_detail(project, sid, history_entry=entry)
         # Ensure title from history if empty
         if not summary.title and entry.get("display"):
             summary.title = entry["display"][:120]
