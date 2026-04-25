@@ -1,5 +1,5 @@
 #!/bin/bash
-# Agent Tools 初始化设置脚本
+# Feipi Agent Kit 初始化设置脚本
 # 用法：./scripts/bootstrap/setup.sh
 
 set -e
@@ -9,7 +9,7 @@ REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 cd "$REPO_ROOT"
 
-echo "🔧 Agent Tools 初始化设置"
+echo "🔧 Feipi Agent Kit 初始化设置"
 echo "========================="
 echo ""
 

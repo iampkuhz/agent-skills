@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Agent Skills", email = "agent-skills@example.com"}
+    {name = "Feipi Agent Kit", email = "feipi-agent-kit@example.com"}
 ]
 keywords = ["mcp", "fastmcp", "runtime"]
 classifiers = [

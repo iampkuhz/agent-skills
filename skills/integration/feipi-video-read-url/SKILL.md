@@ -225,7 +225,7 @@ description: 用于按用户意图下载、提取或总结视频网站 URL，统
 
 执行前可先设置：
 ```bash
-SKILL_DIR="/Users/zhehan/Documents/tools/llm/skills/agent-skills/skills/integration/feipi-video-read-url"
+SKILL_DIR="/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/skills/integration/feipi-video-read-url"
 ```
 
 1. 检查依赖：

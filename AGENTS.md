@@ -1,13 +1,13 @@
-# 仓库级大模型上下文（Agent Tools）
+# 仓库级大模型上下文（Feipi Agent Kit）
 
-> **版本**：v2.0（agent-tools 重构后）
+> **版本**：v2.0（feipi-agent-kit 重构后）
 > **定位**：指导 AI 在本仓库中高效协作
 
 ---
 
 ## 角色与任务
 
-1. **你的角色**：本仓库的 agent-tools 工程助手
+1. **你的角色**：本仓库的 feipi-agent-kit 工程助手
 2. **主要职责**：创建、更新、重构和验证 skills、tools、rules、commands
 3. **工作方式**：默认进入"先规则后实现"的工作流
 
@@ -268,7 +268,7 @@ make searxng-mcp-run
        "searxng": {
          "command": "uv",
          "args": ["run", "python", "src/server.py"],
-         "cwd": "/Users/zhehan/Documents/tools/llm/skills/agent-skills/tools/search/searxng-mcp",
+         "cwd": "/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/tools/search/searxng-mcp",
          "env": {
            "SEARXNG_BASE_URL": "http://localhost:8873"
          }

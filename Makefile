@@ -1,4 +1,4 @@
-# Agent Tools Makefile
+# Feipi Agent Kit Makefile
 # 仓库级包装命令：
 # - `make install-links`：软链接安装到用户级 agent 目录
 # - `make install-project PROJECT=/path/to/project`：拷贝安装到项目目录
@@ -30,7 +30,7 @@ LITELLM_DIR := tools/gateway/litellm
 # ===== 主帮助 =====
 
 help:
-	@echo "Agent Tools - 可用命令"
+	@echo "Feipi Agent Kit - 可用命令"
 	@echo ""
 	@echo "===== Skills 管理 ====="
 	@echo "  make install-links [AGENT=codex|qwen|qoder|claudecode|openclaw]"

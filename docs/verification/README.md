@@ -1,6 +1,6 @@
 # 验证指南
 
-> 如何验证 Agent Tools 重构已落地并可实际使用
+> 如何验证 Feipi Agent Kit 重构已落地并可实际使用
 
 ---
 
@@ -104,7 +104,7 @@ asyncio.run(test())
     "searxng": {
       "command": "uv",
       "args": ["run", "python", "src/server.py"],
-      "cwd": "/Users/zhehan/Documents/tools/llm/skills/agent-skills/tools/search/searxng-mcp",
+      "cwd": "/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/tools/search/searxng-mcp",
       "env": {
         "SEARXNG_BASE_URL": "http://localhost:8873",
         "SEARXNG_TIMEOUT": "30.0"

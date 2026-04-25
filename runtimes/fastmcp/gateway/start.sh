@@ -8,7 +8,7 @@
 set -e
 
 # 项目根目录（硬编码，确保路径正确）
-PROJECT_DIR="/Users/zhehan/Documents/tools/llm/skills/agent-skills"
+PROJECT_DIR="/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit"
 
 cd "$PROJECT_DIR"
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Agent Tools 健康检查脚本
+# Feipi Agent Kit 健康检查脚本
 # 用法：./scripts/doctor/check.sh
 
 set -e
@@ -9,7 +9,7 @@ REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 cd "$REPO_ROOT"
 
-echo "🏥 Agent Tools 健康检查"
+echo "🏥 Feipi Agent Kit 健康检查"
 echo "======================="
 echo ""
 

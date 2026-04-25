@@ -41,7 +41,7 @@ def get_main_mcp() -> FastMCP:
     """获取或创建主 MCP 服务器"""
     global _main_mcp
     if _main_mcp is None:
-        _main_mcp = FastMCP("agent-skills-mcp")
+        _main_mcp = FastMCP("feipi-agent-kit-mcp")
     return _main_mcp
 
 
@@ -161,7 +161,7 @@ async def run_server(host: str = "0.0.0.0", port: int = 18080) -> None:
 
 def main():
     """主入口"""
-    logger.info("Starting Agent Skills MCP Gateway...")
+    logger.info("Starting Feipi Agent Kit MCP Gateway...")
     logger.info("")
 
     # 自动发现并加载服务

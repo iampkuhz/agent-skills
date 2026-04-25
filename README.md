@@ -1,7 +1,6 @@
-# Agent Tools
+# Feipi Agent Kit
 
 > **定位**：Agent 工具链和服务管理平台
-> **演进**：从 `agent-skills` 演进而来，新增 tools、rules、commands、runtimes 等核心目录
 > **状态**：🔄 重构中
 
 ---
@@ -36,7 +35,7 @@ make searxng-mcp-run
 ## 目录结构
 
 ```
-agent-tools/
+feipi-agent-kit/
 ├── .claude/            # Claude Code 配置
 ├── .codex/             # Codex 配置
 ├── commands/           # Slash Commands（统一管理中心）
@@ -45,9 +44,9 @@ agent-tools/
 ├── rules/              # 行为规则和约束规范
 ├── runtimes/           # 运行时框架（FastMCP）
 ├── scripts/            # 仓库级脚本
-├── skills/             # Agent Skills（保留）
+├── skills/             # Agent Skills
 ├── tests/              # 测试
-├── tools/              # 外部工具和服务（新增核心）
+├── tools/              # 外部工具和服务
 └── tmp/                # 临时文件
 ```
 
@@ -58,10 +57,11 @@ tools/
 ├── search/             # 搜索服务
 │   └── searxng/        # SearXNG 搜索引擎
 ├── crawl/              # 抓取服务
-│   ├── crawl4ai/       # Crawl4AI 服务（占位）
-│   └── crawl4ai-mcp/   # Crawl4AI MCP 服务（占位）
-└── gateway/            # 模型网关
-    └── litellm/        # LiteLLM 代理
+│   └── crawl4ai/       # Crawl4AI 服务
+├── gateway/            # 模型网关
+│   ├── litellm/        # LiteLLM 代理
+│   └── otel/           # OpenTelemetry 可观测性
+└── session-browser/    # Claude/Codex 会话浏览器
 ```
 
 ---
@@ -106,7 +106,7 @@ make searxng-up
 
 **详情**：[tools/search/searxng/README.md](tools/search/searxng/README.md)
 
-### SearXNG MCP（新建）
+### SearXNG MCP
 
 **定位**：基于 FastMCP 的搜索服务，供 Claude Code 使用
 
@@ -117,7 +117,13 @@ make searxng-up
 make searxng-mcp-run
 ```
 
-**详情**：[tools/search/searxng-mcp/README.md](tools/search/searxng-mcp/README.md)
+### Crawl4AI
+
+**定位**：网页抓取与内容提取服务
+
+**位置**：`tools/crawl/crawl4ai/`
+
+**详情**：[tools/crawl/crawl4ai/README.md](tools/crawl/crawl4ai/README.md)
 
 ---
 
@@ -127,41 +133,13 @@ make searxng-mcp-run
 
 | Skill | 用途 | 特点 |
 |-------|------|------|
-| `feipi-skill-govern` | 创建、重构、自检和治理其他 skill | 统一 v2 命名、layer、模板、脚本与验证边界 |
+| `feipi-skill-govern` | 创建、重构、自检和治理其他 skill | 统一命名、layer、模板、脚本与验证边界 |
 | `feipi-patent-generate-innovation-disclosure` | 把零散创新点整理成专利创新交底书 | 先补齐专利名与使用场景，再协同架构图/时序图 skill |
 | `feipi-video-read-url` | 按用户意图统一处理视频 URL | 覆盖 YouTube/Bilibili 的下载、转写、摘要和背景扩展 |
 | `feipi-plantuml-generate-architecture-diagram` | 根据 architecture-brief 生成 PlantUML 架构图 | 先校验 brief，再检查命名覆盖、布局和渲染 |
 | `feipi-plantuml-generate-sequence-diagram` | 根据 sequence-brief 生成 PlantUML 时序图 | 先校验 brief，再检查参与者覆盖、布局和渲染 |
 
 **详情**：[Skills Overview](skills/)
-
----
-
-## 为什么从 agent-skills 演进为 agent-tools？
-
-### 背景
-
-最初的 `agent-skills` 仓库只关注 skills 管理，但随着使用深入，发现需要：
-
-1. **服务化需求**：LiteLLM、SearXNG 等服务需要独立管理
-2. **MCP 生态**：Model Context Protocol 成为新标准，需要专门的服务框架
-3. **规范统一**：rules、commands 需要独立于 skills 管理
-4. **复用性**：多个服务共享相同的运行时框架（如 FastMCP）
-
-### 演进目标
-
-| 维度 | agent-skills | agent-tools |
-|------|--------------|-------------|
-| **范围** | 仅 skills | skills + tools + rules + commands + runtimes |
-| **服务** | 无 | LiteLLM、SearXNG、MCP 服务 |
-| **规范** | 分散在 AGENTS.md | 独立的 rules/ 目录 |
-| **命令** | 分散在 .claude/commands/ | 统一的 commands/ 目录 |
-
-### 为什么保留 skills/？
-
-1. **向后兼容**：现有技能和安装脚本继续有效
-2. **职责分离**：skills 是 agent 能力扩展，tools 是外部服务封装
-3. **渐进演进**：温和重构，不破坏现有工作流
 
 ---
 
@@ -182,7 +160,6 @@ cp .env.example .env
 
 - `tools/gateway/litellm/env/.env.example`
 - `tools/search/searxng/env/.env.example`
-- `tools/search/searxng-mcp/env/.env.example`
 
 ---
 
@@ -259,24 +236,7 @@ make searxng-mcp-run         # 运行 SearXNG MCP
 ### 服务文档
 - [tools/gateway/litellm/](tools/gateway/litellm/) - LiteLLM
 - [tools/search/searxng/](tools/search/searxng/) - SearXNG
-- [tools/search/searxng-mcp/](tools/search/searxng-mcp/) - SearXNG MCP
-
----
-
-## 验证清单
-
-完成以下条件时，可判定重构已落地：
-
-- [x] `tools/` 目录结构已创建
-- [x] LiteLLM 已配置到 `tools/gateway/litellm/`
-- [x] SearXNG 已配置到 `tools/search/searxng/`
-- [x] `runtimes/fastmcp/` 已创建
-- [x] `rules/` 目录已创建
-- [x] `commands/` 目录已创建
-- [ ] Crawl4AI 服务已配置
-- [ ] 所有服务可正常启动
-
----
+- [tools/crawl/crawl4ai/](tools/crawl/crawl4ai/) - Crawl4AI
 
 ---
 
