@@ -19,7 +19,9 @@
 <!-- Filters -->
 <div class="card" style="margin-bottom:12px; padding:10px 14px">
     <div class="flex gap-2 items-center">
-        <span class="text-xs" style="font-weight:600">Filter:</span>
+        <input id="session-search" type="text" placeholder="Search by title or session ID…"
+               style="flex:1; min-width:0; padding:3px 8px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface); font-family:var(--font-mono); outline:none"
+               oninput="applyFilters()" />
         <select id="filter-agent" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
             <option value="">All Agents</option>
             <option value="claude_code">Claude Code</option>
@@ -79,7 +81,9 @@
                 <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}"
                     data-agent="{{ s.agent }}"
                     data-model="{{ s.model }}"
-                    data-project="{{ s.project_key }}">
+                    data-project="{{ s.project_key }}"
+                    data-session-id="{{ s.session_id }}"
+                    data-title="{{ s.title }}">
                     <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
                     <td>
                         <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:280px; display:block" title="{{ s.title }}">
@@ -120,6 +124,7 @@
 
 <script>
 window.applyFilters = function() {
+    var q = document.getElementById('session-search').value.toLowerCase().trim();
     var agent = document.getElementById('filter-agent').value;
     var model = document.getElementById('filter-model').value;
     var project = document.getElementById('filter-project').value;
@@ -133,6 +138,24 @@ window.applyFilters = function() {
         if (agent && row.dataset.agent !== agent) show = false;
         if (model && row.dataset.model !== model) show = false;
         if (project && row.dataset.project !== project) show = false;
+        if (q) {
+            var title = (row.dataset.title || '').toLowerCase();
+            var sid = (row.dataset.sessionId || '').toLowerCase();
+            if (title.indexOf(q) === -1 && sid.indexOf(q) === -1) show = false;
+            // Exact or prefix match on session ID → navigate directly
+            if (sid === q || sid.startsWith(q) || q.startsWith(sid)) {
+                // Only navigate if it's a clear single match (type a full UUID prefix)
+                var matches = 0;
+                rows.forEach(function(r2) {
+                    var s2 = (r2.dataset.sessionId || '').toLowerCase();
+                    if (s2.startsWith(q) || s2 === q) matches++;
+                });
+                if (matches === 1 && q.length >= 8) {
+                    window.location.href = '/sessions/' + row.dataset.agent + '/' + row.dataset.sessionId;
+                    return;
+                }
+            }
+        }
         row.style.display = show ? '' : 'none';
         if (show) visibleCount++;
     });

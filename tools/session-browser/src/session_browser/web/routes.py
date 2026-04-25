@@ -22,7 +22,6 @@ from session_browser.index.indexer import (
     list_projects,
     get_project_stats,
     get_session,
-    search_sessions,
     get_trend_data,
     list_agents,
 )
@@ -282,9 +281,6 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
                 self._serve_agent(agent)
             elif path == "/glossary":
                 self._serve_glossary()
-            elif path == "/search":
-                q = params.get("q", [""])[0]
-                self._serve_search(q)
             elif path.startswith("/static/"):
                 self._serve_static(path[len("/static/"):])
             else:
@@ -434,19 +430,6 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         )
         self._send_html(html)
 
-    def _serve_search(self, query: str) -> None:
-        conn = _get_connection()
-        results = search_sessions(conn, query, limit=50) if query else []
-        conn.close()
-
-        html = self._render_template(
-            "search.html",
-            query=query,
-            results=results,
-            active_page="search",
-        )
-        self._send_html(html)
-
     def _serve_static(self, filename: str) -> None:
         static_dir = Path(__file__).parent / "static"
         filepath = static_dir / filename
@@ -507,4 +490,5 @@ def create_server(
 ) -> HTTPServer:
     """Create and return an HTTPServer instance."""
     server = HTTPServer((host, port), SessionBrowserHandler)
+    server.allow_reuse_address = True
     return server

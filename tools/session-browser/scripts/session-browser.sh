@@ -22,18 +22,23 @@ case "$CMD" in
     serve)
         python3 -m session_browser serve --allow-empty "$@"
         ;;
+    stop)
+        python3 -m session_browser stop "$@"
+        ;;
     *)
-        echo "Usage: $0 {scan|serve} [options]"
+        echo "Usage: $0 {scan|serve|stop} [options]"
         echo ""
         echo "Commands:"
         echo "  scan                          Scan and index all local agent sessions"
         echo "  scan --agent <name>           Scan only a specific agent (claude_code or codex)"
         echo "  serve                         Start local web server"
+        echo "  stop                          Stop the running web server"
         echo ""
         echo "Examples:"
         echo "  $0 scan"
         echo "  $0 scan --agent codex"
         echo "  $0 scan --agent claude_code"
         echo "  $0 serve --port 8899"
+        echo "  $0 stop"
         ;;
 esac

@@ -167,43 +167,6 @@
             font-size: 12px;
             opacity: 0.7;
         }
-        .sidebar-search {
-            padding: 8px 10px 12px;
-            border-top: 1px solid var(--border);
-        }
-        .sidebar-search form {
-            display: flex;
-            gap: 4px;
-        }
-        .sidebar-search input {
-            flex: 1;
-            padding: 6px 8px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 11px;
-            outline: none;
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--font-mono);
-        }
-        .sidebar-search input:focus {
-            border-color: var(--accent);
-        }
-        .sidebar-search input::placeholder {
-            color: var(--text-muted);
-        }
-        .sidebar-search button {
-            padding: 6px 10px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: var(--radius-sm);
-            font-size: 11px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-        .sidebar-search button:hover { opacity: 0.9; }
-
         /* ─── Main area ───────────────────────────────────────────────── */
         .main-area {
             margin-left: var(--sidebar-w);
@@ -839,12 +802,6 @@
                 <span class="nav-icon">$</span> Token Glossary
             </a>
         </nav>
-        <div class="sidebar-search">
-            <form action="/search" method="get">
-                <input type="text" name="q" placeholder="/ search..." value="{{ search_query or '' }}" id="search-input">
-                <button type="submit">Go</button>
-            </form>
-        </div>
     </aside>
 
     <!-- Main -->
@@ -864,20 +821,14 @@
         </div>
 
         <footer class="footer">
-            Agent Run Profiler · Read-only · Local · <span class="kbd">/</span> search · <span class="kbd">?</span> shortcuts
+            Agent Run Profiler · Read-only · Local
         </footer>
     </div>
 
     <!-- Keyboard shortcuts -->
     <script>
     (function() {
-        // Focus search on "/"
         document.addEventListener('keydown', function(e) {
-            if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-                var input = document.getElementById('search-input');
-                if (input) input.focus();
-            }
             // Tab switching: t=token, m=messages, r=raw
             if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
                 if (e.key === 't') switchTab('token-profile');

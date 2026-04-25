@@ -4,6 +4,7 @@ Usage:
     python -m session_browser scan        # Full scan
     python -m session_browser serve       # Start web server
     python -m session_browser serve --port 8899
+    python -m session_browser stop        # Stop web server
 
 Environment variables:
     CLAUDE_DATA_DIR  - Claude Code data directory (default: ~/.claude)
@@ -16,6 +17,9 @@ Environment variables:
 from __future__ import annotations
 
 import argparse
+import os
+import signal
+import subprocess
 import sys
 import time
 
@@ -69,6 +73,39 @@ def cmd_serve(args: argparse.Namespace) -> None:
     server.serve_forever()
 
 
+def cmd_stop(args: argparse.Namespace) -> None:
+    """Stop the running web server by killing the process on the port."""
+    port = args.port or SERVER_PORT
+
+    # Find PID using lsof
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True, text=True, timeout=5
+        )
+    except FileNotFoundError:
+        print("Error: 'lsof' not found. Stop the server manually.")
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print(f"Error: timed out searching for process on port {port}.")
+        sys.exit(1)
+
+    pids = [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
+    if not pids:
+        print(f"No process found on port {port}. Server may not be running.")
+        return
+
+    for pid in pids:
+        try:
+            print(f"Stopping process {pid} on port {port}...")
+            os.kill(int(pid), signal.SIGTERM)
+            print(f"Process {pid} stopped.")
+        except ProcessLookupError:
+            print(f"Process {pid} already exited.")
+        except PermissionError:
+            print(f"Permission denied for process {pid}. Try: kill {pid}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="session-browser",
@@ -87,12 +124,18 @@ def main() -> None:
     serve_p.add_argument("--port", type=int, default=SERVER_PORT, help=f"Port (default: {SERVER_PORT})")
     serve_p.add_argument("--allow-empty", action="store_true", help="Allow starting with empty index")
 
+    # stop command
+    stop_p = sub.add_parser("stop", help="Stop the running web server")
+    stop_p.add_argument("--port", type=int, default=SERVER_PORT, help=f"Port to stop (default: {SERVER_PORT})")
+
     args = parser.parse_args()
 
     if args.command == "scan":
         cmd_scan(args)
     elif args.command == "serve":
         cmd_serve(args)
+    elif args.command == "stop":
+        cmd_stop(args)
     else:
         parser.print_help()
         sys.exit(1)
