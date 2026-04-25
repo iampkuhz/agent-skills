@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = 'projects' %}
 
-{% block title %}Projects - Session Browser{% endblock %}
+{% block title %}Projects - Agent Run Profiler{% endblock %}
 
 {% block topbar %}
 <div class="topbar-breadcrumb">
@@ -15,7 +15,7 @@
 
 <div class="card">
     <div class="card-title flex justify-between items-center">
-        All Projects ({{ projects | length }})
+        Projects ({{ projects | length }})
     </div>
     {% if projects %}
     <div class="table-wrap">
@@ -27,9 +27,12 @@
                     <th>Sessions</th>
                     <th>Claude</th>
                     <th>Codex</th>
-                    <th>Tokens</th>
-                    <th>Tool Calls</th>
-                    <th>First Seen</th>
+                    <th>Input</th>
+                    <th>Cache R</th>
+                    <th>Cache W</th>
+                    <th>Output</th>
+                    <th>Tools</th>
+                    <th>Failed</th>
                     <th>Last Active</th>
                 </tr>
             </thead>
@@ -37,14 +40,23 @@
                 {% for p in projects %}
                 <tr>
                     <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
-                    <td class="text-sm mono truncate" style="max-width:200px" title="{{ p.project_key }}">{{ p.project_key }}</td>
+                    <td class="text-xs mono truncate" style="max-width:180px" title="{{ p.project_key }}">{{ p.project_key }}</td>
                     <td><strong>{{ p.total_sessions }}</strong></td>
                     <td><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
                     <td><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
-                    <td class="text-sm">{{ (p.total_input_tokens + p.total_output_tokens) | format_number }}</td>
-                    <td class="text-sm">{{ p.total_tool_calls | format_number }}</td>
-                    <td class="text-sm text-muted">{{ p.first_seen[:10] if p.first_seen else '—' }}</td>
-                    <td class="text-sm text-muted">{{ p.last_seen | relative_time }}</td>
+                    <td class="mono text-xs">{{ p.total_input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_cached_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_cache_write_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_output_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_tool_calls | format_number }}</td>
+                    <td class="mono text-xs">
+                        {% if p.total_failed_tools > 0 %}
+                        <span class="badge badge-error">{{ p.total_failed_tools }}</span>
+                        {% else %}
+                        <span class="text-xs text-muted">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-muted">{{ p.last_seen | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% set active_page = 'sessions' %}
+
+{% block title %}Sessions - Agent Run Profiler{% endblock %}
+
+{% block topbar %}
+<div class="topbar-breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="sep">/</span>
+    <span class="current">Sessions</span>
+</div>
+<div class="topbar-actions">
+    <span class="text-xs text-muted">{{ sessions | length }} of {{ total_count }} sessions</span>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:12px; padding:10px 14px">
+    <div class="flex gap-2 items-center">
+        <span class="text-xs" style="font-weight:600">Filter:</span>
+        <select id="filter-agent" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+            <option value="">All Agents</option>
+            <option value="claude_code">Claude Code</option>
+            <option value="codex">Codex</option>
+        </select>
+        <select id="filter-model" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+            <option value="">All Models</option>
+            {% for m in model_list %}
+            <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+        </select>
+        <select id="filter-project" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+            <option value="">All Projects</option>
+            {% for p in project_list %}
+            <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
+        </select>
+        <select id="sort-by" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+            <option value="ended_at">Sort: Last Active</option>
+            <option value="input_tokens">Sort: Input Tokens</option>
+            <option value="output_tokens">Sort: Output Tokens</option>
+            <option value="tool_call_count">Sort: Tool Calls</option>
+            <option value="failed_tool_count">Sort: Failed Tools</option>
+            <option value="duration_seconds">Sort: Duration</option>
+        </select>
+    </div>
+</div>
+
+<!-- Sessions table -->
+<div class="card">
+    <div class="card-title">All Sessions</div>
+    {% if sessions %}
+    <div class="table-wrap">
+        <table id="sessions-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Title</th>
+                    <th>Project</th>
+                    <th>Agent</th>
+                    <th>Model</th>
+                    <th>Branch</th>
+                    <th>Messages</th>
+                    <th>Rounds</th>
+                    <th>Input</th>
+                    <th>Cache R</th>
+                    <th>Cache W</th>
+                    <th>Output</th>
+                    <th>Tools</th>
+                    <th>Failed</th>
+                    <th>Duration</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in sessions %}
+                <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}"
+                    data-agent="{{ s.agent }}"
+                    data-model="{{ s.model }}"
+                    data-project="{{ s.project_key }}">
+                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
+                    <td>
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:280px; display:block" title="{{ s.title }}">
+                            {{ s.title[:80] or 'Untitled' }}
+                        </a>
+                    </td>
+                    <td class="text-xs">
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted">{{ s.project_name }}</a>
+                    </td>
+                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'CX' }}</span></td>
+                    <td class="text-xs text-muted mono">{{ s.model or '—' }}</td>
+                    <td class="text-xs text-muted mono">{{ s.git_branch or '—' }}</td>
+                    <td class="mono text-xs">{{ s.user_message_count + s.assistant_message_count }}</td>
+                    <td class="mono text-xs">{{ (s.user_message_count + s.assistant_message_count) // 2 }}</td>
+                    <td class="mono text-xs">{{ s.input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.cached_output_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.output_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.tool_call_count }}</td>
+                    <td class="mono text-xs">
+                        {% if s.failed_tool_count > 0 %}
+                        <span class="badge badge-error">{{ s.failed_tool_count }}</span>
+                        {% else %}
+                        <span class="text-xs text-muted">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-muted">{{ s.duration_seconds | format_duration }}</td>
+                    <td class="text-xs text-muted">{{ s.ended_at | relative_time }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No sessions found.</div>
+    {% endif %}
+</div>
+
+<script>
+window.applyFilters = function() {
+    var agent = document.getElementById('filter-agent').value;
+    var model = document.getElementById('filter-model').value;
+    var project = document.getElementById('filter-project').value;
+    var sortBy = document.getElementById('sort-by').value;
+
+    var rows = document.querySelectorAll('#sessions-table tbody tr');
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+        var show = true;
+        if (agent && row.dataset.agent !== agent) show = false;
+        if (model && row.dataset.model !== model) show = false;
+        if (project && row.dataset.project !== project) show = false;
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+
+    // Update count
+    var counter = document.querySelector('.topbar-actions .text-muted');
+    if (counter) counter.textContent = visibleCount + ' of {{ total_count }} sessions';
+};
+</script>
+
+{% endblock %}

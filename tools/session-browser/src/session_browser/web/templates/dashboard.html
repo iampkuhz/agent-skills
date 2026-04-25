@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = 'dashboard' %}
 
-{% block title %}Dashboard - Session Browser{% endblock %}
+{% block title %}Dashboard - Agent Run Profiler{% endblock %}
 
 {% block topbar %}
 <span class="topbar-title">Dashboard</span>
@@ -9,83 +9,72 @@
 
 {% block content %}
 
-<!-- Stats -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-label">Total Sessions</div>
-        <div class="stat-value">{{ stats.total_sessions | format_number }}</div>
-        <div class="stat-sub">{{ stats.claude_sessions }} Claude · {{ stats.codex_sessions }} Codex</div>
+<!-- Compact metrics -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Sessions</div>
+        <div class="metric-value">{{ stats.total_sessions | format_number }}</div>
+        <div class="metric-sub">{{ stats.claude_sessions }} Claude · {{ stats.codex_sessions }} Codex</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Active Projects</div>
-        <div class="stat-value">{{ stats.project_count }}</div>
+    <div class="metric-card">
+        <div class="metric-label">Projects</div>
+        <div class="metric-value">{{ stats.project_count }}</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Total Tokens</div>
-        <div class="stat-value">{{ (tokens.total_input + tokens.total_output + tokens.total_cached) | format_number }}</div>
-        <div class="stat-sub">In: {{ tokens.total_input | format_number }} · Out: {{ tokens.total_output | format_number }} · Cache: {{ tokens.total_cached | format_number }}</div>
+    <div class="metric-card">
+        <div class="metric-label">Input Fresh</div>
+        <div class="metric-value">{{ stats.total_input_tokens | format_number }}</div>
+        <div class="metric-sub">actual new input tokens</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Tool Calls</div>
-        <div class="stat-value">{{ tokens.total_tool_calls | format_number }}</div>
+    <div class="metric-card">
+        <div class="metric-label">Cache Read</div>
+        <div class="metric-value">{{ stats.total_cached_input_tokens | format_number }}</div>
+        <div class="metric-sub">input-side cache hits</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Cache Write</div>
+        <div class="metric-value">{{ stats.total_cached_output_tokens | format_number }}</div>
+        <div class="metric-sub">input-side cache writes</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Output</div>
+        <div class="metric-value">{{ stats.total_output_tokens | format_number }}</div>
+        <div class="metric-sub">visible + reasoning</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Tool Calls</div>
+        <div class="metric-value">{{ stats.total_tool_calls | format_number }}</div>
+        <div class="metric-sub">{{ stats.total_failed_tools }} failed</div>
     </div>
 </div>
 
-<!-- Trend -->
+<!-- Trend chart -->
 <div class="card">
-    <div class="card-title">Session Trend (30 days)</div>
+    <div class="card-title flex justify-between items-center">
+        Session Trend
+        <div class="flex gap-1">
+            <button class="tab tab--chart active" data-days="7" onclick="updateChart(7)">7d</button>
+            <button class="tab tab--chart" data-days="30" onclick="updateChart(30)">30d</button>
+        </div>
+    </div>
     {% if trend %}
-    <div id="trend-chart" style="width:100%; height:160px;"></div>
-    <script>
-    (function() {
-        var data = {{ trend | tojson }};
-        var container = document.getElementById('trend-chart');
-        if (!data.length) { container.innerHTML = '<p class="text-muted">No data</p>'; return; }
-        var W = container.clientWidth, H = 160;
-        var pad = {t:16, r:16, b:28, l:40};
-        var cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
-        var maxVal = Math.max.apply(null, data.map(function(d){return d.total_count;})) || 1;
-        var svg = '<svg width="'+W+'" height="'+H+'" style="display:block">';
-        for (var i = 0; i <= 4; i++) {
-            var y = pad.t + ch - (i/4)*ch;
-            svg += '<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#e8ecf0" stroke-width="1"/>';
-            svg += '<text x="'+(pad.l-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#8b95a5" font-family="Inter,sans-serif">'+Math.round(i/4*maxVal)+'</text>';
-        }
-        var barW = Math.max(cw / data.length - 2, 2);
-        data.forEach(function(d, i) {
-            var x = pad.l + (i / data.length) * cw;
-            var h = (d.total_count / maxVal) * ch;
-            var y = pad.t + ch - h;
-            // Stacked bars: green (codex) at bottom, purple (claude) on top
-            var codexH = d.total_count > 0 ? (d.codex_count / d.total_count) * h : 0;
-            var claudeH = h - codexH;
-            // Codex bar at bottom
-            if (d.codex_count > 0) {
-                var cy = y + claudeH;
-                svg += '<rect x="'+x+'" y="'+cy+'" width="'+barW+'" height="'+codexH+'" fill="#10b981" rx="2" opacity="0.85"/>';
-            }
-            // Claude bar on top
-            if (d.claude_count > 0) {
-                svg += '<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+claudeH+'" fill="#8b5cf6" rx="2" opacity="0.85"/>';
-            }
-            if (i % Math.max(Math.floor(data.length / 8), 1) === 0) {
-                var dateStr = d.date ? d.date.substring(5) : '';
-                svg += '<text x="'+(x+barW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="#8b95a5" font-family="Inter,sans-serif">'+dateStr+'</text>';
-            }
-        });
-        svg += '</svg>';
-        container.innerHTML = svg;
-    })();
-    </script>
+    <div class="chart-legend">
+        <div class="chart-legend__item">
+            <span class="chart-legend__dot" style="background:var(--agent-claude)"></span> Claude Code
+        </div>
+        <div class="chart-legend__item">
+            <span class="chart-legend__dot" style="background:var(--agent-codex)"></span> Codex
+        </div>
+    </div>
+    <div id="trend-chart" class="chart-container" style="height:140px;"></div>
     {% else %}
-    <p class="text-muted">No trend data. Run <code>python -m session_browser scan</code> first.</p>
+    <p class="text-muted text-sm">No trend data. Run <code class="mono">scan</code> first.</p>
     {% endif %}
 </div>
 
-<!-- Agent Distribution -->
+<!-- Agent + Model distribution -->
 <div class="card">
-    <div class="card-title">Agent Distribution</div>
-    <div class="flex gap-3 items-center mb-3">
+    <div class="card-title">Distribution</div>
+    <div class="flex gap-3 items-center mb-2">
         {% for agent, count in agent_dist.items() %}
         <div class="flex items-center gap-2">
             <span class="agent-dot {{ 'claude' if agent == 'claude_code' else 'codex' }}"></span>
@@ -94,10 +83,9 @@
         {% endfor %}
     </div>
     {% if model_dist %}
-    <div class="card-title" style="font-size:13px; margin-top:12px">Model Distribution</div>
-    <div class="flex gap-2" style="flex-wrap: wrap;">
+    <div class="text-sm" style="margin-top:8px">
         {% for model, count in model_dist.items() %}
-        <span class="badge badge-muted">{{ model }}: {{ count | format_number }}</span>
+        <span class="badge badge-muted" style="margin-right:4px; margin-bottom:4px">{{ model }}: {{ count | format_number }}</span>
         {% endfor %}
     </div>
     {% endif %}
@@ -118,19 +106,25 @@
                     <th>Sessions</th>
                     <th>Claude</th>
                     <th>Codex</th>
+                    <th>Input</th>
+                    <th>Cache R</th>
+                    <th>Cache W</th>
+                    <th>Tools</th>
                     <th>Last Active</th>
-                    <th>Tool Calls</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in projects %}
                 <tr>
                     <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
-                    <td>{{ p.total_sessions }}</td>
+                    <td><strong>{{ p.total_sessions }}</strong></td>
                     <td><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
                     <td><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
-                    <td class="text-sm text-muted">{{ p.last_seen | relative_time }}</td>
-                    <td class="text-sm">{{ p.total_tool_calls | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_cached_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_cache_write_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ p.total_tool_calls | format_number }}</td>
+                    <td class="text-xs text-muted">{{ p.last_seen | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -153,8 +147,11 @@
                     <th>Title</th>
                     <th>Project</th>
                     <th>Model</th>
-                    <th>Tokens</th>
+                    <th>Input</th>
+                    <th>Cache R</th>
+                    <th>Output</th>
                     <th>Tools</th>
+                    <th>Duration</th>
                     <th>Time</th>
                 </tr>
             </thead>
@@ -163,17 +160,25 @@
                 <tr>
                     <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
                     <td>
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:320px; display:block">
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:280px; display:block" title="{{ s.title }}">
                             {{ s.title[:80] or 'Untitled' }}
                         </a>
                     </td>
-                    <td class="text-sm">
-                        <a href="/projects/{{ s.project_key | urlencode }}" class="link">{{ s.project_name }}</a>
+                    <td class="text-xs">
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted">{{ s.project_name }}</a>
                     </td>
-                    <td class="text-sm text-muted">{{ s.model or '—' }}</td>
-                    <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
-                    <td class="text-sm">{{ s.tool_call_count }}</td>
-                    <td class="text-sm text-muted">{{ s.ended_at | relative_time }}</td>
+                    <td class="text-xs text-muted mono">{{ s.model or '—' }}</td>
+                    <td class="mono text-xs">{{ s.input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.output_tokens | format_number }}</td>
+                    <td class="mono text-xs">
+                        {{ s.tool_call_count }}
+                        {% if s.failed_tool_count > 0 %}
+                        <span class="badge badge-error" style="margin-left:2px">{{ s.failed_tool_count }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-muted">{{ s.duration_seconds | format_duration }}</td>
+                    <td class="text-xs text-muted">{{ s.ended_at | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -183,5 +188,65 @@
     <div class="empty-state">No sessions indexed yet.</div>
     {% endif %}
 </div>
+
+<script>
+// Trend chart rendering
+(function() {
+    var container = document.getElementById('trend-chart');
+    if (!container) return;
+
+    var rawData = {{ trend | tojson }};
+    var currentDays = 30;
+
+    window.updateChart = function(days) {
+        currentDays = days;
+        // Filter data
+        var data = rawData.slice(-days);
+        if (!data.length) { container.innerHTML = '<p class="text-muted text-sm">No data</p>'; return; }
+
+        var W = container.clientWidth, H = 140;
+        var pad = {t:10, r:10, b:24, l:36};
+        var cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+        var maxVal = Math.max.apply(null, data.map(function(d){return d.total_count;})) || 1;
+
+        var svg = '<svg width="'+W+'" height="'+H+'" style="display:block">';
+        // Grid lines
+        for (var i = 0; i <= 3; i++) {
+            var y = pad.t + ch - (i/3)*ch;
+            svg += '<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#e8ecf0" stroke-width="1"/>';
+            svg += '<text x="'+(pad.l-4)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif">'+Math.round(i/3*maxVal)+'</text>';
+        }
+
+        var barW = Math.max(cw / data.length - 2, 2);
+        data.forEach(function(d, i) {
+            var x = pad.l + (i / data.length) * cw;
+            var h = (d.total_count / maxVal) * ch;
+            var y = pad.t + ch - h;
+            var codexH = d.total_count > 0 ? (d.codex_count / d.total_count) * h : 0;
+            var claudeH = h - codexH;
+            if (d.codex_count > 0) {
+                svg += '<rect x="'+x+'" y="'+(y+claudeH)+'" width="'+barW+'" height="'+codexH+'" fill="#10b981" rx="1" opacity="0.85"/>';
+            }
+            if (d.claude_count > 0) {
+                svg += '<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+claudeH+'" fill="#8b5cf6" rx="1" opacity="0.85"/>';
+            }
+            if (i % Math.max(Math.floor(data.length / 8), 1) === 0) {
+                var dateStr = d.date ? d.date.substring(5) : '';
+                svg += '<text x="'+(x+barW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8" fill="#94a3b8" font-family="Inter,sans-serif">'+dateStr+'</text>';
+            }
+        });
+        svg += '</svg>';
+        container.innerHTML = svg;
+
+        // Update button states
+        document.querySelectorAll('.tab--chart').forEach(function(btn) {
+            btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+        });
+    };
+
+    // Initial render
+    window.updateChart(30);
+})();
+</script>
 
 {% endblock %}

@@ -7,6 +7,78 @@ from typing import Optional
 from datetime import datetime, timezone
 
 
+# ─── Token types ───────────────────────────────────────────────────────────
+
+
+class TokenPrecision:
+    EXACT = "exact"
+    PROVIDER_REPORTED = "provider-reported"
+    ESTIMATED = "estimated"
+    UNKNOWN = "unknown"
+
+
+class TokenProvider:
+    ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    CODEX = "codex"
+    QWEN_ANTHROPIC_COMPATIBLE = "qwen-anthropic-compatible"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class TokenBreakdown:
+    """Per-round or per-session token usage breakdown.
+
+    All fields are in tokens. Missing fields are None, not 0.
+    """
+
+    # Input-side
+    input_fresh: Optional[int] = None
+    input_cache_read: Optional[int] = None
+    input_cache_write: Optional[int] = None
+
+    # Output-side
+    output_visible: Optional[int] = None
+    output_reasoning: Optional[int] = None
+    output_thinking: Optional[int] = None
+
+    # Tool-related
+    tool_definition_input: Optional[int] = None
+    tool_call_output: Optional[int] = None
+    tool_result_input: Optional[int] = None
+
+    # Computed totals
+    total_input: Optional[int] = None
+    total_output: Optional[int] = None
+
+    precision: str = TokenPrecision.UNKNOWN
+    provider: Optional[str] = None
+    raw_fields: dict = field(default_factory=dict)
+
+    def compute_totals(self) -> None:
+        """Compute total_input and total_output from breakdown fields."""
+        # total_input = input_fresh + input_cache_read + input_cache_write
+        input_parts = [
+            self.input_fresh or 0,
+            self.input_cache_read or 0,
+            self.input_cache_write or 0,
+        ]
+        if any(p is not None for p in [self.input_fresh, self.input_cache_read, self.input_cache_write]):
+            self.total_input = sum(input_parts)
+
+        # total_output = output_visible + output_reasoning + output_thinking
+        output_parts = [
+            self.output_visible or 0,
+            self.output_reasoning or 0,
+            self.output_thinking or 0,
+        ]
+        if any(p is not None for p in [self.output_visible, self.output_reasoning, self.output_thinking]):
+            self.total_output = sum(output_parts)
+
+
+# ─── Session / Message / Tool models ──────────────────────────────────────
+
+
 @dataclass
 class SessionSummary:
     """Unified session index model for both Claude Code and Codex."""
@@ -28,9 +100,13 @@ class SessionSummary:
     tool_call_count: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
-    cached_input_tokens: int = 0
+    cached_input_tokens: int = 0  # cache_read_input_tokens
     cached_output_tokens: int = 0  # cache_creation_input_tokens (write cache)
     has_sensitive_data: bool = True
+
+    # New fields for token breakdown
+    token_breakdown: Optional[TokenBreakdown] = None
+    failed_tool_count: int = 0
 
     @property
     def session_key(self) -> str:
@@ -54,6 +130,27 @@ class ChatMessage:
     usage: Optional[dict] = None  # token usage for assistant messages
     content_html: str = ""  # pre-rendered markdown HTML
     token_ratio: float = 0  # proportion of session tokens used in this message
+    token_breakdown: Optional[TokenBreakdown] = None  # per-message token breakdown
+
+
+@dataclass
+class ToolCall:
+    """A tool invocation record."""
+
+    name: str
+    parameters: dict = field(default_factory=dict)
+    result: str = ""
+    status: str = "completed"  # "completed" | "error"
+    duration_ms: float = 0
+    timestamp: str = ""
+    exit_code: Optional[int] = None
+    error_message: str = ""
+    files_touched: list[str] = field(default_factory=list)
+    round_index: int = 0
+
+    @property
+    def is_failed(self) -> bool:
+        return self.status == "error" or (self.exit_code is not None and self.exit_code != 0)
 
 
 @dataclass
@@ -65,6 +162,7 @@ class ConversationRound:
     tool_calls: list[ToolCall] = field(default_factory=list)
     total_tokens: int = 0
     token_ratio: float = 0  # proportion of total session tokens
+    round_index: int = 0
 
     @property
     def input_tokens(self) -> int:
@@ -104,18 +202,6 @@ class ConversationRound:
 
 
 @dataclass
-class ToolCall:
-    """A tool invocation record."""
-
-    name: str
-    parameters: dict = field(default_factory=dict)
-    result: str = ""
-    status: str = "completed"  # "completed" | "error"
-    duration_ms: float = 0
-    timestamp: str = ""
-
-
-@dataclass
 class ProjectStats:
     """Aggregated statistics for a project."""
 
@@ -128,7 +214,9 @@ class ProjectStats:
     last_seen: str = ""
     total_input_tokens: int = 0
     total_output_tokens: int = 0
-    total_cached_tokens: int = 0
+    total_cached_tokens: int = 0  # cache read
+    total_cache_write_tokens: int = 0  # cache write
     total_tool_calls: int = 0
     total_user_messages: int = 0
     total_assistant_messages: int = 0
+    total_failed_tools: int = 0

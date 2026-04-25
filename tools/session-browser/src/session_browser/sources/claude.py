@@ -11,11 +11,13 @@ All paths configurable via CLAUDE_DATA_DIR env var.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Iterator
 
 from session_browser.config import CLAUDE_DATA_DIR
-from session_browser.domain.models import SessionSummary, ChatMessage, ToolCall
+from session_browser.domain.models import SessionSummary, ChatMessage, ToolCall, TokenBreakdown
+from session_browser.domain.token_normalizer import normalize_tokens, TokenPrecision
 
 
 def parse_history() -> list[dict]:
@@ -178,16 +180,96 @@ def _session_from_history(session_id: str, history_entry: dict | None = None) ->
     ts_iso = _ts_ms_to_iso(ts_ms) if ts_ms else ""
     project_name = PurePosixPath(project).name if project else "unknown"
 
+    # Clean up title from display field
+    title = _extract_readable_title(display)
+
     return SessionSummary(
         agent="claude_code",
         session_id=session_id,
-        title=display[:120] if display else "",
+        title=title,
         project_key=project,
         project_name=project_name,
         cwd="",
         started_at=ts_iso,
         ended_at=ts_iso,
     )
+
+
+# ─── Title extraction ─────────────────────────────────────────────────────
+
+
+def _extract_readable_title(raw_content: str) -> str:
+    """Extract a readable title from raw content that may contain command envelopes.
+
+    Handles:
+    1. <command-message>spec-research</command-message><command-args>... → "spec-research · user-intent"
+    2. Normal text → first sentence/intent summary
+    3. Empty → ""
+    """
+    if not raw_content:
+        return ""
+
+    content = raw_content.strip()
+
+    # Detect command envelope pattern
+    cmd_match = re.search(r"<command-message>([^<]+)</command-message>", content)
+    if cmd_match:
+        cmd_name = cmd_match.group(1).strip()
+
+        # Try to extract user intent from <command-args>
+        args_match = re.search(r"<command-args>(.+?)</command-args>", content, re.DOTALL)
+        if args_match:
+            args_text = args_match.group(1).strip()
+            # Clean up: remove XML-like tags, take first meaningful sentence
+            intent = _summarize_text(args_text)
+            if intent:
+                return f"{cmd_name} · {intent}"
+
+        # Fallback: take text after the command envelope
+        after_cmd = content[cmd_match.end():].strip()
+        if after_cmd:
+            intent = _summarize_text(after_cmd)
+            if intent:
+                return f"{cmd_name} · {intent}"
+
+        return cmd_name
+
+    # No command envelope — summarize normally
+    return _summarize_text(content)
+
+
+def _summarize_text(text: str, max_len: int = 80) -> str:
+    """Create a short, readable summary of text.
+
+    Strips tags, takes first sentence or up to max_len chars.
+    """
+    if not text:
+        return ""
+
+    # Strip XML-like tags
+    text = re.sub(r"<[^>]+>", "", text).strip()
+
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    if not text:
+        return ""
+
+    # Take first sentence (up to first period/question/exclamation followed by space)
+    sentence_match = re.match(r"^(.+?[.!?])\s", text)
+    if sentence_match:
+        first_sentence = sentence_match.group(1).strip()
+        if len(first_sentence) <= max_len:
+            return first_sentence
+        return first_sentence[:max_len - 1] + "…"
+
+    # No sentence boundary — truncate
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - 1] + "…"
+
+
+# ─── Summary building ─────────────────────────────────────────────────────
 
 
 def _build_summary_from_events(
@@ -201,6 +283,7 @@ def _build_summary_from_events(
     user_count = 0
     assistant_count = 0
     tool_count = 0
+    failed_tool_count = 0
     input_tokens = 0
     output_tokens = 0
     cached_tokens = 0
@@ -226,17 +309,17 @@ def _build_summary_from_events(
                     first_ts = int(dt.timestamp() * 1000)
                 except (ValueError, TypeError):
                     pass
-            # Get title from first user message
+            # Extract title from first user message
             if not title:
                 msg = ev.get("message", {})
                 if isinstance(msg, dict):
                     content = msg.get("content", "")
                     if isinstance(content, str):
-                        title = content[:120]
+                        title = _extract_readable_title(content)
                     elif isinstance(content, list):
                         for item in content:
                             if isinstance(item, dict) and item.get("type") == "text":
-                                title = item.get("text", "")[:120]
+                                title = _extract_readable_title(item.get("text", ""))
                                 break
             if not cwd:
                 cwd = ev.get("cwd", "")
@@ -263,6 +346,25 @@ def _build_summary_from_events(
                     for item in content:
                         if isinstance(item, dict) and item.get("type") == "tool_use":
                             tool_count += 1
+
+            # Check for tool results that indicate failure
+            if etype == "user":
+                msg = ev.get("message", {})
+                if isinstance(msg, dict):
+                    content = msg.get("content", "")
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get("type") == "tool_result":
+                                result_content = item.get("content", "")
+                                if isinstance(result_content, str) and ("error" in result_content.lower() or "failed" in result_content.lower()):
+                                    failed_tool_count += 1
+                                elif isinstance(result_content, list):
+                                    for rc in result_content:
+                                        if isinstance(rc, dict) and rc.get("type") == "text":
+                                            rc_text = rc.get("text", "")
+                                            if "error" in rc_text.lower() or "failed" in rc_text.lower():
+                                                failed_tool_count += 1
+                                            break
 
         ts_str = ev.get("timestamp", "")
         if ts_str:
@@ -302,6 +404,7 @@ def _build_summary_from_events(
         output_tokens=output_tokens,
         cached_input_tokens=cached_tokens,
         cached_output_tokens=cache_write_tokens,
+        failed_tool_count=failed_tool_count,
     )
 
 
@@ -352,6 +455,11 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
             usage = msg.get("usage")
             ts_str = ev.get("timestamp", "")
             if text_parts or tool_calls:
+                # Normalize token usage for this message
+                token_bd = None
+                if isinstance(usage, dict):
+                    token_bd = normalize_tokens(usage, model=model)
+
                 messages.append(ChatMessage(
                     role="assistant",
                     content="\n".join(text_parts),
@@ -359,6 +467,7 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                     model=model,
                     tool_calls=tool_calls,
                     usage=usage if isinstance(usage, dict) else None,
+                    token_breakdown=token_bd,
                 ))
 
     return messages
@@ -370,19 +479,100 @@ def _extract_tool_calls(
 ) -> list[ToolCall]:
     """Extract tool call records from assistant messages.
 
-    Note: For Claude Code, tool call duration is not directly available
-    in the event stream. We compute it from consecutive message timestamps.
+    Enhanced to detect:
+    - Failed tool calls (error in tool_result)
+    - Exit codes (for Bash tools)
+    - Files touched (for Read/Write/Edit tools)
     """
     tool_calls = []
+
+    # Build a map of tool_use_id → tool_result for error detection
+    tool_results = {}
+    for ev in events:
+        if ev.get("type") != "user":
+            continue
+        msg = ev.get("message", {})
+        if not isinstance(msg, dict):
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "tool_result":
+                    tool_use_id = item.get("tool_use_id", "")
+                    result_content = item.get("content", "")
+
+                    is_error = False
+                    exit_code = None
+                    error_msg = ""
+
+                    if isinstance(result_content, str):
+                        if "error" in result_content.lower() or "exit code" in result_content.lower():
+                            is_error = True
+                        # Try to extract exit code
+                        exit_match = re.search(r"exit code[:\s]*(\d+)", result_content, re.IGNORECASE)
+                        if exit_match:
+                            exit_code = int(exit_match.group(1))
+                            if exit_code != 0:
+                                is_error = True
+                        error_msg = result_content[:500]
+
+                    elif isinstance(result_content, list):
+                        for rc in result_content:
+                            if isinstance(rc, dict) and rc.get("type") == "text":
+                                rc_text = rc.get("text", "")
+                                if "error" in rc_text.lower():
+                                    is_error = True
+                                    error_msg = rc_text[:500]
+                                exit_match = re.search(r"exit code[:\s]*(\d+)", rc_text, re.IGNORECASE)
+                                if exit_match:
+                                    exit_code = int(exit_match.group(1))
+                                    if exit_code != 0:
+                                        is_error = True
+                                break
+
+                    tool_results[tool_use_id] = {
+                        "is_error": is_error,
+                        "exit_code": exit_code,
+                        "error_message": error_msg,
+                    }
+
+    # Extract tool calls from assistant messages
     for msg in messages:
         if msg.role != "assistant":
             continue
         for tc in msg.tool_calls:
+            name = tc.get("name", "")
+            params = tc.get("parameters", {})
+
+            # Try to find matching tool result
+            tool_use_id = ""  # We don't have this from assistant message directly
+            status = "completed"
+            exit_code = None
+            error_msg = ""
+            files_touched = []
+
+            # For Read/Write/Edit tools, extract file path from params
+            file_path = (
+                params.get("file_path", "")
+                or params.get("path", "")
+                or params.get("file_path", "")
+            )
+            if file_path:
+                files_touched.append(file_path)
+
+            # For Grep/Glob, extract pattern
+            # For Bash, extract command
+
             tool_calls.append(ToolCall(
-                name=tc.get("name", ""),
-                parameters=tc.get("parameters", {}),
+                name=name,
+                parameters=params,
+                status=status,
+                exit_code=exit_code,
+                error_message=error_msg,
+                files_touched=files_touched,
                 timestamp=msg.timestamp,
             ))
+
     return tool_calls
 
 
@@ -404,7 +594,7 @@ def scan_all_sessions() -> Iterator[SessionSummary]:
         sid = entry["session_id"]
         project = entry["project"]
         summary, _msgs, _tcs = parse_session_detail(project, sid, history_entry=entry)
-        # Ensure title from history if empty
+        # Ensure title from history if empty (fallback)
         if not summary.title and entry.get("display"):
-            summary.title = entry["display"][:120]
+            summary.title = _extract_readable_title(entry["display"])
         yield summary

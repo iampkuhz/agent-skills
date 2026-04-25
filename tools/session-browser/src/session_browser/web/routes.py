@@ -266,18 +266,22 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             elif path.startswith("/projects/"):
                 project_key = urllib.parse.unquote(path[len("/projects/"):])
                 self._serve_project(project_key)
-            elif path == "/agents":
-                self._serve_agents()
-            elif path.startswith("/agents/"):
-                agent = urllib.parse.unquote(path[len("/agents/"):])
-                self._serve_agent(agent)
+            elif path == "/sessions":
+                self._serve_all_sessions()
             elif path.startswith("/sessions/"):
                 parts = path[len("/sessions/"):].split("/", 1)
                 if len(parts) == 2:
                     agent, session_id = parts
                     self._serve_session(agent, session_id)
                 else:
-                    self._send_404()
+                    self._serve_all_sessions()
+            elif path == "/agents":
+                self._serve_agents()
+            elif path.startswith("/agents/"):
+                agent = urllib.parse.unquote(path[len("/agents/"):])
+                self._serve_agent(agent)
+            elif path == "/glossary":
+                self._serve_glossary()
             elif path == "/search":
                 q = params.get("q", [""])[0]
                 self._serve_search(q)
@@ -455,6 +459,42 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.end_headers()
         self.wfile.write(filepath.read_bytes())
+
+    def _serve_all_sessions(self, sort_by: str = "ended_at") -> None:
+        """Global sessions page — all sessions across all projects."""
+        conn = _get_connection()
+        sessions = list_sessions(conn, limit=200, order_by=sort_by)
+        total_count = count_sessions(conn)
+
+        # Get distinct models and projects for filters
+        models = conn.execute(
+            "SELECT DISTINCT model FROM sessions WHERE model != '' ORDER BY model"
+        ).fetchall()
+        projects = conn.execute(
+            "SELECT DISTINCT project_key, project_name FROM sessions ORDER BY project_name"
+        ).fetchall()
+        conn.close()
+
+        model_list = [r["model"] for r in models]
+        project_list = [(r["project_key"], r["project_name"]) for r in projects]
+
+        html = self._render_template(
+            "sessions.html",
+            sessions=sessions,
+            total_count=total_count,
+            model_list=model_list,
+            project_list=[p[0] for p in project_list],
+            active_page="sessions",
+        )
+        self._send_html(html)
+
+    def _serve_glossary(self) -> None:
+        """Token glossary page."""
+        html = self._render_template(
+            "glossary.html",
+            active_page="glossary",
+        )
+        self._send_html(html)
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002
         """Suppress default request logging."""

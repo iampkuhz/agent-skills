@@ -21,7 +21,7 @@ export MCP_HOST="${MCP_HOST:-0.0.0.0}"
 export MCP_PORT="${MCP_PORT:-18080}"
 export MCP_LOG_LEVEL="${MCP_LOG_LEVEL:-INFO}"
 
-echo "Starting Agent Skills MCP Gateway in background..."
+echo "Starting Feipi Agent Kit MCP Gateway in background..."
 echo "  Host: $MCP_HOST"
 echo "  Port: $MCP_PORT"
 echo "  Log file: $LOG_DIR/gateway.log"

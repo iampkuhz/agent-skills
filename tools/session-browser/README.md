@@ -1,6 +1,6 @@
-# session-browser
+# Agent Run Profiler
 
-> 面向本地 Claude Code / Codex 的会话索引与上下文流量分析工具
+> 面向本地 Claude Code / Codex 的会话索引与 Token 分析工具
 
 ## 快速开始
 
@@ -8,7 +8,7 @@
 
 ```bash
 # 安装依赖
-pip install jinja2
+pip install jinja2 markdown-it
 
 # 扫描并索引（首次约 8 秒）
 ./scripts/session-browser.sh scan
@@ -47,11 +47,35 @@ docker compose -f compose/docker-compose.yml up -d
 
 | 页面 | 路径 | 内容 |
 |------|------|------|
-| 总览仪表盘 | `/` | 统计卡片、30 天趋势、项目 Top N、最近会话 |
-| 项目列表 | `/projects` | 所有项目聚合统计 |
-| 项目详情 | `/projects/{key}` | 会话数、token、工具调用、会话列表 |
-| 会话详情 | `/sessions/{agent}/{id}` | 元信息、对话流、工具调用 |
-| 搜索 | `/search?q=` | 按标题、项目、模型搜索 |
+| Dashboard | `/dashboard` | 紧凑指标卡片、趋势图、项目/会话列表 |
+| Projects | `/projects` | 所有项目聚合，含 Cache Read/Write 列 |
+| Project | `/projects/{key}` | 项目级统计 + 会话列表 |
+| Sessions | `/sessions` | 全局会话列表，支持 Agent/Model/Project 过滤 |
+| Session | `/sessions/{agent}/{id}` | 折叠对话轮次、Token 柱状图、Token Profile、Tool 树 |
+| Agents | `/agents` | Agent 级统计 |
+| Token Glossary | `/glossary` | Token 指标定义与 Provider 映射 |
+| Search | `/search?q=` | 按标题、项目、模型搜索 |
+
+## 快捷键
+
+| 键 | 操作 |
+|----|------|
+| `/` | 聚焦搜索框 |
+| `t` | 切换到 Token Profile 标签 |
+| `m` | 切换到 Messages 标签 |
+| `r` | 切换到 Raw 标签 |
+| `Esc` | 折叠所有展开的对话轮次 |
+
+## Token 指标
+
+| 指标 | 说明 |
+|------|------|
+| **Input Fresh** | 实际新发送的输入 Token（未命中缓存） |
+| **Cache Read** | 缓存命中的输入 Token（输入侧读） |
+| **Cache Write** | 写入缓存的输入 Token（输入侧写） |
+| **Output** | 可见输出 Token |
+
+注意：Cache Read ≠ 输出缓存。`cache_read_input_tokens` 和 `cache_creation_input_tokens` 都是输入侧字段。
 
 ## 目录结构
 
@@ -71,7 +95,8 @@ tools/session-browser/
 │       ├── config.py               # 配置中心（环境变量）
 │       ├── cli.py                  # CLI 入口
 │       ├── domain/
-│       │   └── models.py           # 数据模型
+│       │   ├── models.py           # 数据模型
+│       │   └── token_normalizer.py # Token 标准化器
 │       ├── sources/
 │       │   ├── claude.py           # Claude Code 解析器
 │       │   └── codex.py            # Codex 解析器
@@ -81,8 +106,10 @@ tools/session-browser/
 │       └── web/
 │           ├── routes.py           # HTTP 服务
 │           └── templates/          # Jinja2 模板
-└── tests/
-    └── fixtures/
+├── tests/
+│   ├── fixtures/                   # 测试数据
+│   ├── test_token_normalizer.py    # Token 标准化测试
+│   └── test_title_extraction.py    # 标题提取测试
 ```
 
 ## 隐私

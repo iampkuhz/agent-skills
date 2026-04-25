@@ -59,6 +59,7 @@ def init_schema(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
             output_tokens INTEGER NOT NULL DEFAULT 0,
             cached_input_tokens INTEGER NOT NULL DEFAULT 0,
             cached_output_tokens INTEGER NOT NULL DEFAULT 0,
+            failed_tool_count INTEGER NOT NULL DEFAULT 0,
             indexed_at REAL NOT NULL DEFAULT 0
         );
 
@@ -70,6 +71,8 @@ def init_schema(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
             ON sessions(ended_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sessions_model
             ON sessions(model);
+        CREATE INDEX IF NOT EXISTS idx_sessions_title
+            ON sessions(title);
 
         CREATE TABLE IF NOT EXISTS scan_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,8 +95,9 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
             session_key, agent, session_id, title, project_key, project_name,
             cwd, started_at, ended_at, duration_seconds, model, git_branch,
             source, user_message_count, assistant_message_count, tool_call_count,
-            input_tokens, output_tokens, cached_input_tokens, cached_output_tokens, indexed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            input_tokens, output_tokens, cached_input_tokens, cached_output_tokens,
+            failed_tool_count, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_key) DO UPDATE SET
             title=excluded.title,
             project_key=excluded.project_key,
@@ -112,6 +116,7 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
             output_tokens=excluded.output_tokens,
             cached_input_tokens=excluded.cached_input_tokens,
             cached_output_tokens=excluded.cached_output_tokens,
+            failed_tool_count=excluded.failed_tool_count,
             indexed_at=excluded.indexed_at
         """,
         (
@@ -135,6 +140,7 @@ def upsert_session(conn: sqlite3.Connection, summary: SessionSummary) -> None:
             summary.output_tokens,
             summary.cached_input_tokens,
             summary.cached_output_tokens,
+            summary.failed_tool_count,
             time.time(),
         ),
     )
@@ -230,7 +236,7 @@ def list_sessions(
     model: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    order_by: str = "ended_at",  # "ended_at" | "input_tokens" | "tool_call_count"
+    order_by: str = "ended_at",  # "ended_at" | "input_tokens" | "tool_call_count" | "duration_seconds" | "failed_tool_count"
 ) -> list[SessionSummary]:
     """List sessions with filtering and pagination."""
     clauses = []
@@ -247,7 +253,13 @@ def list_sessions(
         params.append(model)
 
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
-    valid_orders = {"ended_at": "ended_at DESC", "input_tokens": "input_tokens DESC", "tool_call_count": "tool_call_count DESC"}
+    valid_orders = {
+        "ended_at": "ended_at DESC",
+        "input_tokens": "input_tokens DESC",
+        "tool_call_count": "tool_call_count DESC",
+        "duration_seconds": "duration_seconds DESC",
+        "failed_tool_count": "failed_tool_count DESC",
+    }
     order = valid_orders.get(order_by, "ended_at DESC")
 
     query = f"SELECT * FROM sessions {where} ORDER BY {order} LIMIT ? OFFSET ?"
@@ -291,7 +303,9 @@ def get_project_stats(conn: sqlite3.Connection, project_key: str) -> ProjectStat
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
             COALESCE(SUM(output_tokens), 0) as total_output_tokens,
             COALESCE(SUM(cached_input_tokens), 0) as total_cached_tokens,
+            COALESCE(SUM(cached_output_tokens), 0) as total_cache_write_tokens,
             COALESCE(SUM(tool_call_count), 0) as total_tool_calls,
+            COALESCE(SUM(failed_tool_count), 0) as total_failed_tools,
             COALESCE(SUM(user_message_count), 0) as total_user_messages,
             COALESCE(SUM(assistant_message_count), 0) as total_assistant_messages
         FROM sessions
@@ -315,7 +329,9 @@ def get_project_stats(conn: sqlite3.Connection, project_key: str) -> ProjectStat
         total_input_tokens=row["total_input_tokens"],
         total_output_tokens=row["total_output_tokens"],
         total_cached_tokens=row["total_cached_tokens"],
+        total_cache_write_tokens=row["total_cache_write_tokens"],
         total_tool_calls=row["total_tool_calls"],
+        total_failed_tools=row["total_failed_tools"],
         total_user_messages=row["total_user_messages"],
         total_assistant_messages=row["total_assistant_messages"],
     )
@@ -336,7 +352,9 @@ def list_projects(conn: sqlite3.Connection, limit: int = 20) -> list[ProjectStat
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
             COALESCE(SUM(output_tokens), 0) as total_output_tokens,
             COALESCE(SUM(cached_input_tokens), 0) as total_cached_tokens,
+            COALESCE(SUM(cached_output_tokens), 0) as total_cache_write_tokens,
             COALESCE(SUM(tool_call_count), 0) as total_tool_calls,
+            COALESCE(SUM(failed_tool_count), 0) as total_failed_tools,
             COALESCE(SUM(user_message_count), 0) as total_user_messages,
             COALESCE(SUM(assistant_message_count), 0) as total_assistant_messages
         FROM sessions
@@ -359,7 +377,9 @@ def list_projects(conn: sqlite3.Connection, limit: int = 20) -> list[ProjectStat
             total_input_tokens=r["total_input_tokens"],
             total_output_tokens=r["total_output_tokens"],
             total_cached_tokens=r["total_cached_tokens"],
+            total_cache_write_tokens=r["total_cache_write_tokens"],
             total_tool_calls=r["total_tool_calls"],
+            total_failed_tools=r["total_failed_tools"],
             total_user_messages=r["total_user_messages"],
             total_assistant_messages=r["total_assistant_messages"],
         )
@@ -378,7 +398,10 @@ def get_dashboard_stats(conn: sqlite3.Connection) -> dict:
             COUNT(DISTINCT project_key) as project_count,
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
             COALESCE(SUM(output_tokens), 0) as total_output_tokens,
-            COALESCE(SUM(tool_call_count), 0) as total_tool_calls
+            COALESCE(SUM(cached_input_tokens), 0) as total_cached_input_tokens,
+            COALESCE(SUM(cached_output_tokens), 0) as total_cached_output_tokens,
+            COALESCE(SUM(tool_call_count), 0) as total_tool_calls,
+            COALESCE(SUM(failed_tool_count), 0) as total_failed_tools
         FROM sessions
         """
     ).fetchone()
@@ -390,7 +413,10 @@ def get_dashboard_stats(conn: sqlite3.Connection) -> dict:
         "project_count": row["project_count"],
         "total_input_tokens": row["total_input_tokens"],
         "total_output_tokens": row["total_output_tokens"],
+        "total_cached_input_tokens": row["total_cached_input_tokens"],
+        "total_cached_output_tokens": row["total_cached_output_tokens"],
         "total_tool_calls": row["total_tool_calls"],
+        "total_failed_tools": row["total_failed_tools"],
     }
 
 
@@ -400,7 +426,8 @@ def get_trend_data(
 ) -> list[dict]:
     """Get daily session/trend counts for the last N days.
 
-    Returns list of {date, claude_count, codex_count, input_tokens, output_tokens}.
+    Returns list of {date, claude_count, codex_count, input_tokens, output_tokens,
+                      cache_read, cache_write, tool_calls, failed_tools}.
     """
     rows = conn.execute(
         """
@@ -410,6 +437,10 @@ def get_trend_data(
             SUM(CASE WHEN agent='codex' THEN 1 ELSE 0 END) as codex_count,
             COALESCE(SUM(input_tokens), 0) as input_tokens,
             COALESCE(SUM(output_tokens), 0) as output_tokens,
+            COALESCE(SUM(cached_input_tokens), 0) as cache_read_tokens,
+            COALESCE(SUM(cached_output_tokens), 0) as cache_write_tokens,
+            COALESCE(SUM(tool_call_count), 0) as tool_calls,
+            COALESCE(SUM(failed_tool_count), 0) as failed_tools,
             COUNT(*) as total_count
         FROM sessions
         WHERE ended_at >= date('now', ?)
@@ -426,6 +457,10 @@ def get_trend_data(
             "codex_count": r["codex_count"],
             "input_tokens": r["input_tokens"],
             "output_tokens": r["output_tokens"],
+            "cache_read_tokens": r["cache_read_tokens"],
+            "cache_write_tokens": r["cache_write_tokens"],
+            "tool_calls": r["tool_calls"],
+            "failed_tools": r["failed_tools"],
             "total_count": r["total_count"],
         }
         for r in rows
@@ -443,8 +478,9 @@ def list_agents(conn: sqlite3.Connection) -> list[dict]:
             agent,
             COUNT(*) as session_count,
             MAX(ended_at) as last_active,
-            COALESCE(SUM(input_tokens + output_tokens), 0) as total_tokens,
+            COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cached_output_tokens), 0) as total_tokens,
             COALESCE(SUM(tool_call_count), 0) as total_tool_calls,
+            COALESCE(SUM(failed_tool_count), 0) as total_failed_tools,
             COUNT(DISTINCT project_key) as project_count
         FROM sessions
         GROUP BY agent
@@ -498,4 +534,5 @@ def _row_to_summary(row: sqlite3.Row) -> SessionSummary:
         output_tokens=row["output_tokens"],
         cached_input_tokens=row["cached_input_tokens"],
         cached_output_tokens=row["cached_output_tokens"],
+        failed_tool_count=row["failed_tool_count"],
     )

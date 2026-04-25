@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = 'projects' %}
 
-{% block title %}{{ project.project_name }} - Session Browser{% endblock %}
+{% block title %}{{ project.project_name }} - Agent Run Profiler{% endblock %}
 
 {% block topbar %}
 <div class="topbar-breadcrumb">
@@ -15,30 +15,33 @@
 
 {% block content %}
 
-<h1 style="font-size:20px; font-weight:700; margin-bottom:4px">{{ project.project_name }}</h1>
-<p class="text-sm text-muted mono mb-4">{{ project.project_key }}</p>
+<!-- Compact header -->
+<h1 style="font-size:16px; font-weight:600; margin-bottom:2px">{{ project.project_name }}</h1>
+<p class="text-xs text-muted mono mb-3">{{ project.project_key }}</p>
 
-<!-- Project Stats -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-label">Sessions</div>
-        <div class="stat-value">{{ project.total_sessions }}</div>
-        <div class="stat-sub">
-            <span class="badge badge-claude" style="margin-right:4px">{{ project.claude_sessions }} CC</span>
+<!-- Project stats -->
+<div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr)">
+    <div class="metric-card">
+        <div class="metric-label">Sessions</div>
+        <div class="metric-value" style="font-size:16px">{{ project.total_sessions }}</div>
+        <div class="metric-sub">
+            <span class="badge badge-claude" style="margin-right:2px">{{ project.claude_sessions }} CC</span>
             <span class="badge badge-codex">{{ project.codex_sessions }} CX</span>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Total Tokens</div>
-        <div class="stat-value">{{ (project.total_input_tokens + project.total_output_tokens) | format_number }}</div>
+    <div class="metric-card">
+        <div class="metric-label">Input</div>
+        <div class="metric-value" style="font-size:16px">{{ project.total_input_tokens | format_number }}</div>
+        <div class="metric-sub">Cache R: {{ project.total_cached_tokens | format_number }} · W: {{ project.total_cache_write_tokens | format_number }}</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Tool Calls</div>
-        <div class="stat-value">{{ project.total_tool_calls | format_number }}</div>
+    <div class="metric-card">
+        <div class="metric-label">Output</div>
+        <div class="metric-value" style="font-size:16px">{{ project.total_output_tokens | format_number }}</div>
+        <div class="metric-sub">{{ project.total_tool_calls | format_number }} tools</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Active Period</div>
-        <div class="stat-value" style="font-size:16px">
+    <div class="metric-card">
+        <div class="metric-label">Active Period</div>
+        <div class="metric-value" style="font-size:13px">
             {% if project.first_seen and project.last_seen %}
             {{ project.first_seen[:10] }} → {{ project.last_seen | relative_time }}
             {% else %}
@@ -48,7 +51,7 @@
     </div>
 </div>
 
-<!-- Session List -->
+<!-- Sessions -->
 <div class="card">
     <div class="card-title">Sessions ({{ sessions | length }})</div>
     {% if sessions %}
@@ -58,30 +61,45 @@
                 <tr>
                     <th></th>
                     <th>Title</th>
+                    <th>Agent</th>
                     <th>Model</th>
+                    <th>Branch</th>
                     <th>Messages</th>
-                    <th>Tokens</th>
+                    <th>Input</th>
+                    <th>Cache R</th>
+                    <th>Output</th>
                     <th>Tools</th>
+                    <th>Failed</th>
                     <th>Duration</th>
                     <th>Time</th>
                 </tr>
             </thead>
             <tbody>
                 {% for s in sessions %}
-                <tr>
+                <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}">
                     <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
                     <td>
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:320px; display:block">
-                            {{ s.title[:80] or 'Untitled' }}
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:260px; display:block" title="{{ s.title }}">
+                            {{ s.title[:70] or 'Untitled' }}
                         </a>
-                        <div class="text-xs text-muted mono">{{ s.session_id[:12] }}…</div>
                     </td>
-                    <td class="text-sm text-muted">{{ s.model or '—' }}</td>
-                    <td class="text-sm">{{ s.user_message_count + s.assistant_message_count }}</td>
-                    <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
-                    <td class="text-sm">{{ s.tool_call_count }}</td>
-                    <td class="text-sm">{{ s.duration_seconds | format_duration }}</td>
-                    <td class="text-sm text-muted">{{ s.ended_at | relative_time }}</td>
+                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'CX' }}</span></td>
+                    <td class="text-xs text-muted mono">{{ s.model or '—' }}</td>
+                    <td class="text-xs text-muted mono">{{ s.git_branch or '—' }}</td>
+                    <td class="mono text-xs">{{ s.user_message_count + s.assistant_message_count }}</td>
+                    <td class="mono text-xs">{{ s.input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.output_tokens | format_number }}</td>
+                    <td class="mono text-xs">{{ s.tool_call_count }}</td>
+                    <td class="mono text-xs">
+                        {% if s.failed_tool_count > 0 %}
+                        <span class="badge badge-error">{{ s.failed_tool_count }}</span>
+                        {% else %}
+                        <span class="text-xs text-muted">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-muted">{{ s.duration_seconds | format_duration }}</td>
+                    <td class="text-xs text-muted">{{ s.ended_at | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

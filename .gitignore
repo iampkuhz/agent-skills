@@ -6,3 +6,4 @@ tmp/
 /downloads/
 logs/
 **/logs/**
+/tools/night-runner/
