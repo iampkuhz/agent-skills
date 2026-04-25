@@ -13,47 +13,75 @@
 
 {% block content %}
 
+<!-- Search and sort controls -->
+<div class="card" style="margin-bottom:12px; padding:10px 14px">
+    <div class="filter-bar">
+        <input id="project-search" type="text" placeholder="Search by name or path…"
+               class="filter-bar__input" style="flex:1;min-width:150px"
+               oninput="applyProjectFilters()" />
+        <select id="project-sort" class="filter-bar__select" onchange="applyProjectSort()">
+            <option value="last_seen">Sort: Last Active</option>
+            <option value="total_sessions">Sort: Sessions</option>
+            <option value="total_input_tokens">Sort: Input Tokens</option>
+            <option value="total_cached_tokens">Sort: Cache Read</option>
+            <option value="total_output_tokens">Sort: Output Tokens</option>
+            <option value="total_tool_calls">Sort: Tool Calls</option>
+            <option value="total_failed_tools">Sort: Failed Tools</option>
+        </select>
+        <button class="filter-bar__btn" onclick="resetProjectFilters()">Reset</button>
+    </div>
+</div>
+
+<!-- Projects table -->
 <div class="card">
     <div class="card-title flex justify-between items-center">
-        Projects ({{ projects | length }})
+        Projects (<span id="project-count">{{ projects | length }}</span>)
     </div>
     {% if projects %}
     <div class="table-wrap">
-        <table>
+        <table id="projects-table">
             <thead>
                 <tr>
                     <th>Project</th>
                     <th>Path</th>
-                    <th>Sessions</th>
-                    <th>Claude</th>
-                    <th>Codex</th>
-                    <th>Input</th>
-                    <th>Cache R</th>
-                    <th>Cache W</th>
-                    <th>Output</th>
-                    <th>Tools</th>
-                    <th>Failed</th>
-                    <th>Last Active</th>
+                    <th class="numeric" data-sort-key="total_sessions">Sessions</th>
+                    <th class="numeric">Claude</th>
+                    <th class="numeric">Codex</th>
+                    <th class="numeric" data-sort-key="total_input_tokens">Input</th>
+                    <th class="numeric" data-sort-key="total_cached_tokens">Cache R</th>
+                    <th class="numeric">Cache W</th>
+                    <th class="numeric" data-sort-key="total_output_tokens">Output</th>
+                    <th class="numeric" data-sort-key="total_tool_calls">Tools</th>
+                    <th class="numeric" data-sort-key="total_failed_tools">Failed</th>
+                    <th data-sort-key="last_seen">Last Active</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in projects %}
-                <tr>
+                <tr data-name="{{ p.project_name | lower }}"
+                    data-path="{{ p.project_key | lower }}"
+                    data-last-seen="{{ p.last_seen }}"
+                    data-total-sessions="{{ p.total_sessions }}"
+                    data-total-input="{{ p.total_input_tokens }}"
+                    data-total-cache-r="{{ p.total_cached_tokens }}"
+                    data-total-output="{{ p.total_output_tokens }}"
+                    data-total-tools="{{ p.total_tool_calls }}"
+                    data-total-failed="{{ p.total_failed_tools }}">
                     <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
-                    <td class="text-xs mono truncate" style="max-width:180px" title="{{ p.project_key }}">{{ p.project_key }}</td>
-                    <td><strong>{{ p.total_sessions }}</strong></td>
-                    <td><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
-                    <td><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
-                    <td class="mono text-xs">{{ p.total_input_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_cached_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_cache_write_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_output_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_tool_calls | format_number }}</td>
-                    <td class="mono text-xs">
+                    <td class="text-xs mono truncate" style="max-width:200px" data-tooltip="{{ p.project_key }}">{{ p.project_key | truncate_path }}</td>
+                    <td class="numeric"><strong>{{ p.total_sessions }}</strong></td>
+                    <td class="numeric"><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
+                    <td class="numeric"><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
+                    <td class="numeric mono text-xs {{ 'muted-zero' if p.total_input_tokens == 0 else '' }}">{{ p.total_input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs {{ 'muted-zero' if p.total_cached_tokens == 0 else '' }}">{{ p.total_cached_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs {{ 'muted-zero' if p.total_cache_write_tokens == 0 else '' }}">{{ p.total_cache_write_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs {{ 'muted-zero' if p.total_output_tokens == 0 else '' }}">{{ p.total_output_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs {{ 'highlight-warn' if p.total_tool_calls > 500 else '' }}">{{ p.total_tool_calls | format_number }}</td>
+                    <td class="numeric mono text-xs">
                         {% if p.total_failed_tools > 0 %}
                         <span class="badge badge-error">{{ p.total_failed_tools }}</span>
                         {% else %}
-                        <span class="text-xs text-muted">0</span>
+                        <span class="muted-zero">0</span>
                         {% endif %}
                     </td>
                     <td class="text-xs text-muted">{{ p.last_seen | relative_time }}</td>
@@ -62,9 +90,109 @@
             </tbody>
         </table>
     </div>
+    <div id="projects-empty" class="empty-state" style="display:none">No projects match your search.</div>
     {% else %}
     <div class="empty-state">No projects indexed yet.</div>
     {% endif %}
 </div>
+
+<script>
+(function() {
+    /* ─── Truncate path: keep first + last segment ────────────────── */
+    /* Done server-side via truncate_path filter; tooltip shows full path */
+
+    /* ─── Project search ─────────────────────────────────────────── */
+    window.applyProjectFilters = function() {
+        filterProjects();
+    };
+
+    function filterProjects() {
+        var q = document.getElementById('project-search').value.toLowerCase().trim();
+        var rows = document.querySelectorAll('#projects-table tbody tr');
+        var visibleCount = 0;
+
+        rows.forEach(function(row) {
+            var name = (row.dataset.name || '').toLowerCase();
+            var path = (row.dataset.path || '').toLowerCase();
+            var show = !q || name.indexOf(q) >= 0 || path.indexOf(q) >= 0;
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+
+        document.getElementById('project-count').textContent = visibleCount;
+        var empty = document.getElementById('projects-empty');
+        if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+
+    /* ─── Sort projects client-side ──────────────────────────────── */
+    window.applyProjectSort = function() {
+        sortProjects();
+    };
+
+    function sortProjects() {
+        var sortBy = document.getElementById('project-sort').value;
+        var tbody = document.querySelector('#projects-table tbody');
+        if (!tbody) return;
+
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function(a, b) {
+            var keyMap = {
+                'last_seen': function(r) { return r.dataset.lastSeen; },
+                'total_sessions': function(r) { return parseInt(r.dataset.totalSessions) || 0; },
+                'total_input_tokens': function(r) { return parseInt(r.dataset.totalInput) || 0; },
+                'total_cached_tokens': function(r) { return parseInt(r.dataset.totalCacheR) || 0; },
+                'total_output_tokens': function(r) { return parseInt(r.dataset.totalOutput) || 0; },
+                'total_tool_calls': function(r) { return parseInt(r.dataset.totalTools) || 0; },
+                'total_failed_tools': function(r) { return parseInt(r.dataset.totalFailed) || 0; }
+            };
+            var getter = keyMap[sortBy] || keyMap['last_seen'];
+            var va = getter(a), vb = getter(b);
+            if (sortBy === 'last_seen') {
+                return vb > va ? 1 : (va > vb ? -1 : 0);
+            }
+            return vb - va;
+        });
+
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    }
+
+    /* ─── Reset filters ──────────────────────────────────────────── */
+    window.resetProjectFilters = function() {
+        document.getElementById('project-search').value = '';
+        document.getElementById('project-sort').selectedIndex = 0;
+        filterProjects();
+        arpStorage.remove('projects_search');
+        arpStorage.remove('projects_sort');
+    };
+
+    /* ─── Persist search + sort in localStorage ──────────────────── */
+    var searchEl = document.getElementById('project-search');
+    var sortEl = document.getElementById('project-sort');
+
+    /* Restore saved state */
+    var savedSearch = arpStorage.get('projects_search');
+    if (savedSearch && searchEl) { searchEl.value = savedSearch; }
+    var savedSort = arpStorage.get('projects_sort');
+    if (savedSort && sortEl) { sortEl.value = savedSort; }
+
+    /* Save on change */
+    if (searchEl) {
+        searchEl.addEventListener('input', function() {
+            arpStorage.set('projects_search', searchEl.value);
+        });
+    }
+    if (sortEl) {
+        sortEl.addEventListener('change', function() {
+            arpStorage.set('projects_sort', sortEl.value);
+        });
+    }
+
+    /* Apply on load */
+    if (savedSearch || savedSort) {
+        filterProjects();
+        if (savedSort) sortProjects();
+    }
+})();
+</script>
 
 {% endblock %}

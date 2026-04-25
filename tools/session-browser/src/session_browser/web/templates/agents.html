@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = 'agents' %}
 
-{% block title %}Agents - Session Browser{% endblock %}
+{% block title %}Agents - Agent Run Profiler{% endblock %}
 
 {% block topbar %}
 <div class="topbar-breadcrumb">
@@ -13,42 +13,46 @@
 
 {% block content %}
 
-<div class="stats-grid">
+{% if agents %}
+<!-- Agent cards in compact grid -->
+<div class="agents-grid">
     {% for a in agents %}
-    <a href="/agents/{{ a.agent }}" style="text-decoration:none; color:inherit">
-        <div class="stat-card" style="cursor:pointer; transition: box-shadow 150ms ease">
-            <div class="flex justify-between items-center mb-2">
-                <div class="flex items-center gap-2">
-                    <span class="agent-dot {{ 'claude' if a.agent == 'claude_code' else 'codex' }}"></span>
-                    <span class="text-sm" style="font-weight:500">{{ 'Claude Code' if a.agent == 'claude_code' else 'Codex' }}</span>
-                </div>
-                <span class="badge {{ 'badge-claude' if a.agent == 'claude_code' else 'badge-codex' }}">
-                    {{ a.session_count | format_number }}
-                </span>
+    <a href="/agents/{{ a.agent }}" class="agent-card">
+        <div class="agent-card__header">
+            <span class="agent-card__name">
+                <span class="agent-dot {{ 'claude' if a.agent == 'claude_code' else 'codex' }}"></span>
+                {{ 'Claude Code' if a.agent == 'claude_code' else 'Codex' }}
+            </span>
+            <span class="badge {{ 'badge-claude' if a.agent == 'claude_code' else 'badge-codex' }}">
+                {{ a.session_count | format_number }} sessions
+            </span>
+        </div>
+        <div class="agent-card__stats">
+            <div class="agent-card__stat">
+                <span class="agent-card__stat-label">Projects</span>
+                <span class="agent-card__stat-value">{{ a.project_count }}</span>
             </div>
-            <div class="stat-value">{{ a.session_count | format_number }}</div>
-            <div class="stat-sub">sessions</div>
-            <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px">
-                <div>
-                    <div class="text-xs text-muted">Projects</div>
-                    <div class="text-sm" style="font-weight:500">{{ a.project_count }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted">Tokens</div>
-                    <div class="text-sm" style="font-weight:500">{{ a.total_tokens | format_number }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted">Tool Calls</div>
-                    <div class="text-sm" style="font-weight:500">{{ a.total_tool_calls | format_number }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted">Last Active</div>
-                    <div class="text-sm" style="font-weight:500">{{ a.last_active | relative_time }}</div>
-                </div>
+            <div class="agent-card__stat">
+                <span class="agent-card__stat-label">Tokens</span>
+                <span class="agent-card__stat-value">{{ a.total_tokens | format_number }}</span>
             </div>
+            <div class="agent-card__stat">
+                <span class="agent-card__stat-label">Tool Calls</span>
+                <span class="agent-card__stat-value">{{ a.total_tool_calls | format_number }}</span>
+            </div>
+            <div class="agent-card__stat">
+                <span class="agent-card__stat-label">Failed</span>
+                <span class="agent-card__stat-value {{ 'highlight-error' if a.total_failed_tools > 0 else '' }}">{{ a.total_failed_tools }}</span>
+            </div>
+        </div>
+        <div class="agent-card__models">
+            <span class="text-xs text-muted">Last active: <strong>{{ a.last_active | relative_time }}</strong></span>
         </div>
     </a>
     {% endfor %}
 </div>
+{% else %}
+<div class="empty-state">No agents indexed yet. Run a scan first.</div>
+{% endif %}
 
 {% endblock %}

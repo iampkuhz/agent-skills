@@ -9,51 +9,61 @@
 
 {% block content %}
 
-<!-- Compact metrics -->
+<!-- Metric cards grouped by category -->
+<div class="metric-section-label">Overview</div>
 <div class="metrics-grid">
-    <div class="metric-card">
+    <div class="metric-card metric-card--compact" data-tooltip="Total indexed sessions across all projects">
         <div class="metric-label">Sessions</div>
         <div class="metric-value">{{ stats.total_sessions | format_number }}</div>
-        <div class="metric-sub">{{ stats.claude_sessions }} Claude · {{ stats.codex_sessions }} Codex</div>
     </div>
-    <div class="metric-card">
+    <div class="metric-card metric-card--compact" data-tooltip="Number of unique projects indexed">
         <div class="metric-label">Projects</div>
         <div class="metric-value">{{ stats.project_count }}</div>
     </div>
-    <div class="metric-card">
-        <div class="metric-label">Input Fresh</div>
+    <div class="metric-card metric-card--compact" data-tooltip="Total tool invocations across all sessions">
+        <div class="metric-label">Tools</div>
+        <div class="metric-value">{{ stats.total_tool_calls | format_number }}</div>
+        {% if stats.total_failed_tools > 0 %}
+        <div class="metric-sub"><span class="badge badge-error">{{ stats.total_failed_tools }} failed</span></div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="metric-section-label">Input-side Tokens</div>
+<div class="metrics-grid">
+    <div class="metric-card metric-card--compact" data-tooltip="New input tokens not served from cache (provider-reported)">
+        <div class="metric-label">Input</div>
         <div class="metric-value">{{ stats.total_input_tokens | format_number }}</div>
-        <div class="metric-sub">actual new input tokens</div>
+        <div class="metric-sub">actual new input</div>
     </div>
-    <div class="metric-card">
-        <div class="metric-label">Cache Read</div>
+    <div class="metric-card metric-card--compact" data-tooltip="Input tokens served from cache — cheaper than fresh (provider-reported)">
+        <div class="metric-label">Cache R</div>
         <div class="metric-value">{{ stats.total_cached_input_tokens | format_number }}</div>
-        <div class="metric-sub">input-side cache hits</div>
+        <div class="metric-sub">input-side cache hit</div>
     </div>
-    <div class="metric-card">
-        <div class="metric-label">Cache Write</div>
+    <div class="metric-card metric-card--compact" data-tooltip="Input tokens written to cache for future reads (provider-reported for Anthropic, unknown for OpenAI)">
+        <div class="metric-label">Cache W</div>
         <div class="metric-value">{{ stats.total_cached_output_tokens | format_number }}</div>
-        <div class="metric-sub">input-side cache writes</div>
+        <div class="metric-sub">input-side cache write</div>
     </div>
-    <div class="metric-card">
+</div>
+
+<div class="metric-section-label">Output-side Tokens</div>
+<div class="metrics-grid">
+    <div class="metric-card metric-card--compact" data-tooltip="Visible output tokens in chat responses (provider-reported)">
         <div class="metric-label">Output</div>
         <div class="metric-value">{{ stats.total_output_tokens | format_number }}</div>
-        <div class="metric-sub">visible + reasoning</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-label">Tool Calls</div>
-        <div class="metric-value">{{ stats.total_tool_calls | format_number }}</div>
-        <div class="metric-sub">{{ stats.total_failed_tools }} failed</div>
+        <div class="metric-sub">visible tokens</div>
     </div>
 </div>
 
 <!-- Trend chart -->
 <div class="card">
     <div class="card-title flex justify-between items-center">
-        Session Trend
+        <span>Session Trend (sessions per day)</span>
         <div class="flex gap-1">
-            <button class="tab tab--chart active" data-days="7" onclick="updateChart(7)">7d</button>
-            <button class="tab tab--chart" data-days="30" onclick="updateChart(30)">30d</button>
+            <button class="tab tab--chart" data-days="7" onclick="updateChart(7)">7d</button>
+            <button class="tab tab--chart active" data-days="30" onclick="updateChart(30)">30d</button>
         </div>
     </div>
     {% if trend %}
@@ -85,7 +95,7 @@
     {% if model_dist %}
     <div class="text-sm" style="margin-top:8px">
         {% for model, count in model_dist.items() %}
-        <span class="badge badge-muted" style="margin-right:4px; margin-bottom:4px">{{ model }}: {{ count | format_number }}</span>
+        <span class="badge badge-muted" style="margin-right:4px; margin-bottom:4px" data-tooltip="{{ count | format_number }} sessions using {{ model }}">{{ model }}: {{ count | format_number }}</span>
         {% endfor %}
     </div>
     {% endif %}
@@ -98,32 +108,37 @@
         <a href="/projects" class="link text-sm">View all →</a>
     </div>
     {% if projects %}
+    <div style="margin-bottom:8px">
+        <input id="project-search" type="text" placeholder="Search projects…"
+               class="filter-bar__input" style="width:100%;max-width:300px"
+               oninput="filterDashboardProjects()" />
+    </div>
     <div class="table-wrap">
-        <table>
+        <table id="dashboard-projects">
             <thead>
                 <tr>
                     <th>Project</th>
-                    <th>Sessions</th>
-                    <th>Claude</th>
-                    <th>Codex</th>
-                    <th>Input</th>
-                    <th>Cache R</th>
-                    <th>Cache W</th>
-                    <th>Tools</th>
+                    <th class="numeric">Sessions</th>
+                    <th class="numeric">Claude</th>
+                    <th class="numeric">Codex</th>
+                    <th class="numeric" data-tooltip="Total input-side tokens">Input</th>
+                    <th class="numeric" data-tooltip="Input-side cache read">Cache R</th>
+                    <th class="numeric" data-tooltip="Input-side cache write">Cache W</th>
+                    <th class="numeric">Tools</th>
                     <th>Last Active</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in projects %}
-                <tr>
-                    <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
-                    <td><strong>{{ p.total_sessions }}</strong></td>
-                    <td><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
-                    <td><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
-                    <td class="mono text-xs">{{ p.total_input_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_cached_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_cache_write_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ p.total_tool_calls | format_number }}</td>
+                <tr data-project="{{ p.project_name | lower }} {{ p.project_key | lower }}">
+                    <td><a href="/projects/{{ p.project_key | urlencode }}" class="link" data-tooltip="{{ p.project_key }}">{{ p.project_name }}</a></td>
+                    <td class="numeric"><strong>{{ p.total_sessions }}</strong></td>
+                    <td class="numeric"><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
+                    <td class="numeric"><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
+                    <td class="numeric mono text-xs">{{ p.total_input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ p.total_cached_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ p.total_cache_write_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs {{ 'highlight-warn' if p.total_tool_calls > 1000 else '' }}">{{ p.total_tool_calls | format_number }}</td>
                     <td class="text-xs text-muted">{{ p.last_seen | relative_time }}</td>
                 </tr>
                 {% endfor %}
@@ -137,44 +152,52 @@
 
 <!-- Recent Sessions -->
 <div class="card">
-    <div class="card-title">Recent Sessions</div>
+    <div class="card-title flex justify-between items-center">
+        Recent Sessions
+        <a href="/sessions" class="link text-sm">View all →</a>
+    </div>
     {% if recent %}
+    <div style="margin-bottom:8px">
+        <input id="session-search" type="text" placeholder="Search sessions…"
+               class="filter-bar__input" style="width:100%;max-width:300px"
+               oninput="filterDashboardSessions()" />
+    </div>
     <div class="table-wrap">
-        <table>
+        <table id="dashboard-sessions">
             <thead>
                 <tr>
                     <th></th>
                     <th>Title</th>
                     <th>Project</th>
                     <th>Model</th>
-                    <th>Input</th>
-                    <th>Cache R</th>
-                    <th>Output</th>
-                    <th>Tools</th>
+                    <th class="numeric">Input</th>
+                    <th class="numeric">Cache R</th>
+                    <th class="numeric">Output</th>
+                    <th class="numeric">Tools</th>
                     <th>Duration</th>
                     <th>Time</th>
                 </tr>
             </thead>
             <tbody>
                 {% for s in recent %}
-                <tr>
+                <tr data-title="{{ s.title | lower }}" data-session-id="{{ s.session_id | lower }}">
                     <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
                     <td>
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:280px; display:block" title="{{ s.title }}">
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:280px; display:block" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:80] or 'Untitled' }}
                         </a>
                     </td>
                     <td class="text-xs">
-                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted">{{ s.project_name }}</a>
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted" data-tooltip="{{ s.project_key }}">{{ s.project_name }}</a>
                     </td>
-                    <td class="text-xs text-muted mono">{{ s.model or '—' }}</td>
-                    <td class="mono text-xs">{{ s.input_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ s.output_tokens | format_number }}</td>
-                    <td class="mono text-xs">
-                        {{ s.tool_call_count }}
+                    <td class="text-xs text-muted mono" data-tooltip="{{ s.model }}">{{ (s.model or '—')[:40] }}</td>
+                    <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.output_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">
+                        {{ s.tool_call_count | format_number }}
                         {% if s.failed_tool_count > 0 %}
-                        <span class="badge badge-error" style="margin-left:2px">{{ s.failed_tool_count }}</span>
+                        <span class="badge badge-error">{{ s.failed_tool_count }}</span>
                         {% endif %}
                     </td>
                     <td class="text-xs text-muted">{{ s.duration_seconds | format_duration }}</td>
@@ -190,8 +213,8 @@
 </div>
 
 <script>
-// Trend chart rendering
 (function() {
+    /* ─── Trend chart ──────────────────────────────────────────────── */
     var container = document.getElementById('trend-chart');
     if (!container) return;
 
@@ -200,7 +223,6 @@
 
     window.updateChart = function(days) {
         currentDays = days;
-        // Filter data
         var data = rawData.slice(-days);
         if (!data.length) { container.innerHTML = '<p class="text-muted text-sm">No data</p>'; return; }
 
@@ -210,7 +232,6 @@
         var maxVal = Math.max.apply(null, data.map(function(d){return d.total_count;})) || 1;
 
         var svg = '<svg width="'+W+'" height="'+H+'" style="display:block">';
-        // Grid lines
         for (var i = 0; i <= 3; i++) {
             var y = pad.t + ch - (i/3)*ch;
             svg += '<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#e8ecf0" stroke-width="1"/>';
@@ -238,14 +259,34 @@
         svg += '</svg>';
         container.innerHTML = svg;
 
-        // Update button states
         document.querySelectorAll('.tab--chart').forEach(function(btn) {
             btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
         });
     };
 
-    // Initial render
     window.updateChart(30);
+
+    /* ─── Dashboard project search ─────────────────────────────────── */
+    window.filterDashboardProjects = function() {
+        var q = document.getElementById('project-search').value.toLowerCase().trim();
+        var rows = document.querySelectorAll('#dashboard-projects tbody tr');
+        rows.forEach(function(row) {
+            var text = (row.dataset.project || '').toLowerCase();
+            row.style.display = (!q || text.indexOf(q) >= 0) ? '' : 'none';
+        });
+    };
+
+    /* ─── Dashboard session search ─────────────────────────────────── */
+    window.filterDashboardSessions = function() {
+        var q = document.getElementById('session-search').value.toLowerCase().trim();
+        var rows = document.querySelectorAll('#dashboard-sessions tbody tr');
+        rows.forEach(function(row) {
+            var title = (row.dataset.title || '');
+            var sid = (row.dataset.sessionId || '');
+            var show = !q || title.indexOf(q) >= 0 || sid.indexOf(q) >= 0;
+            row.style.display = show ? '' : 'none';
+        });
+    };
 })();
 </script>
 

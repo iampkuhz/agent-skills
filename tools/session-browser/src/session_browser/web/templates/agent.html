@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = 'agents' %}
 
-{% block title %}{{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }} - Session Browser{% endblock %}
+{% block title %}{{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }} - Agent Run Profiler{% endblock %}
 
 {% block topbar %}
 <div class="topbar-breadcrumb">
@@ -16,26 +16,31 @@
 {% block content %}
 
 {% if agent_info %}
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-label">Sessions</div>
-        <div class="stat-value">{{ agent_info.session_count | format_number }}</div>
+<!-- Agent summary cards -->
+<div class="metrics-grid">
+    <div class="metric-card metric-card--compact" data-tooltip="Total sessions for this agent">
+        <div class="metric-label">Sessions</div>
+        <div class="metric-value">{{ agent_info.session_count | format_number }}</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Projects</div>
-        <div class="stat-value">{{ agent_info.project_count }}</div>
+    <div class="metric-card metric-card--compact" data-tooltip="Number of unique projects">
+        <div class="metric-label">Projects</div>
+        <div class="metric-value">{{ agent_info.project_count }}</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Tokens</div>
-        <div class="stat-value">{{ agent_info.total_tokens | format_number }}</div>
+    <div class="metric-card metric-card--compact" data-tooltip="Total tokens across all sessions">
+        <div class="metric-label">Tokens</div>
+        <div class="metric-value">{{ agent_info.total_tokens | format_number }}</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Tool Calls</div>
-        <div class="stat-value">{{ agent_info.total_tool_calls | format_number }}</div>
+    <div class="metric-card metric-card--compact" data-tooltip="Total tool invocations">
+        <div class="metric-label">Tool Calls</div>
+        <div class="metric-value">{{ agent_info.total_tool_calls | format_number }}</div>
+        {% if agent_info.total_failed_tools > 0 %}
+        <div class="metric-sub"><span class="badge badge-error">{{ agent_info.total_failed_tools }} failed</span></div>
+        {% endif %}
     </div>
 </div>
 {% endif %}
 
+<!-- Sessions for this agent -->
 <div class="card">
     <div class="card-title">
         <span class="badge {{ 'badge-claude' if current_agent == 'claude_code' else 'badge-codex' }}" style="margin-right:8px">
@@ -51,9 +56,9 @@
                     <th>Title</th>
                     <th>Project</th>
                     <th>Model</th>
-                    <th>Messages</th>
-                    <th>Tokens</th>
-                    <th>Tools</th>
+                    <th class="numeric">Messages</th>
+                    <th class="numeric">Tokens</th>
+                    <th class="numeric">Tools</th>
                     <th>Duration</th>
                     <th>Time</th>
                 </tr>
@@ -62,19 +67,19 @@
                 {% for s in sessions %}
                 <tr>
                     <td>
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:320px; display:block">
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:320px; display:block" data-tooltip="{{ s.title }}">
                             {{ s.title[:80] or 'Untitled' }}
                         </a>
                     </td>
-                    <td class="text-sm">
-                        <a href="/projects/{{ s.project_key | urlencode }}" class="link">{{ s.project_name }}</a>
+                    <td class="text-xs">
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted" data-tooltip="{{ s.project_key }}">{{ s.project_name }}</a>
                     </td>
-                    <td class="text-sm text-muted">{{ s.model or '—' }}</td>
-                    <td class="text-sm">{{ s.user_message_count + s.assistant_message_count }}</td>
-                    <td class="text-sm">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
-                    <td class="text-sm">{{ s.tool_call_count }}</td>
-                    <td class="text-sm">{{ s.duration_seconds | format_duration }}</td>
-                    <td class="text-sm text-muted">{{ s.ended_at | relative_time }}</td>
+                    <td class="text-xs text-muted mono truncate" style="max-width:160px">{{ s.model or '—' }}</td>
+                    <td class="numeric mono text-xs">{{ s.user_message_count + s.assistant_message_count }}</td>
+                    <td class="numeric mono text-xs">{{ (s.input_tokens + s.output_tokens) | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.tool_call_count }}</td>
+                    <td class="text-xs text-muted">{{ s.duration_seconds | format_duration }}</td>
+                    <td class="text-xs text-muted">{{ s.ended_at | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -16,30 +16,35 @@
 
 {% block content %}
 
-<!-- Filters -->
+<!-- Filters bar -->
 <div class="card" style="margin-bottom:12px; padding:10px 14px">
-    <div class="flex gap-2 items-center">
-        <input id="session-search" type="text" placeholder="Search by title or session ID…"
-               style="flex:1; min-width:0; padding:3px 8px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface); font-family:var(--font-mono); outline:none"
-               oninput="applyFilters()" />
-        <select id="filter-agent" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+    <div class="filter-bar">
+        <input id="session-search" type="text" placeholder="Search title or session ID…"
+               class="filter-bar__input" style="flex:1.5;min-width:180px" />
+        <select id="filter-agent" class="filter-bar__select">
             <option value="">All Agents</option>
             <option value="claude_code">Claude Code</option>
             <option value="codex">Codex</option>
         </select>
-        <select id="filter-model" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+        <select id="filter-model" class="filter-bar__select">
             <option value="">All Models</option>
             {% for m in model_list %}
             <option value="{{ m }}">{{ m }}</option>
             {% endfor %}
         </select>
-        <select id="filter-project" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+        <select id="filter-project" class="filter-bar__select" style="max-width:180px">
             <option value="">All Projects</option>
             {% for p in project_list %}
             <option value="{{ p }}">{{ p }}</option>
             {% endfor %}
         </select>
-        <select id="sort-by" class="text-xs" style="padding:3px 6px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; background:var(--surface)" onchange="applyFilters()">
+        <input id="filter-date-start" type="date" class="filter-bar__input" style="width:130px" title="From date" />
+        <input id="filter-date-end" type="date" class="filter-bar__input" style="width:130px" title="To date" />
+        <input id="filter-token-min" type="number" placeholder="Min tokens" class="filter-bar__input" style="width:110px" min="0" />
+        <label style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);white-space:nowrap;cursor:pointer">
+            <input id="filter-failed-only" type="checkbox" /> Failed only
+        </label>
+        <select id="sort-by" class="filter-bar__select">
             <option value="ended_at">Sort: Last Active</option>
             <option value="input_tokens">Sort: Input Tokens</option>
             <option value="output_tokens">Sort: Output Tokens</option>
@@ -47,6 +52,7 @@
             <option value="failed_tool_count">Sort: Failed Tools</option>
             <option value="duration_seconds">Sort: Duration</option>
         </select>
+        <button class="filter-bar__btn" onclick="resetSessionFilters()">Reset</button>
     </div>
 </div>
 
@@ -63,107 +69,236 @@
                     <th>Project</th>
                     <th>Agent</th>
                     <th>Model</th>
-                    <th>Branch</th>
-                    <th>Messages</th>
-                    <th>Rounds</th>
-                    <th>Input</th>
-                    <th>Cache R</th>
-                    <th>Cache W</th>
-                    <th>Output</th>
-                    <th>Tools</th>
-                    <th>Failed</th>
+                    <th class="numeric">Input</th>
+                    <th class="numeric">Cache R</th>
+                    <th class="numeric">Cache W</th>
+                    <th class="numeric">Output</th>
+                    <th class="numeric">Tools</th>
+                    <th class="numeric">Failed</th>
                     <th>Duration</th>
                     <th>Time</th>
                 </tr>
             </thead>
             <tbody>
                 {% for s in sessions %}
-                <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}"
-                    data-agent="{{ s.agent }}"
+                {% set total_tokens = s.input_tokens + s.output_tokens + s.cached_input_tokens + s.cached_output_tokens %}
+                <tr data-agent="{{ s.agent }}"
                     data-model="{{ s.model }}"
                     data-project="{{ s.project_key }}"
                     data-session-id="{{ s.session_id }}"
-                    data-title="{{ s.title }}">
+                    data-title="{{ s.title | lower }}"
+                    data-ended-at="{{ s.ended_at }}"
+                    data-input-tokens="{{ s.input_tokens }}"
+                    data-output-tokens="{{ s.output_tokens }}"
+                    data-tool-count="{{ s.tool_call_count }}"
+                    data-failed-count="{{ s.failed_tool_count }}"
+                    data-duration="{{ s.duration_seconds }}"
+                    class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}">
                     <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
                     <td>
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:280px; display:block" title="{{ s.title }}">
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:300px; display:block" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:80] or 'Untitled' }}
                         </a>
                     </td>
                     <td class="text-xs">
-                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted">{{ s.project_name }}</a>
+                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted" data-tooltip="{{ s.project_key }}">{{ s.project_name }}</a>
                     </td>
                     <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'CX' }}</span></td>
-                    <td class="text-xs text-muted mono">{{ s.model or '—' }}</td>
-                    <td class="text-xs text-muted mono">{{ s.git_branch or '—' }}</td>
-                    <td class="mono text-xs">{{ s.user_message_count + s.assistant_message_count }}</td>
-                    <td class="mono text-xs">{{ (s.user_message_count + s.assistant_message_count) // 2 }}</td>
-                    <td class="mono text-xs">{{ s.input_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ s.cached_output_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ s.output_tokens | format_number }}</td>
-                    <td class="mono text-xs">{{ s.tool_call_count }}</td>
-                    <td class="mono text-xs">
+                    <td class="text-xs text-muted mono truncate" style="max-width:160px" data-tooltip="{{ s.model or 'unknown' }}">{{ s.model or '—' }}</td>
+                    <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.cached_output_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.output_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs {{ 'highlight-warn' if s.tool_call_count > 50 else '' }}">{{ s.tool_call_count }}</td>
+                    <td class="numeric mono text-xs">
                         {% if s.failed_tool_count > 0 %}
                         <span class="badge badge-error">{{ s.failed_tool_count }}</span>
                         {% else %}
-                        <span class="text-xs text-muted">0</span>
+                        <span class="muted-zero">0</span>
                         {% endif %}
                     </td>
-                    <td class="text-xs text-muted">{{ s.duration_seconds | format_duration }}</td>
+                    <td class="text-xs text-muted {{ 'highlight-warn' if s.duration_seconds > 3600 else '' }}" data-tooltip="{{ s.duration_seconds | int }}s">{{ s.duration_seconds | format_duration }}</td>
                     <td class="text-xs text-muted">{{ s.ended_at | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <div id="sessions-empty" class="empty-state" style="display:none">No sessions match your filters. Try adjusting or resetting them.</div>
     {% else %}
-    <div class="empty-state">No sessions found.</div>
+    <div class="empty-state">No sessions indexed yet.</div>
     {% endif %}
 </div>
 
 <script>
-window.applyFilters = function() {
-    var q = document.getElementById('session-search').value.toLowerCase().trim();
-    var agent = document.getElementById('filter-agent').value;
-    var model = document.getElementById('filter-model').value;
-    var project = document.getElementById('filter-project').value;
-    var sortBy = document.getElementById('sort-by').value;
+(function() {
+    var STORAGE_KEY = 'sessions_filters';
 
-    var rows = document.querySelectorAll('#sessions-table tbody tr');
-    var visibleCount = 0;
+    /* ─── Apply all filters ──────────────────────────────────────── */
+    function applyFilters() {
+        var q = document.getElementById('session-search').value.toLowerCase().trim();
+        var agent = document.getElementById('filter-agent').value;
+        var model = document.getElementById('filter-model').value;
+        var project = document.getElementById('filter-project').value;
+        var dateStart = document.getElementById('filter-date-start').value;
+        var dateEnd = document.getElementById('filter-date-end').value;
+        var tokenMin = parseInt(document.getElementById('filter-token-min').value) || 0;
+        var failedOnly = document.getElementById('filter-failed-only').checked;
+        var sortBy = document.getElementById('sort-by').value;
 
-    rows.forEach(function(row) {
-        var show = true;
-        if (agent && row.dataset.agent !== agent) show = false;
-        if (model && row.dataset.model !== model) show = false;
-        if (project && row.dataset.project !== project) show = false;
-        if (q) {
-            var title = (row.dataset.title || '').toLowerCase();
-            var sid = (row.dataset.sessionId || '').toLowerCase();
-            if (title.indexOf(q) === -1 && sid.indexOf(q) === -1) show = false;
-            // Exact or prefix match on session ID → navigate directly
-            if (sid === q || sid.startsWith(q) || q.startsWith(sid)) {
-                // Only navigate if it's a clear single match (type a full UUID prefix)
-                var matches = 0;
-                rows.forEach(function(r2) {
-                    var s2 = (r2.dataset.sessionId || '').toLowerCase();
-                    if (s2.startsWith(q) || s2 === q) matches++;
-                });
-                if (matches === 1 && q.length >= 8) {
-                    window.location.href = '/sessions/' + row.dataset.agent + '/' + row.dataset.sessionId;
-                    return;
+        var tbody = document.querySelector('#sessions-table tbody');
+        if (!tbody) return;
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var visibleCount = 0;
+        var visibleRows = [];
+
+        rows.forEach(function(row) {
+            var show = true;
+            if (agent && row.dataset.agent !== agent) show = false;
+            if (model && row.dataset.model !== model) show = false;
+            if (project && row.dataset.project !== project) show = false;
+            if (q) {
+                var title = (row.dataset.title || '');
+                var sid = (row.dataset.sessionId || '').toLowerCase();
+                if (title.indexOf(q) === -1 && sid.indexOf(q) === -1) show = false;
+                // Exact or prefix match on session ID → navigate directly
+                if ((sid === q || sid.startsWith(q) || q.startsWith(sid)) && q.length >= 8) {
+                    var matches = 0;
+                    rows.forEach(function(r2) {
+                        var s2 = (r2.dataset.sessionId || '').toLowerCase();
+                        if (s2.startsWith(q) || s2 === q) matches++;
+                    });
+                    if (matches === 1) {
+                        window.location.href = '/sessions/' + row.dataset.agent + '/' + row.dataset.sessionId;
+                        return;
+                    }
+                }
+            }
+            if (dateStart && row.dataset.endedAt < dateStart) show = false;
+            if (dateEnd && row.dataset.endedAt > dateEnd + 'T23:59:59') show = false;
+            if (tokenMin > 0) {
+                var total = (parseInt(row.dataset.inputTokens) || 0) + (parseInt(row.dataset.outputTokens) || 0);
+                if (total < tokenMin) show = false;
+            }
+            if (failedOnly && parseInt(row.dataset.failedCount) === 0) show = false;
+
+            row.style.display = show ? '' : 'none';
+            if (show) {
+                visibleCount++;
+                visibleRows.push(row);
+            }
+        });
+
+        /* Sort visible rows */
+        visibleRows.sort(function(a, b) {
+            var va, vb;
+            switch (sortBy) {
+                case 'input_tokens':
+                    va = parseInt(a.dataset.inputTokens) || 0; vb = parseInt(b.dataset.inputTokens) || 0; break;
+                case 'output_tokens':
+                    va = parseInt(a.dataset.outputTokens) || 0; vb = parseInt(b.dataset.outputTokens) || 0; break;
+                case 'tool_call_count':
+                    va = parseInt(a.dataset.toolCount) || 0; vb = parseInt(b.dataset.toolCount) || 0; break;
+                case 'failed_tool_count':
+                    va = parseInt(a.dataset.failedCount) || 0; vb = parseInt(b.dataset.failedCount) || 0; break;
+                case 'duration_seconds':
+                    va = parseFloat(a.dataset.duration) || 0; vb = parseFloat(b.dataset.duration) || 0; break;
+                default:
+                    va = a.dataset.endedAt; vb = b.dataset.endedAt;
+                    return vb > va ? 1 : (va > vb ? -1 : 0);
+            }
+            return vb - va;
+        });
+
+        visibleRows.forEach(function(r) { tbody.appendChild(r); });
+
+        /* Update count */
+        var counter = document.querySelector('.topbar-actions .text-muted');
+        if (counter) counter.textContent = visibleCount + ' of {{ total_count }} sessions';
+
+        /* Empty state */
+        var empty = document.getElementById('sessions-empty');
+        if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+
+        /* Persist */
+        saveFilters();
+    }
+
+    /* ─── Save / restore filters ─────────────────────────────────── */
+    function saveFilters() {
+        var state = {
+            q: document.getElementById('session-search').value,
+            agent: document.getElementById('filter-agent').value,
+            model: document.getElementById('filter-model').value,
+            project: document.getElementById('filter-project').value,
+            dateStart: document.getElementById('filter-date-start').value,
+            dateEnd: document.getElementById('filter-date-end').value,
+            tokenMin: document.getElementById('filter-token-min').value,
+            failedOnly: document.getElementById('filter-failed-only').checked,
+            sortBy: document.getElementById('sort-by').value
+        };
+        arpStorage.set(STORAGE_KEY, state);
+    }
+
+    function restoreFilters() {
+        var saved = arpStorage.get(STORAGE_KEY);
+        if (!saved) return;
+        var map = {
+            'session-search': 'q',
+            'filter-agent': 'agent',
+            'filter-model': 'model',
+            'filter-project': 'project',
+            'filter-date-start': 'dateStart',
+            'filter-date-end': 'dateEnd',
+            'filter-token-min': 'tokenMin',
+            'sort-by': 'sortBy'
+        };
+        for (var id in map) {
+            var el = document.getElementById(id);
+            if (el && saved[map[id]]) {
+                if (el.type === 'checkbox') {
+                    el.checked = saved[map[id]];
+                } else {
+                    el.value = saved[map[id]];
                 }
             }
         }
-        row.style.display = show ? '' : 'none';
-        if (show) visibleCount++;
+        if (saved.failedOnly) {
+            document.getElementById('filter-failed-only').checked = true;
+        }
+    }
+
+    /* ─── Reset filters ──────────────────────────────────────────── */
+    window.resetSessionFilters = function() {
+        document.getElementById('session-search').value = '';
+        document.getElementById('filter-agent').value = '';
+        document.getElementById('filter-model').value = '';
+        document.getElementById('filter-project').value = '';
+        document.getElementById('filter-date-start').value = '';
+        document.getElementById('filter-date-end').value = '';
+        document.getElementById('filter-token-min').value = '';
+        document.getElementById('filter-failed-only').checked = false;
+        document.getElementById('sort-by').value = 'ended_at';
+        arpStorage.remove(STORAGE_KEY);
+        applyFilters();
+    };
+
+    /* ─── Bind events ────────────────────────────────────────────── */
+    var filterInputs = [
+        'session-search', 'filter-agent', 'filter-model', 'filter-project',
+        'filter-date-start', 'filter-date-end', 'filter-token-min', 'filter-failed-only', 'sort-by'
+    ];
+    filterInputs.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', applyFilters);
+        }
     });
 
-    // Update count
-    var counter = document.querySelector('.topbar-actions .text-muted');
-    if (counter) counter.textContent = visibleCount + ' of {{ total_count }} sessions';
-};
+    /* Restore on load */
+    restoreFilters();
+    applyFilters();
+})();
 </script>
 
 {% endblock %}

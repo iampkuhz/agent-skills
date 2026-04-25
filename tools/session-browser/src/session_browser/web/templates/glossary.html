@@ -23,7 +23,7 @@
     <div class="card-title">
         <span class="token-badge token-badge--input" style="font-size:11px">Input Tokens</span>
     </div>
-    <p class="text-sm" style="margin-bottom:8px">Tokens sent to the model as input (prompt). Split into fresh, cache read, and cache write categories.</p>
+    <p class="text-sm" style="margin-bottom:8px">Tokens sent to the model as input (prompt). Split into fresh, cache read, and cache write categories. All are <strong>input-side</strong> — they represent the prompt context, not the model's output.</p>
 
     <table>
         <thead>
@@ -43,21 +43,21 @@
             </tr>
             <tr>
                 <td><span class="token-badge token-badge--cache-read">Cache Read</span></td>
-                <td class="text-sm">Input tokens served from cache (read hit). Cheaper than fresh input.</td>
+                <td class="text-sm">Input tokens served from cache (read hit). Cheaper than fresh input. This is an <strong>input-side</strong> cache.</td>
                 <td class="mono text-xs"><code>cache_read_input_tokens</code></td>
                 <td class="mono text-xs"><code>cached_tokens</code> (prompt)</td>
             </tr>
             <tr>
                 <td><span class="token-badge token-badge--cache-write">Cache Write</span></td>
-                <td class="text-sm">Input tokens written to cache this turn. One-time cost for future reads.</td>
+                <td class="text-sm">Input tokens written to cache this turn. One-time cost for future reads. This is also <strong>input-side</strong> — it writes to the input cache, not output.</td>
                 <td class="mono text-xs"><code>cache_creation_input_tokens</code></td>
-                <td class="mono text-xs"><code>cached_tokens</code> (completion)</td>
+                <td class="mono text-xs"><span class="badge badge-muted">unknown / not reported</span></td>
             </tr>
             <tr style="background:var(--border-light)">
                 <td><strong>Total Input</strong></td>
                 <td class="text-sm"><code>inputFresh + cacheRead + cacheWrite</code>. All input-side tokens.</td>
                 <td class="mono text-xs">Sum of above 3 fields</td>
-                <td class="mono text-xs">Sum of above 3 fields</td>
+                <td class="mono text-xs">Sum of available fields (cache write excluded)</td>
             </tr>
         </tbody>
     </table>
@@ -128,7 +128,7 @@
             </tr>
             <tr>
                 <td><span class="badge badge-muted">unknown</span></td>
-                <td class="text-sm">No token data available. Shows as <code>—</code> in UI.</td>
+                <td class="text-sm">No token data available. Shows as <code>—</code> in UI, never <code>0</code>.</td>
                 <td class="text-sm">Missing or empty usage data</td>
             </tr>
         </tbody>
@@ -142,6 +142,11 @@
     <div style="padding:8px 0">
         <p class="text-sm" style="margin-bottom:4px"><strong>Cache read ≠ output cache</strong></p>
         <p class="text-xs text-muted"><code>cache_read_input_tokens</code> are input-side cache hits (reading from cache). <code>cache_creation_input_tokens</code> are also input-side (writing to cache). Neither refers to output caching.</p>
+    </div>
+
+    <div style="padding:8px 0">
+        <p class="text-sm" style="margin-bottom:4px"><strong>OpenAI does not report cache write</strong></p>
+        <p class="text-xs text-muted">OpenAI's API does not expose a <code>cache_creation_input_tokens</code>-equivalent field. The "Cache W" column for OpenAI sessions shows <span class="badge badge-muted">unknown</span>, not <code>0</code>. Do not assume zero cache write — the provider simply does not report it.</p>
     </div>
 
     <div style="padding:8px 0">
@@ -193,10 +198,10 @@
             </tr>
             <tr>
                 <td class="text-sm"><strong>OpenAI</strong></td>
-                <td class="mono text-xs">gpt-*</td>
+                <td class="mono text-xs">gpt-*, o1, o3</td>
                 <td class="mono text-xs">input_tokens - cached_tokens</td>
                 <td class="mono text-xs">cached_tokens (prompt)</td>
-                <td class="mono text-xs">cached_tokens (completion)</td>
+                <td class="mono text-xs"><span class="badge badge-muted">unknown</span></td>
                 <td class="mono text-xs">completion_tokens - reasoning_tokens</td>
             </tr>
             <tr>
@@ -204,7 +209,7 @@
                 <td class="mono text-xs">codex-*</td>
                 <td class="mono text-xs">N/A (estimated)</td>
                 <td class="mono text-xs">N/A (estimated)</td>
-                <td class="mono text-xs">N/A (estimated)</td>
+                <td class="mono text-xs"><span class="badge badge-muted">unknown</span></td>
                 <td class="mono text-xs">tokens_used (total)</td>
             </tr>
         </tbody>

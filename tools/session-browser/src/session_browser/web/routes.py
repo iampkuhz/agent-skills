@@ -61,6 +61,9 @@ _template_env.filters["format_number"] = lambda n: (
     else f"{n / 1_000:.1f}K" if n >= 1_000
     else str(n)
 )
+_template_env.filters["truncate_path"] = lambda path: (
+    _truncate_path(path)
+)
 _template_env.filters["format_duration"] = lambda seconds: (
     f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}min" if seconds >= 3600
     else f"{int(seconds // 60)}min {int(seconds % 60)}s" if seconds >= 60
@@ -73,6 +76,17 @@ _template_env.filters["urlencode"] = urllib.parse.quote
 _template_env.filters["urldecode"] = urllib.parse.unquote
 _template_env.filters["markdown"] = _md_filter
 _template_env.filters["tojson_safe"] = lambda v: json.dumps(v) if v else "null"
+
+
+def _truncate_path(path: str) -> str:
+    """Truncate a long path, keeping first and last segments."""
+    if not path or len(path) <= 40:
+        return path or ""
+    parts = path.replace("\\", "/").split("/")
+    if len(parts) <= 3:
+        return path[:40] + "…"
+    # Keep first 2 and last 2 segments
+    return "/".join(parts[:2]) + "/…/" + "/".join(parts[-2:])
 
 
 def _relative_time(iso_str: str) -> str:
