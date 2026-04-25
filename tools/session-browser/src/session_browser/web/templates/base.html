@@ -272,7 +272,7 @@
         /* ─── Metric cards ────────────────────────────────────────────── */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 8px;
             margin-bottom: var(--space-lg);
         }
@@ -280,13 +280,13 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 10px 12px;
+            padding: 8px 12px;
             box-shadow: var(--shadow-sm);
             display: flex;
             flex-direction: row;
             align-items: baseline;
             gap: 8px;
-            min-height: 48px;
+            min-height: 40px;
             position: relative;
         }
         .metric-card .metric-label {
@@ -308,7 +308,7 @@
         .metric-card .metric-sub {
             font-size: var(--text-xs);
             color: var(--text-muted);
-            margin-top: 2px;
+            margin-top: 1px;
             width: 100%;
         }
         .metric-card--compact .metric-value {
@@ -1555,6 +1555,26 @@
         .round-summary-table td {
             padding: 4px 10px;
         }
+        .round-header-row {
+            transition: background 150ms ease;
+        }
+        .round-chevron-inline {
+            display: inline-block;
+            font-size: var(--text-micro);
+            color: var(--text-muted);
+            transition: transform 180ms ease;
+            margin-right: 2px;
+        }
+        .round-detail-row td {
+            padding: 0 8px 8px 8px;
+            background: var(--surface);
+        }
+        .round-detail-cell {
+            padding-left: 12px !important;
+        }
+        .round-detail-cell .round-content { display: block; }
+        .round-detail-cell .msg { margin-bottom: 8px; }
+        .round-detail-cell .tool-tree__item { padding: 4px 0; }
 
         /* ─── Text micro utility ────────────────────────────────────── */
         .text-micro { font-size: var(--text-micro); }
@@ -1713,6 +1733,19 @@
             if (e.key === 'm') switchTab('messages');
             if (e.key === 'r') switchTab('raw');
             if (e.key === 'Escape') {
+                // Collapse expanded round detail rows (table-based)
+                var detailRows = document.querySelectorAll('.round-detail-row[style]');
+                detailRows.forEach(function(row) {
+                    if (row.style.display !== 'none') {
+                        row.style.display = 'none';
+                        var headerRow = row.previousElementSibling;
+                        if (headerRow) {
+                            var chevron = headerRow.querySelector('.round-chevron-inline');
+                            if (chevron) chevron.style.transform = '';
+                        }
+                    }
+                });
+                // Also collapse old .round structure if present
                 var expanded = document.querySelectorAll('.round.expanded');
                 if (expanded.length > 0) {
                     expanded.forEach(function(r) { r.classList.remove('expanded'); });
@@ -1727,12 +1760,18 @@
             if (savedTab) {
                 setTimeout(function() { switchTab(savedTab); }, 0);
             }
-            /* Restore expanded rounds */
+            /* Restore expanded rounds (table-based structure) */
             var savedRounds = arpStorage.get('rounds_' + window._sessionId);
             if (savedRounds && Array.isArray(savedRounds)) {
                 savedRounds.forEach(function(idx) {
-                    var round = document.querySelector('.round[data-round-idx="' + idx + '"]');
-                    if (round) round.classList.add('expanded');
+                    var headerRow = document.querySelector('.round-header-row[data-round-idx="' + idx + '"]');
+                    if (headerRow && window.toggleRoundDetail) {
+                        toggleRoundDetail(headerRow);
+                    } else {
+                        // Fallback for old .round structure
+                        var oldRound = document.querySelector('.round[data-round-idx="' + idx + '"]');
+                        if (oldRound) oldRound.classList.add('expanded');
+                    }
                 });
             }
         }

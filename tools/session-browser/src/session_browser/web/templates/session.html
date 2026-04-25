@@ -178,11 +178,9 @@
         </div>
     </div>
 
-    <!-- Round summary with signals -->
+    <!-- Rounds: summary + detail in one expandable table -->
     <div class="card">
-        <div class="card-title flex justify-between items-center">
-            Round Summary ({{ total_rounds }} rounds)
-        </div>
+        <div class="card-title">Rounds ({{ total_rounds }})</div>
         {% if rounds %}
         <div class="table-wrap">
             <table class="round-summary-table">
@@ -225,9 +223,15 @@
                         {% set _ = signals.append("failed-tool") %}
                     {% endif %}
 
-                    <tr class="{{ 'row--failed' if has_failed_tools else '' }}"
-                        data-round-idx="{{ loop.index }}">
-                        <td class="numeric mono text-xs">#{{ loop.index }}</td>
+                    <tr class="round-header-row {{ 'row--failed' if has_failed_tools else '' }}"
+                        data-round-idx="{{ loop.index }}"
+                        style="cursor:pointer"
+                        onmouseenter="this.style.background='var(--surface-hover)'"
+                        onmouseleave="this.style.background=''"
+                        onclick="toggleRoundDetail(this)">
+                        <td class="numeric mono text-xs">
+                            <span class="round-chevron-inline">&#8250;</span> #{{ loop.index }}
+                        </td>
                         <td class="signals-cell">
                             {% if signals %}
                                 {% for sig in signals %}
@@ -247,6 +251,54 @@
                             {% endif %}
                         </td>
                         <td class="text-xs text-muted">{{ round.user_msg.timestamp[:16].replace('T', ' ') if round.user_msg.timestamp else '' }}</td>
+                    </tr>
+                    <tr class="round-detail-row" data-round-idx="{{ loop.index }}" style="display:none">
+                        <td colspan="7" class="round-detail-cell">
+                            <div class="round {{ 'has-failed' if has_failed_tools else '' }}">
+                                <div class="round-content">
+                                    {% if round.user_msg.content_html %}
+                                    <div class="msg msg--user">
+                                        <div class="msg__meta">User</div>
+                                        <div class="msg__body">{{ round.user_msg.content_html | safe }}</div>
+                                    </div>
+                                    {% endif %}
+                                    {% if round.assistant_msg.content_html %}
+                                    <div class="msg msg--assistant">
+                                        <div class="msg__meta">Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
+                                        <div class="msg__body">{{ round.assistant_msg.content_html | safe }}</div>
+                                    </div>
+                                    {% endif %}
+                                    {% if round.tool_calls %}
+                                    <div class="tool-tree">
+                                        {% for tc in round.tool_calls %}
+                                        <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
+                                            <span class="tool-tree__icon">{{ '✗' if tc.is_failed else '├' }}</span>
+                                            <span class="tool-tree__name">{{ tc.name }}</span>
+                                            <span class="tool-tree__detail">
+                                                {% if tc.parameters %}
+                                                {% if tc.name == 'Bash' %}
+                                                    <code class="mono text-xs">{{ tc.parameters.get('command', '')[:80] }}</code>
+                                                {% elif tc.parameters.get('file_path') %}
+                                                    <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
+                                                {% else %}
+                                                    {{ tc.parameters | tojson | truncate(60) }}
+                                                {% endif %}
+                                                {% endif %}
+                                            </span>
+                                            <span class="tool-tree__status">
+                                                {% if tc.is_failed %}
+                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                {% else %}
+                                                <span class="badge badge-success">ok</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -282,76 +334,6 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Raw timeline (collapsed by default) -->
-    <div class="card" style="margin-top:12px">
-        <div class="card-title flex justify-between items-center" style="cursor:pointer" onclick="toggleRawTimeline()">
-            Raw Timeline
-            <span id="raw-toggle-icon" class="text-muted">+</span>
-        </div>
-        <div id="raw-timeline" style="display:none">
-            {% for round in rounds %}
-            {% set rb = round.token_breakdown() %}
-            {% set has_failed = round.tool_calls | selectattr('is_failed') | list | length > 0 %}
-            <div class="round {{ 'has-failed' if has_failed else '' }}" data-round-idx="{{ loop.index }}">
-                <div class="round-header">
-                    <span class="round-chevron">›</span>
-                    <span class="round-number">#{{ loop.index }}</span>
-                    <span class="round-role round-role--{{ 'assistant' if round.assistant_msg.content or round.assistant_msg.tool_calls else 'user' }}">{{ round.assistant_msg.role or round.user_msg.role }}</span>
-                    {% if round.total_tokens > 0 %}
-                    <span class="round-token-count">{{ round.total_tokens | format_number }} tok</span>
-                    {% endif %}
-                    {% if round.tool_calls %}
-                    <span class="text-xs mono {{ 'highlight-error' if has_failed else '' }}">{{ round.tool_calls | length }} tools</span>
-                    {% endif %}
-                    <span class="text-xs text-muted">{{ round.user_msg.timestamp[:16].replace('T', ' ') if round.user_msg.timestamp else '' }}</span>
-                </div>
-                <div class="round-content">
-                    {% if round.user_msg.content_html %}
-                    <div class="msg msg--user">
-                        <div class="msg__meta">User</div>
-                        <div class="msg__body">{{ round.user_msg.content_html | safe }}</div>
-                    </div>
-                    {% endif %}
-                    {% if round.assistant_msg.content_html %}
-                    <div class="msg msg--assistant">
-                        <div class="msg__meta">Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
-                        <div class="msg__body">{{ round.assistant_msg.content_html | safe }}</div>
-                    </div>
-                    {% endif %}
-                    {% if round.tool_calls %}
-                    <div class="tool-tree">
-                        {% for tc in round.tool_calls %}
-                        <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
-                            <span class="tool-tree__icon">{{ '✗' if tc.is_failed else '├' }}</span>
-                            <span class="tool-tree__name">{{ tc.name }}</span>
-                            <span class="tool-tree__detail">
-                                {% if tc.parameters %}
-                                {% if tc.name == 'Bash' %}
-                                    <code class="mono text-xs">{{ tc.parameters.get('command', '')[:80] }}</code>
-                                {% elif tc.parameters.get('file_path') %}
-                                    <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
-                                {% else %}
-                                    {{ tc.parameters | tojson | truncate(60) }}
-                                {% endif %}
-                                {% endif %}
-                            </span>
-                            <span class="tool-tree__status">
-                                {% if tc.is_failed %}
-                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                {% else %}
-                                <span class="badge badge-success">ok</span>
-                                {% endif %}
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
 </div>
 
 <!-- Tab: Messages -->
@@ -510,6 +492,37 @@
 
 <script>
 (function() {
+    /* ─── Toggle round detail row ──────────────────────────────── */
+    window.toggleRoundDetail = function(headerRow) {
+        var detailRow = headerRow.nextElementSibling;
+        if (!detailRow || !detailRow.classList.contains('round-detail-row')) return;
+        var chevron = headerRow.querySelector('.round-chevron-inline');
+        if (detailRow.style.display === 'none' || detailRow.style.display === '') {
+            detailRow.style.display = 'table-row';
+            if (chevron) chevron.style.transform = 'rotate(90deg)';
+            // Persist expanded state
+            if (window._sessionId && headerRow.dataset.roundIdx) {
+                var key = 'rounds_' + window._sessionId;
+                var expanded = arpStorage.get(key) || [];
+                var idx = headerRow.dataset.roundIdx;
+                if (expanded.indexOf(idx) < 0) expanded.push(idx);
+                arpStorage.set(key, expanded);
+            }
+        } else {
+            detailRow.style.display = 'none';
+            if (chevron) chevron.style.transform = '';
+            // Persist collapsed state
+            if (window._sessionId && headerRow.dataset.roundIdx) {
+                var key = 'rounds_' + window._sessionId;
+                var expanded = arpStorage.get(key) || [];
+                var idx = headerRow.dataset.roundIdx;
+                var pos = expanded.indexOf(idx);
+                if (pos >= 0) expanded.splice(pos, 1);
+                arpStorage.set(key, expanded);
+            }
+        }
+    };
+
     /* ─── Copy raw data ──────────────────────────────────────────── */
     window.copyRawData = function() {
         var el = document.getElementById('raw-json');
@@ -531,18 +544,6 @@
         });
     };
 
-    /* ─── Toggle raw timeline ────────────────────────────────────── */
-    window.toggleRawTimeline = function() {
-        var el = document.getElementById('raw-timeline');
-        var icon = document.getElementById('raw-toggle-icon');
-        if (el.style.display === 'none') {
-            el.style.display = 'block';
-            icon.textContent = '−';
-        } else {
-            el.style.display = 'none';
-            icon.textContent = '+';
-        }
-    };
 })();
 </script>
 
