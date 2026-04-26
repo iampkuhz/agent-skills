@@ -11,17 +11,21 @@ ENV_FILE="$COMPOSE_DIR/env/.env"
 
 cd "$COMPOSE_DIR"
 
+load_env() {
+  if [[ -f "$ENV_FILE" ]]; then
+    echo "📦 从 $ENV_FILE 加载环境变量..."
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+  else
+    echo "⚠️  未找到 env/.env 文件，请确保已 source 环境变量"
+  fi
+}
+
 case "${1:-up}" in
   up|start)
-    if [[ -f "$ENV_FILE" ]]; then
-      echo "📦 从 $ENV_FILE 加载环境变量..."
-      set -a
-      # shellcheck disable=SC1090
-      source "$ENV_FILE"
-      set +a
-    else
-      echo "⚠️  未找到 env/.env 文件，请确保已 source 环境变量"
-    fi
+    load_env
 
     POSTGRES_DATA_DIR="/Users/zhehan/Documents/service-data/postgres"
 
@@ -40,9 +44,17 @@ case "${1:-up}" in
     ;;
 
   restart)
-    echo "🔄 重启 LiteLLM..."
-    podman compose -f "$COMPOSE_FILE" restart
-    echo "✅ LiteLLM 已重启"
+    load_env
+    echo "🔄 重新创建 LiteLLM（应用镜像、配置和资源限制变更）..."
+    podman compose -f "$COMPOSE_FILE" up -d --force-recreate litellm
+    echo "✅ LiteLLM 已重新创建"
+    ;;
+
+  recreate)
+    load_env
+    echo "🔄 重新创建 LiteLLM 和 PostgreSQL..."
+    podman compose -f "$COMPOSE_FILE" up -d --force-recreate
+    echo "✅ LiteLLM 栈已重新创建"
     ;;
 
   logs)
@@ -70,7 +82,7 @@ case "${1:-up}" in
     ;;
 
   *)
-    echo "用法：$0 {up|down|restart|logs|status}"
+    echo "用法：$0 {up|down|restart|recreate|logs|status}"
     exit 1
     ;;
 esac

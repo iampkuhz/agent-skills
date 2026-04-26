@@ -106,24 +106,18 @@ searxng-logs:
 
 litellm-up:
 	@echo "🚀 启动 LiteLLM..."
-	@echo "⚠️  请确保已配置环境变量（source tools/gateway/litellm/env/.env 或手动 export）"
-	@cd $(LITELLM_DIR) && docker compose -f compose/docker-compose.yml up -d
-	@echo "✅ LiteLLM 已启动"
-	@echo "📌 访问地址：http://localhost:4000"
-	@echo "📌 健康检查：curl http://localhost:4000/health"
+	@cd $(LITELLM_DIR) && ./scripts/litellm.sh up
 
 litellm-down:
 	@echo "🛑 停止 LiteLLM..."
-	@cd $(LITELLM_DIR) && docker compose -f compose/docker-compose.yml down
-	@echo "✅ LiteLLM 已停止"
+	@cd $(LITELLM_DIR) && ./scripts/litellm.sh down
 
 litellm-restart:
 	@echo "🔄 重启 LiteLLM..."
-	@cd $(LITELLM_DIR) && docker compose -f compose/docker-compose.yml restart
-	@echo "✅ LiteLLM 已重启"
+	@cd $(LITELLM_DIR) && ./scripts/litellm.sh restart
 
 litellm-logs:
-	@cd $(LITELLM_DIR) && docker compose -f compose/docker-compose.yml logs -f
+	@cd $(LITELLM_DIR) && ./scripts/litellm.sh logs
 
 # ===== SearXNG MCP 服务 =====
 

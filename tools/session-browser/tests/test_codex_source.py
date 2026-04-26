@@ -10,13 +10,13 @@ def test_parse_session_index_empty_when_missing():
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original = codex._codex_dir
-        codex._codex_dir = lambda: Path(tmpdir)
+        original = codex.CODEX_DATA_DIR
+        codex.CODEX_DATA_DIR = Path(tmpdir)
         try:
             result = codex.parse_session_index()
             assert result == []
         finally:
-            codex._codex_dir = original
+            codex.CODEX_DATA_DIR = original
 
 
 def test_read_threads_db_empty_when_missing():
@@ -25,13 +25,13 @@ def test_read_threads_db_empty_when_missing():
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original = codex._codex_dir
-        codex._codex_dir = lambda: Path(tmpdir)
+        original = codex.CODEX_DATA_DIR
+        codex.CODEX_DATA_DIR = Path(tmpdir)
         try:
             result = codex.read_threads_db()
             assert result == {}
         finally:
-            codex._codex_dir = original
+            codex.CODEX_DATA_DIR = original
 
 
 def test_session_file_search():
@@ -40,8 +40,8 @@ def test_session_file_search():
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original = codex._codex_dir
-        codex._codex_dir = lambda: Path(tmpdir)
+        original = codex.CODEX_DATA_DIR
+        codex.CODEX_DATA_DIR = Path(tmpdir)
         try:
             # Create a fake session file
             session_dir = Path(tmpdir) / "sessions" / "2026" / "03" / "28"
@@ -53,4 +53,4 @@ def test_session_file_search():
             assert result is not None
             assert result == session_file
         finally:
-            codex._codex_dir = original
+            codex.CODEX_DATA_DIR = original

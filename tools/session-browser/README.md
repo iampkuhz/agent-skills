@@ -117,3 +117,48 @@ tools/session-browser/
 - **只读**：不修改任何原始数据
 - **本地**：数据源目录以只读方式挂载
 - **脱敏**：敏感字段默认隐藏
+
+## Troubleshooting：orphan `-zsh` 高 CPU
+
+`session-browser` 本身不创建 `zsh`、`zpty`、`pty` 或交互式 shell。启动脚本会用 `exec python3 -m session_browser ...` 替换当前脚本进程，避免额外的父 shell 长期驻留；`stop` 命令只短暂调用 `lsof` 查找端口，并在 timeout 时清理子进程组。
+
+如果 Activity Monitor 中看到高 CPU 的 `-zsh`，可先确认是否为外部 agent/terminal executor 在本目录遗留的 login shell：
+
+```bash
+ps -axo pid,ppid,pgid,sess,tty,stat,etime,%cpu,%mem,command \
+  | grep -E 'session-browser|python3 -m session_browser|-zsh' \
+  | grep -v grep
+```
+
+重点看这些信号：
+
+- `COMMAND=-zsh`：login zsh，不是 `python3 -m session_browser`。
+- `PPID=1`：原父进程已退出，进程被 `launchd(1)` 收养。
+- `TTY=??`：没有真实终端窗口，常见于 agent/executor 创建的伪终端。
+- `STAT=R` 或 `U` 且 CPU 高：不是 idle shell。
+
+确认 cwd：
+
+```bash
+lsof -a -p <pid> -d cwd
+```
+
+检查是否有未回收的 zombie child：
+
+```bash
+ps -axo pid,ppid,pgid,stat,etime,%cpu,%mem,command | awk -v p="<pid>" '$2 == p {print}'
+```
+
+如果确认目标 PID 是已知的 orphan `-zsh`，可先温和结束指定 PID：
+
+```bash
+kill <pid1> <pid2>
+sleep 2
+ps -ww -p <pid1>,<pid2> -o pid,ppid,stat,etime,%cpu,command
+```
+
+若仍未退出，再对同一批已确认 PID 使用：
+
+```bash
+kill -9 <pid1> <pid2>
+```

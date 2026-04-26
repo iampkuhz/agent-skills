@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-FIXTURES = Path(__file__).parent.parent / "fixtures"
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_parse_session_events():
@@ -56,14 +56,12 @@ def test_parse_history_empty_when_missing():
     """Test that parse_history returns empty list when no data dir."""
     from session_browser.sources import claude
     import tempfile
-    import os
 
-    # Temporarily override _claude_dir to a non-existent path
     with tempfile.TemporaryDirectory() as tmpdir:
-        original = claude._claude_dir
-        claude._claude_dir = lambda: Path(tmpdir)
+        original = claude.CLAUDE_DATA_DIR
+        claude.CLAUDE_DATA_DIR = Path(tmpdir)
         try:
             result = claude.parse_history()
             assert result == []
         finally:
-            claude._claude_dir = original
+            claude.CLAUDE_DATA_DIR = original

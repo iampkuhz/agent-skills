@@ -110,9 +110,12 @@ litellm_settings:
 
 general_settings:
   master_key: <访问密钥>
+  store_prompts_in_spend_logs: false
 ```
 
 注意：`litellm_settings:` 不能只写键名和注释、不写任何子项。那样在 YAML 里会被解析为 `null`，LiteLLM 1.81.x 的 Playground/UI 配置读取流程会报 `'NoneType' object has no attribute 'get'`。
+
+本地网关默认只保留用量统计，不保存完整请求体和响应体。`store_prompts_in_spend_logs: false` 可以避免 `LiteLLM_SpendLogs.proxy_server_request` 在长期运行后快速膨胀，尤其适合 Podman VM 内存较小的个人环境。
 
 ### PostgreSQL 数据持久化
 
@@ -191,7 +194,18 @@ curl -s http://localhost:4000/health/readiness
 
 如果日志里出现 `P1001: Can't reach database server at litellm-db:5432`，优先检查 `compose/docker-compose.yml` 中 PostgreSQL 服务是否带有 `litellm-db` 的网络别名；Podman Compose 不能像部分 Docker 场景那样稳定依赖 `container_name` 做服务发现。
 
-如果 Playground 或 `/v1/chat/completions` 返回 `500 'NoneType' object has no attribute 'get'`，优先检查 [config/config.yaml](/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/tools/gateway/litellm/config/config.yaml) 里的 `litellm_settings` 是否被写成了空 YAML 节点。
+如果 Playground 或 `/v1/chat/completions` 返回 `500 'NoneType' object has no attribute 'get'`，优先检查 [config/config.yaml](/Users/zhehan/Documents/tools/llm/feipi-agent-kit/tools/gateway/litellm/config/config.yaml) 里的 `litellm_settings` 是否被写成了空 YAML 节点。
+
+如果容器状态显示 `Exited (137)`，并且 `podman inspect litellm-proxy-podman` 中 `OOMKilled` 为 `true`，说明 LiteLLM 被 Podman VM 的内存压力杀掉。优先检查：
+
+```bash
+podman machine inspect
+podman stats --no-stream
+podman exec litellm-db-podman psql -U litellm -d litellm \
+  -c "select relname, pg_size_pretty(pg_total_relation_size(relid)) from pg_catalog.pg_statio_user_tables order by pg_total_relation_size(relid) desc limit 10;"
+```
+
+当前 compose 已对 LiteLLM 设置 `mem_limit: 1536m`，并关闭完整 prompt 持久化。修改 compose 或镜像版本后，使用 `./scripts/litellm.sh restart`，脚本会重新创建 LiteLLM 容器以应用资源限制和镜像变更。
 
 如果 `podman compose up -d` 一开始就打印 `no container with name or ID ... found`、`not all containers could be removed from pod ...`、`compose_default has associated containers with it` 这类报错，通常不是 LiteLLM 配置本身坏了，而是多个服务都曾从各自的 `compose/` 目录启动，默认项目名都变成了 `compose`。当前配置已固定项目名为 `litellm`；若本机还残留旧的 `compose` 项目，可先在对应目录执行一次 `podman compose down`，或手动清理旧的 `pod_compose` / `compose_default` 资源后再重启。
 

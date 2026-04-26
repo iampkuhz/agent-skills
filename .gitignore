@@ -7,3 +7,6 @@ tmp/
 logs/
 **/logs/**
 /tools/night-runner/
+
+# 本地服务密钥配置
+tools/gateway/litellm/env/.env

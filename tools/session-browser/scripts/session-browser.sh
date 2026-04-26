@@ -17,13 +17,13 @@ shift || true
 
 case "$CMD" in
     scan)
-        python3 -m session_browser scan "$@"
+        exec python3 -m session_browser scan "$@"
         ;;
     serve)
-        python3 -m session_browser serve --allow-empty "$@"
+        exec python3 -m session_browser serve --allow-empty "$@"
         ;;
     stop)
-        python3 -m session_browser stop "$@"
+        exec python3 -m session_browser stop "$@"
         ;;
     *)
         echo "Usage: $0 {scan|serve|stop} [options]"

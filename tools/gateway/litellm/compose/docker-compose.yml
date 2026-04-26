@@ -41,6 +41,9 @@ services:
     image: docker.litellm.ai/berriai/litellm:v1.83.7-stable
     container_name: litellm-proxy-podman
     restart: unless-stopped
+    mem_limit: 1536m
+    mem_reservation: 768m
+    pids_limit: 256
     ports:
       - "4000:4000"
     depends_on:
@@ -84,6 +87,12 @@ services:
       - "--use_prisma_db_push"
     volumes:
       - ../config/config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/readiness', timeout=3).read()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - litellm_network
 

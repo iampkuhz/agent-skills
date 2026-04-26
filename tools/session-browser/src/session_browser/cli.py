@@ -26,6 +26,43 @@ import time
 from session_browser.config import SERVER_HOST, SERVER_PORT
 
 
+def _run_command(
+    cmd: list[str],
+    *,
+    timeout: float,
+) -> subprocess.CompletedProcess[str]:
+    """Run a short command and clean up its process group on timeout."""
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+            proc.communicate(timeout=3)
+        except ProcessLookupError:
+            pass
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.communicate()
+        raise subprocess.TimeoutExpired(
+            cmd,
+            timeout,
+            output=exc.output,
+            stderr=exc.stderr,
+        ) from exc
+
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+
+
 def cmd_scan(args: argparse.Namespace) -> None:
     """Run a full or incremental scan."""
     from session_browser.index.indexer import full_scan, init_schema, _get_connection
@@ -79,9 +116,9 @@ def cmd_stop(args: argparse.Namespace) -> None:
 
     # Find PID using lsof
     try:
-        result = subprocess.run(
+        result = _run_command(
             ["lsof", "-ti", f":{port}"],
-            capture_output=True, text=True, timeout=5
+            timeout=5,
         )
     except FileNotFoundError:
         print("Error: 'lsof' not found. Stop the server manually.")
