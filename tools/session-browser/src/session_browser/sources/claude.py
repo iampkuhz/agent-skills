@@ -865,7 +865,7 @@ def scan_all_sessions() -> Iterator[SessionSummary]:
     for entry in history:
         sid = entry["session_id"]
         project = entry["project"]
-        summary, _msgs, _tcs = parse_session_detail(project, sid, history_entry=entry)
+        summary, _msgs, _tcs, _sa = parse_session_detail(project, sid, history_entry=entry)
         # Ensure title from history if empty (fallback)
         if not summary.title and entry.get("display"):
             summary.title = _extract_readable_title(entry["display"])

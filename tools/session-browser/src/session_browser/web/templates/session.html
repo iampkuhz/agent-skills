@@ -24,36 +24,36 @@
 {% set has_anomalies = session_anomalies and session_anomalies.anomalies | length > 0 %}
 {% set total_llm_calls = rounds | sum(attribute='llm_call_count') %}
 {% set total_llm_errors = rounds | sum(attribute='llm_error_count') %}
+{% set avg_tok_round = ((input_total + session.output_tokens) / (rounds | length)) | round(0) if rounds | length > 0 else 0 %}
 
-<!-- Session header: title / metadata / path / time layers -->
+<!-- Session header: compact, responsive layout -->
 <div class="session-header-v2">
-    <!-- Title row -->
-    <h1 class="session-title-v2" data-tooltip="{{ session.title }}">{{ session.title[:120] or 'Untitled Session' }}</h1>
-
-    <!-- Metadata row: Agent · Model · Project -->
-    <div class="session-meta-row">
+    <!-- Top row: Agent badge + Title + Model -->
+    <div class="session-header-top">
         <span class="badge {{ 'badge-claude' if session.agent == 'claude_code' else 'badge-codex' }}">
             {{ 'Claude Code' if session.agent == 'claude_code' else 'Codex' }}
         </span>
+        <h1 class="session-title-v2" data-tooltip="{{ session.title }}">{{ session.title[:120] or 'Untitled Session' }}</h1>
         {% if session.model %}
-        <span class="meta-label" data-tooltip="{{ session.model }}">{{ session.model[:60] }}</span>
+        <span class="session-model-inline" data-tooltip="{{ session.model }}">{{ session.model[:60] }}</span>
         {% endif %}
-        <a href="/projects/{{ session.project_key | urlencode }}" class="meta-link" data-tooltip="{{ session.project_key }}">{{ session.project_name }}</a>
     </div>
 
-    <!-- Path row -->
-    <div class="session-path-row">
-        <code class="session-path" data-tooltip="Click to copy: {{ session.project_key }}" onclick="copyPath(this)">{{ session.project_key }}</code>
+    <!-- Meta row: Project · Branch · Path -->
+    <div class="session-meta-row">
+        <a href="/projects/{{ session.project_key | urlencode }}" class="meta-link" data-tooltip="{{ session.project_key }}">{{ session.project_name }}</a>
         {% if session.git_branch and session.git_branch != 'main' %}
         <span class="badge badge-muted">{{ session.git_branch }}</span>
         {% endif %}
+        <code class="session-path" data-tooltip="Click to copy: {{ session.project_key }}" onclick="copyPath(this)">{{ session.project_key }}</code>
     </div>
 
     <!-- Time row -->
     <div class="session-time-row">
         <span class="text-xs text-muted">Started: {{ session.started_at[:19].replace('T', ' ') if session.started_at else '?' }}</span>
+        <span class="text-xs text-muted">·</span>
         <span class="text-xs text-muted">Ended: {{ session.ended_at[:19].replace('T', ' ') if session.ended_at else '?' }}</span>
-        <span class="text-xs" style="font-weight:600">{{ session.duration_seconds | format_duration }}</span>
+        <span class="text-xs" style="font-weight:600">· {{ session.duration_seconds | format_duration }}</span>
     </div>
 </div>
 
@@ -96,12 +96,22 @@
         <div class="metric-value">{{ tools_per_round }}</div>
         <div class="metric-sub">per round</div>
     </div>
+    <div class="metric-card metric-card--compact" data-tooltip="Average tokens per round (input-side + output)">
+        <div class="metric-label">Tok/R</div>
+        <div class="metric-value">{{ avg_tok_round | format_number }}</div>
+        <div class="metric-sub">per round</div>
+    </div>
     <div class="metric-card metric-card--compact" data-tooltip="Logical LLM calls inferred from Claude message ids, including nested Agent sidechains">
         <div class="metric-label">LLM Calls</div>
         <div class="metric-value">{{ total_llm_calls | format_number }}</div>
         {% if total_llm_errors > 0 %}
         <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
         {% endif %}
+    </div>
+    <div class="metric-card metric-card--compact" data-tooltip="Cache reuse ratio: cache_read / input_side_total">
+        <div class="metric-label">Cache Reuse</div>
+        <div class="metric-value">{{ cache_reuse }}%</div>
+        <div class="metric-sub">reuse ratio</div>
     </div>
     {% if has_anomalies %}
     <div class="metric-card metric-card--compact" data-tooltip="Detected anomalies for this session">
@@ -142,59 +152,47 @@
 
 <!-- Tabs -->
 <div class="tabs">
-    <button class="tab active" data-tab="run-profile" onclick="switchTab('run-profile')">Run Profile</button>
-    <button class="tab" data-tab="messages" onclick="switchTab('messages')">Messages</button>
-    <button class="tab" data-tab="tools" onclick="switchTab('tools')">Tools ({{ tool_calls | length }})</button>
-    <button class="tab" data-tab="llm-calls" onclick="switchTab('llm-calls')">LLM ({{ llm_calls | length }})</button>
-    <button class="tab" data-tab="token-profile" onclick="switchTab('token-profile')">Token Profile</button>
-    <button class="tab" data-tab="raw" onclick="switchTab('raw')">Raw</button>
+    <button class="tab active" data-tab="conversation" onclick="switchTab('conversation')">Conversation</button>
+    <button class="tab" data-tab="timeline" onclick="switchTab('timeline')">Timeline</button>
+    <button class="tab" data-tab="profile" onclick="switchTab('profile')">Profile</button>
 </div>
 
-<!-- Tab: Run Profile (default) -->
-<div id="run-profile" class="tab-content active">
-    <!-- Phase summary -->
-    <div class="card" style="margin-bottom:12px">
-        <div class="card-title">Run Profile</div>
-        {% set total_rounds = rounds | length %}
-        {% set total_tool_calls = session.tool_call_count %}
-        {% set failed_calls = session.failed_tool_count %}
-        {% set avg_tokens_per_round = ((input_total + session.output_tokens) / total_rounds) | round(0) if total_rounds > 0 else 0 %}
-
-        <div class="run-profile-summary">
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value">{{ total_rounds }}</div>
-                <div class="run-profile-stat__label">Rounds</div>
-            </div>
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value">{{ total_tool_calls }}</div>
-                <div class="run-profile-stat__label">Tool Calls</div>
-            </div>
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value {% if failed_calls > 0 %}highlight-error{% endif %}">{{ failed_calls }}</div>
-                <div class="run-profile-stat__label">Failed</div>
-            </div>
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value">{{ avg_tokens_per_round | format_number }}</div>
-                <div class="run-profile-stat__label">Tok/Round</div>
-            </div>
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value">{{ tools_per_round }}</div>
-                <div class="run-profile-stat__label">Tools/Round</div>
-            </div>
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value {{ 'highlight-error' if total_llm_errors > 0 else '' }}">{{ total_llm_calls | format_number }}</div>
-                <div class="run-profile-stat__label">LLM Calls</div>
-            </div>
-            <div class="run-profile-stat">
-                <div class="run-profile-stat__value">{{ cache_reuse }}%</div>
-                <div class="run-profile-stat__label">Cache Reuse</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Rounds: summary + detail in one expandable table -->
+<!-- Tab: Conversation (default) -->
+<div id="conversation" class="tab-content active">
     <div class="card">
-        <div class="card-title">Rounds ({{ total_rounds }})</div>
+        <div class="card-title">All Messages</div>
+        {% for round in rounds %}
+        {% if round.user_msg.content_html %}
+        <div class="msg msg--user" style="margin-bottom:12px">
+            <div class="msg__meta">Round #{{ loop.index }} · User</div>
+            <div class="msg__body" data-expandable>{{ round.user_msg.content_html | safe }}</div>
+            {% if round.user_msg.content_html | length > 800 %}
+            <button class="show-more" onclick="toggleShowMoreBtn(this)">Show more</button>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% if round.assistant_msg.content_html %}
+        <div class="msg msg--assistant" style="margin-bottom:12px">
+            <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
+            <div class="msg__body" data-expandable>{{ round.assistant_msg.content_html | safe }}</div>
+            {% if round.assistant_msg.content_html | length > 800 %}
+            <button class="show-more" onclick="toggleShowMoreBtn(this)">Show more</button>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Tab: Timeline -->
+<div id="timeline" class="tab-content">
+    <div class="card">
+        <div class="card-title">Conversation Flow ({{ total_rounds }})
+            <span style="margin-left:auto; display:flex; gap:6px;">
+                <button class="expand-all-btn" onclick="expandAllRounds()">Expand All</button>
+                <button class="expand-all-btn" onclick="collapseAllRounds()">Collapse All</button>
+            </span>
+        </div>
         {% if rounds %}
         <div class="table-wrap">
             <table class="round-summary-table">
@@ -262,11 +260,61 @@
                                 <span class="signal-badge signal-normal">normal</span>
                             {% endif %}
                         </td>
-                        <td class="numeric mono text-xs">{{ round.total_tokens | format_number }}</td>
+                        <td class="numeric mono text-xs">
+                            {{ round.total_tokens | format_number }}
+                            <div class="token-bar-wrapper">
+                                <div class="round-token-bar">
+                                    {% set rt = round_input_total + rb.output %}
+                                    {% if rt > 0 %}
+                                    <div class="round-token-bar__fresh" style="width:{{ (rb.input / rt * 100) | round(0) }}%"></div>
+                                    <div class="round-token-bar__cache-read" style="width:{{ (rb.cache_read / rt * 100) | round(0) }}%"></div>
+                                    <div class="round-token-bar__cache-write" style="width:{{ (rb.cache_write / rt * 100) | round(0) }}%"></div>
+                                    <div class="round-token-bar__output" style="width:{{ (rb.output / rt * 100) | round(0) }}%"></div>
+                                    {% endif %}
+                                </div>
+                                <div class="token-bar-tooltip">
+                                    <div class="token-bar-tooltip__title">Total: {{ rt | format_number }} tokens</div>
+                                    <div class="token-bar-tooltip__row">
+                                        <span class="token-bar-tooltip__dot" style="background:var(--token-input-fresh)"></span>
+                                        <span class="token-bar-tooltip__name">Fresh</span>
+                                        <span class="token-bar-tooltip__value">{{ rb.input | format_number }}</span>
+                                        <span class="token-bar-tooltip__pct">{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-input-fresh)"></span></span>
+                                    </div>
+                                    <div class="token-bar-tooltip__row">
+                                        <span class="token-bar-tooltip__dot" style="background:var(--token-cache-read)"></span>
+                                        <span class="token-bar-tooltip__name">Cache Read</span>
+                                        <span class="token-bar-tooltip__value">{{ rb.cache_read | format_number }}</span>
+                                        <span class="token-bar-tooltip__pct">{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-cache-read)"></span></span>
+                                    </div>
+                                    <div class="token-bar-tooltip__row">
+                                        <span class="token-bar-tooltip__dot" style="background:var(--token-cache-write)"></span>
+                                        <span class="token-bar-tooltip__name">Cache Write</span>
+                                        <span class="token-bar-tooltip__value">{{ rb.cache_write | format_number }}</span>
+                                        <span class="token-bar-tooltip__pct">{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-cache-write)"></span></span>
+                                    </div>
+                                    <div class="token-bar-tooltip__row">
+                                        <span class="token-bar-tooltip__dot" style="background:var(--token-output-visible)"></span>
+                                        <span class="token-bar-tooltip__name">Output</span>
+                                        <span class="token-bar-tooltip__value">{{ rb.output | format_number }}</span>
+                                        <span class="token-bar-tooltip__pct">{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-output-visible)"></span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
                         <td class="numeric mono text-xs">{{ rb.cache_read | format_number }}</td>
                         <td class="numeric mono text-xs">{{ rb.cache_write | format_number }}</td>
                         <td class="numeric mono text-xs">
-                            {{ round.llm_call_count | format_number }}
+                            <div class="round-llm-dots">
+                                {% for ix in round.interactions %}
+                                <span class="round-llm-dot round-llm-dot--{{ 'error' if ix.status == 'error' else ix.scope }}"
+                                      data-tooltip="{{ ix.scope }}: {{ ix.model }}"></span>
+                                {% endfor %}
+                            </div>
+                            <span class="mono text-xs">{{ round.llm_call_count | format_number }}</span>
                             {% if round.llm_error_count > 0 %}
                             <span class="badge badge-error">{{ round.llm_error_count }}</span>
                             {% endif %}
@@ -283,173 +331,258 @@
                         <td colspan="8" class="round-detail-cell">
                             <div class="round {{ 'has-failed' if has_failed_tools else '' }}">
                                 <div class="round-content">
-                                    {% if round.user_msg.content_html %}
-                                    <div class="msg msg--user">
-                                        <div class="msg__meta">Round #{{ loop.index }} - User</div>
-                                        <div class="msg__body">{{ round.user_msg.content_html | safe }}</div>
-                                        {% if round.user_msg.content_html | length > 800 %}
-                                        <button class="show-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Show less':'Show more'">Show more</button>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
-
-                                    {# Interaction timeline #}
-                                    {% for interaction in round.interactions %}
-                                    <div class="interaction-timeline" data-scope="{{ interaction.scope }}">
-                                        {% if interaction.scope == "main" %}
-                                        <div class="interaction interaction--main">
-                                            <div class="interaction__header">
-                                                <span class="interaction__scope-badge interaction__scope--main">Main</span>
-                                                <span class="interaction__model">{{ interaction.model }}</span>
-                                                <span class="interaction__tokens">
-                                                    {{ interaction.input_tokens | format_number }} in / {{ interaction.output_tokens | format_number }} out
-                                                    {% if interaction.cache_read_tokens > 0 %}
-                                                    <span class="badge badge-muted" data-tooltip="Cache read: {{ interaction.cache_read_tokens }}">CR {{ interaction.cache_read_tokens | format_number }}</span>
-                                                    {% endif %}
-                                                    {% if interaction.cache_write_tokens > 0 %}
-                                                    <span class="badge badge-muted" data-tooltip="Cache write: {{ interaction.cache_write_tokens }}">CW {{ interaction.cache_write_tokens | format_number }}</span>
-                                                    {% endif %}
-                                                </span>
-                                            </div>
-                                            {% if interaction.response_preview %}
-                                            <div class="interaction__response">
-                                                <div class="msg msg--assistant" style="margin-bottom:0">
-                                                    <div class="msg__meta">Assistant Response</div>
-                                                    <div class="msg__body">{{ interaction.response_full | markdown | safe }}</div>
-                                                    {% if interaction.response_full | length > 800 %}
-                                                    <button class="show-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Show less':'Show more'">Show more</button>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                            {% endif %}
-                                            {% if interaction.tool_calls %}
-                                            <div class="interaction__tools">
-                                                <div class="tool-tree">
-                                                    {% for tc in interaction.tool_calls %}
-                                                    <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
-                                                        <span class="tool-tree__icon">{{ 'x' if tc.is_failed else '├' }}</span>
-                                                        <span class="tool-tree__name">{{ tc.name }}</span>
-                                                        <span class="tool-tree__detail">
-                                                            {% if tc.name == 'Bash' %}
-                                                                <code class="mono text-xs">{{ tc.parameters.get('command', '')[:80] }}</code>
-                                                            {% elif tc.name == 'Agent' and tc.subagent_summary %}
-                                                                <span class="subagent-inline">Agent: {{ tc.subagent_summary.description or tc.subagent_summary.agent_type }}</span>
-                                                            {% elif tc.parameters.get('file_path') %}
-                                                                <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
-                                                            {% else %}
-                                                                {{ tc.parameters | tojson | truncate(60) }}
-                                                            {% endif %}
-                                                        </span>
-                                                        <span class="tool-tree__status">
-                                                            {% if tc.is_failed %}
-                                                            <span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                                            {% else %}
-                                                            <span class="badge badge-success">ok</span>
-                                                            {% endif %}
-                                                        </span>
-                                                    </div>
-                                                    {% endfor %}
-                                                </div>
-                                            </div>
+                                    <div class="timeline">
+                                        {# User message #}
+                                        {% if round.user_msg.content %}
+                                        <div class="timeline__user-msg">
+                                            <div class="msg-label">User</div>
+                                            <div class="msg-body">{{ round.user_msg.content_html | safe }}</div>
+                                            {% if round.user_msg.content_html | length > 600 %}
+                                            <button class="show-more" onclick="toggleShowMoreBtn(this)">Show more</button>
                                             {% endif %}
                                         </div>
-
-                                        {% elif interaction.scope == "subagent" %}
-                                        <div class="interaction interaction--subagent" style="margin-left: 24px;">
-                                            <div class="interaction__header" style="cursor:pointer" onclick="toggleSubagentCard(this)">
-                                                <span class="interaction__scope-badge interaction__scope--subagent">Subagent</span>
-                                                <span class="interaction__model">{{ interaction.model }}</span>
-                                                <span class="interaction__parent">via {{ interaction.parent_tool_name }}</span>
-                                                <span class="interaction__tool-count">{{ interaction.tool_call_count }} tools</span>
-                                                <span class="round-chevron-inline">&#8250;</span>
-                                            </div>
-                                            <div class="interaction__body" style="display:none">
-                                                {% if interaction.response_preview %}
-                                                <div class="msg msg--assistant" style="margin-top:8px">
-                                                    <div class="msg__meta">Subagent Response</div>
-                                                    <div class="msg__body">{{ interaction.response_full | markdown | safe }}</div>
-                                                    {% if interaction.response_full | length > 800 %}
-                                                    <button class="show-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Show less':'Show more'">Show more</button>
-                                                    {% endif %}
-                                                </div>
-                                                {% endif %}
-                                                {% if interaction.tool_calls %}
-                                                <div class="tool-tree" style="margin-top:8px">
-                                                    {% for tc in interaction.tool_calls %}
-                                                    <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
-                                                        <span class="tool-tree__icon">{{ 'x' if tc.is_failed else '├' }}</span>
-                                                        <span class="tool-tree__name">{{ tc.name }}</span>
-                                                        <span class="tool-tree__detail">
-                                                            {% if tc.name == 'Bash' %}
-                                                                <code class="mono text-xs">{{ tc.parameters.get('command', '')[:80] }}</code>
-                                                            {% elif tc.parameters.get('file_path') %}
-                                                                <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
-                                                            {% else %}
-                                                                {{ tc.parameters | tojson | truncate(60) }}
-                                                            {% endif %}
-                                                        </span>
-                                                        <span class="tool-tree__status">
-                                                            {% if tc.is_failed %}
-                                                            <span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                                            {% else %}
-                                                            <span class="badge badge-success">ok</span>
-                                                            {% endif %}
-                                                        </span>
-                                                    </div>
-                                                    {% endfor %}
-                                                </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
                                         {% endif %}
-                                    </div>
-                                    {% endfor %}
 
-                                    {# Fallback: if no interactions, show original assistant msg + tool calls #}
-                                    {% if not round.interactions %}
-                                    {% if round.assistant_msg.content_html %}
-                                    <div class="msg msg--assistant">
-                                        <div class="msg__meta">Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
-                                        <div class="msg__body">{{ round.assistant_msg.content_html | safe }}</div>
-                                    </div>
-                                    {% endif %}
-                                    {% if round.tool_calls %}
-                                    <div class="tool-tree">
-                                        {% for tc in round.tool_calls %}
-                                        <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
-                                            <span class="tool-tree__icon">{{ 'x' if tc.is_failed else '├' }}</span>
-                                            <span class="tool-tree__name">{{ tc.name }}</span>
-                                            <span class="tool-tree__detail">
-                                                {% if tc.parameters %}
-                                                {% if tc.name == 'Bash' %}
-                                                    <code class="mono text-xs">{{ tc.parameters.get('command', '')[:80] }}</code>
-                                                {% elif tc.parameters.get('file_path') %}
-                                                    <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
+                                        {# LLM interactions with flow arrows #}
+                                        {% for interaction in round.interactions %}
+                                            {% if not loop.first %}
+                                            <div class="timeline__flow-arrow">
+                                                {% if loop.previtem.tool_calls %}
+                                                    {{ loop.previtem.tool_calls | length }} tool result{{ 's' if loop.previtem.tool_calls | length != 1 }} returned
+                                                {% elif loop.previtem.scope == 'subagent' %}
+                                                    Subagent result returned
                                                 {% else %}
-                                                    {{ tc.parameters | tojson | truncate(60) }}
+                                                    Context carried forward
                                                 {% endif %}
-                                                {% endif %}
-                                                {% if tc.subagent_summary %}
-                                                <span class="subagent-inline">
-                                                    · {{ tc.llm_call_count | format_number }} LLM · {{ tc.subagent_tool_call_count | format_number }} tools
-                                                    {% if tc.subagent_summary.tool_counts %}
-                                                    · {{ tc.subagent_summary.tool_counts | tojson | truncate(80) }}
+                                            </div>
+                                            {% endif %}
+
+                                            {% if interaction.scope == "main" %}
+                                            <div class="llm-card llm-card--main">
+                                                <div class="llm-card__header" onclick="toggleLLMCard(this)">
+                                                    <span class="llm-card__scope llm-card__scope--main">Main</span>
+                                                    <span class="llm-card__model" data-tooltip="{{ interaction.model }}">{{ interaction.model[:40] }}</span>
+                                                    <span class="llm-card__tokens">
+                                                        {{ interaction.input_tokens | format_number }} in / {{ interaction.output_tokens | format_number }} out
+                                                        {% if interaction.cache_read_tokens > 0 %}
+                                                        <span class="badge badge-muted" data-tooltip="Cache read: {{ interaction.cache_read_tokens }}">CR {{ interaction.cache_read_tokens | format_number }}</span>
+                                                        {% endif %}
+                                                        {% if interaction.cache_write_tokens > 0 %}
+                                                        <span class="badge badge-muted" data-tooltip="Cache write: {{ interaction.cache_write_tokens }}">CW {{ interaction.cache_write_tokens | format_number }}</span>
+                                                        {% endif %}
+                                                    </span>
+                                                    <span class="llm-card__chevron">&#8250;</span>
+                                                </div>
+                                                <div class="llm-card__body">
+                                                    {# Prompt context hint #}
+                                                    {% if interaction.prompt_preview %}
+                                                    <div class="llm-card__prompt">
+                                                        <div class="llm-card__prompt-label">Prompt Context</div>
+                                                        <div class="llm-card__prompt-text">{{ interaction.prompt_preview }}</div>
+                                                        <div class="llm-card__token-bar">
+                                                            {% set itotal = interaction.input_tokens + interaction.cache_read_tokens + interaction.cache_write_tokens %}
+                                                            {% if itotal > 0 %}
+                                                            <div class="llm-card__token-bar__fresh" style="width:{{ (interaction.input_tokens / itotal * 100) | round(0) }}%" data-tooltip="Fresh: {{ interaction.input_tokens | format_number }}"></div>
+                                                            <div class="llm-card__token-bar__cache-read" style="width:{{ (interaction.cache_read_tokens / itotal * 100) | round(0) }}%" data-tooltip="Cache read: {{ interaction.cache_read_tokens | format_number }}"></div>
+                                                            <div class="llm-card__token-bar__cache-write" style="width:{{ (interaction.cache_write_tokens / itotal * 100) | round(0) }}%" data-tooltip="Cache write: {{ interaction.cache_write_tokens | format_number }}"></div>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {# Response #}
+                                                    {% if interaction.response_preview %}
+                                                    <div class="llm-card__response">
+                                                        <div class="llm-card__response-label">Response</div>
+                                                        <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
+                                                        {% if interaction.response_full | length > 600 %}
+                                                        <button class="show-more" onclick="toggleShowMoreBtn(this)">Show full</button>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% endif %}
+                                                    {# Tools called by this LLM #}
+                                                    {% if interaction.tool_calls %}
+                                                    <div class="llm-card__tools">
+                                                        <div class="llm-card__tools-label">Tools Called ({{ interaction.tool_calls | length }})</div>
+                                                        {% for tc in interaction.tool_calls %}
+                                                        <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
+                                                            <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
+                                                                <span class="tool-detail-card__chevron">&#8250;</span>
+                                                                <span class="badge badge-primary">{{ tc.name }}</span>
+                                                                <span class="tool-detail-card__summary">
+                                                                    {% if tc.name == 'Bash' %}
+                                                                        <code class="mono text-xs">{{ tc.parameters.get('command', '')[:100] }}</code>
+                                                                    {% elif tc.name == 'Agent' and tc.subagent_summary %}
+                                                                        <span class="subagent-inline">Agent: {{ tc.subagent_summary.description or tc.subagent_summary.agent_type }}</span>
+                                                                    {% elif tc.parameters.get('file_path') %}
+                                                                        <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
+                                                                    {% else %}
+                                                                        <span class="mono text-xs">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                                                    {% endif %}
+                                                                </span>
+                                                                {% if tc.is_failed %}
+                                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                                {% else %}
+                                                                <span class="badge badge-success">ok</span>
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="tool-detail-card__body">
+                                                                <div style="margin-bottom:8px">
+                                                                    <strong class="text-xs">Parameters:</strong>
+                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
+                                                                </div>
+                                                                {% if tc.result %}
+                                                                <div>
+                                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                                                        <strong class="text-xs">Result:</strong>
+                                                                        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
+                                                                    </div>
+                                                                    <div class="tool-result-wrapper" data-raw="{{ tc.result[:2000] }}">
+                                                                        <pre class="tool-result-raw mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
+                                                                        <div class="tool-result-md" style="display:none; max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); line-height:1.5;">{{ tc.result[:2000] | markdown | safe }}</div>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+
+                                            {% elif interaction.scope == "subagent" %}
+                                            <div class="subagent-card">
+                                                <div class="subagent-card__header" onclick="toggleSubagentCard(this)">
+                                                    <span class="llm-card__scope llm-card__scope--subagent">Subagent</span>
+                                                    <span class="llm-card__model">{{ interaction.model[:40] }}</span>
+                                                    <span class="llm-card__tokens">via {{ interaction.parent_tool_name }}</span>
+                                                    <div class="subagent-card__stats">
+                                                        <span>{{ interaction.tool_call_count }} tools</span>
+                                                        <span>{{ interaction.output_tokens | format_number }} out</span>
+                                                    </div>
+                                                    <span class="llm-card__chevron">&#8250;</span>
+                                                </div>
+                                                <div class="subagent-card__body">
+                                                    {% if interaction.response_preview %}
+                                                    <div class="llm-card__response" style="margin-top:6px">
+                                                        <div class="llm-card__response-label">Subagent Result</div>
+                                                        <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
+                                                        {% if interaction.response_full | length > 600 %}
+                                                        <button class="show-more" onclick="toggleShowMoreBtn(this)">Show full</button>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if interaction.tool_calls %}
+                                                    <div class="tool-tree" style="margin-top:8px">
+                                                        {% for tc in interaction.tool_calls %}
+                                                        <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
+                                                            <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
+                                                                <span class="tool-detail-card__chevron">&#8250;</span>
+                                                                <span class="badge badge-muted">{{ tc.name }}</span>
+                                                                <span class="tool-detail-card__summary">
+                                                                    {% if tc.name == 'Bash' %}
+                                                                        <code class="mono text-xs">{{ tc.parameters.get('command', '')[:100] }}</code>
+                                                                    {% elif tc.parameters.get('file_path') %}
+                                                                        <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
+                                                                    {% else %}
+                                                                        <span class="mono text-xs">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                                                    {% endif %}
+                                                                </span>
+                                                                {% if tc.is_failed %}
+                                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                                {% else %}
+                                                                <span class="badge badge-success">ok</span>
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="tool-detail-card__body">
+                                                                <div style="margin-bottom:8px">
+                                                                    <strong class="text-xs">Parameters:</strong>
+                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
+                                                                </div>
+                                                                {% if tc.result %}
+                                                                <div>
+                                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                                                        <strong class="text-xs">Result:</strong>
+                                                                        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
+                                                                    </div>
+                                                                    <div class="tool-result-wrapper" data-raw="{{ tc.result[:2000] }}">
+                                                                        <pre class="tool-result-raw mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
+                                                                        <div class="tool-result-md" style="display:none; max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); line-height:1.5;">{{ tc.result[:2000] | markdown | safe }}</div>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+
+                                        {# Fallback: if no interactions, show original assistant msg + tool calls #}
+                                        {% if not round.interactions %}
+                                        {% if round.assistant_msg.content_html %}
+                                        <div class="msg msg--assistant">
+                                            <div class="msg__meta">Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
+                                            <div class="msg__body">{{ round.assistant_msg.content_html | safe }}</div>
+                                        </div>
+                                        {% endif %}
+                                        {% if round.tool_calls %}
+                                        {% for tc in round.tool_calls %}
+                                        <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
+                                            <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
+                                                <span class="tool-detail-card__chevron">&#8250;</span>
+                                                <span class="badge badge-primary">{{ tc.name }}</span>
+                                                <span class="tool-detail-card__summary">
+                                                    {% if tc.parameters %}
+                                                    {% if tc.name == 'Bash' %}
+                                                        <code class="mono text-xs">{{ tc.parameters.get('command', '')[:100] }}</code>
+                                                    {% elif tc.parameters.get('file_path') %}
+                                                        <code class="mono text-xs">{{ tc.parameters.file_path }}</code>
+                                                    {% else %}
+                                                        <span class="mono text-xs">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                                    {% endif %}
+                                                    {% endif %}
+                                                    {% if tc.subagent_summary %}
+                                                    <span class="subagent-inline">
+                                                        · {{ tc.llm_call_count | format_number }} LLM · {{ tc.subagent_tool_call_count | format_number }} tools
+                                                        {% if tc.subagent_summary.tool_counts %}
+                                                        · {{ tc.subagent_summary.tool_counts | tojson | truncate(80) }}
+                                                        {% endif %}
+                                                    </span>
                                                     {% endif %}
                                                 </span>
-                                                {% endif %}
-                                            </span>
-                                            <span class="tool-tree__status">
                                                 {% if tc.is_failed %}
                                                 <span class="badge badge-error">exit={{ tc.exit_code }}</span>
                                                 {% else %}
                                                 <span class="badge badge-success">ok</span>
                                                 {% endif %}
-                                            </span>
+                                            </div>
+                                            <div class="tool-detail-card__body">
+                                                <div style="margin-bottom:8px">
+                                                    <strong class="text-xs">Parameters:</strong>
+                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
+                                                </div>
+                                                {% if tc.result %}
+                                                <div>
+                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                                        <strong class="text-xs">Result:</strong>
+                                                        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
+                                                    </div>
+                                                    <div class="tool-result-wrapper" data-raw="{{ tc.result[:2000] }}">
+                                                        <pre class="tool-result-raw mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
+                                                        <div class="tool-result-md" style="display:none; max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); line-height:1.5;">{{ tc.result[:2000] | markdown | safe }}</div>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                         {% endfor %}
+                                        {% endif %}
+                                        {% endif %}
                                     </div>
-                                    {% endif %}
-                                    {% endif %}
                                 </div>
                             </div>
                         </td>
@@ -490,165 +623,91 @@
     {% endif %}
 </div>
 
-<!-- Tab: Messages -->
-<div id="messages" class="tab-content">
-    <div class="card">
-        <div class="card-title">All Messages</div>
-        {% for round in rounds %}
-        {% if round.user_msg.content_html %}
-        <div class="msg msg--user" style="margin-bottom:12px">
-            <div class="msg__meta">Round #{{ loop.index }} · User</div>
-            <div class="msg__body">{{ round.user_msg.content_html | safe }}</div>
-            {% if round.user_msg.content_html | length > 800 %}
-            <button class="show-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Show less':'Show more'">Show more</button>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% if round.assistant_msg.content_html %}
-        <div class="msg msg--assistant" style="margin-bottom:12px">
-            <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
-            <div class="msg__body">{{ round.assistant_msg.content_html | safe }}</div>
-            {% if round.assistant_msg.content_html | length > 800 %}
-            <button class="show-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Show less':'Show more'">Show more</button>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Tab: Tools -->
-<div id="tools" class="tab-content">
-    {# Filter bar #}
+<!-- Tab: Profile (merged: Run Profile stats + Token Profile + LLM table + Raw) -->
+<div id="profile" class="tab-content">
+    <!-- Token breakdown -->
     <div class="card" style="margin-bottom:12px">
-        <div class="filter-bar">
-            <input class="filter-bar__input" id="tool-filter" placeholder="Filter tools..." oninput="filterTools(this.value)" style="min-width:200px">
-            <select class="filter-bar__select" id="tool-scope-filter" onchange="filterToolsByScope(this.value)">
-                <option value="all">All Scopes</option>
-                <option value="main">Main Agent Only</option>
-                <option value="subagent">Subagents Only</option>
-            </select>
-            <span class="text-xs text-muted" id="tool-count">{{ tool_calls | length }} tool calls</span>
+        <div class="card-title">Token Breakdown</div>
+        <div class="token-profile__section">
+            <div class="token-profile__label">Input Tokens: {{ input_total | format_number }}</div>
+            <div class="token-profile__row">
+                <span class="token-profile__name" style="color:var(--token-input-fresh)">Input Fresh</span>
+                <span class="token-profile__value">{{ session.input_tokens | format_number }}</span>
+                {% if input_total > 0 %}
+                <span class="token-profile__pct">{{ (session.input_tokens / input_total * 100) | round(1) }}%</span>
+                <div class="token-profile__bar"><div class="token-profile__bar-fill" style="width:{{ (session.input_tokens / input_total * 100) | round(1) }}%; background:var(--token-input-fresh)"></div></div>
+                {% endif %}
+            </div>
+            <div class="token-profile__row">
+                <span class="token-profile__name" style="color:var(--token-cache-read)">Cache Read</span>
+                <span class="token-profile__value">{{ session.cached_input_tokens | format_number }}</span>
+                {% if input_total > 0 %}
+                <span class="token-profile__pct">{{ (session.cached_input_tokens / input_total * 100) | round(1) }}%</span>
+                <div class="token-profile__bar"><div class="token-profile__bar-fill" style="width:{{ (session.cached_input_tokens / input_total * 100) | round(1) }}%; background:var(--token-cache-read)"></div></div>
+                {% endif %}
+            </div>
+            <div class="token-profile__row">
+                <span class="token-profile__name" style="color:var(--token-cache-write)">Cache Write</span>
+                <span class="token-profile__value">{{ session.cached_output_tokens | format_number }}</span>
+                {% if input_total > 0 %}
+                <span class="token-profile__pct">{{ (session.cached_output_tokens / input_total * 100) | round(1) }}%</span>
+                <div class="token-profile__bar"><div class="token-profile__bar-fill" style="width:{{ (session.cached_output_tokens / input_total * 100) | round(1) }}%; background:var(--token-cache-write)"></div></div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="token-profile__section">
+            <div class="token-profile__label">Output Tokens: {{ session.output_tokens | format_number }}</div>
+            <div class="token-profile__row">
+                <span class="token-profile__name" style="color:var(--token-output-visible)">Output Visible</span>
+                <span class="token-profile__value">{{ session.output_tokens | format_number }}</span>
+                <span class="token-profile__pct">100%</span>
+                <div class="token-profile__bar"><div class="token-profile__bar-fill" style="width:100%; background:var(--token-output-visible)"></div></div>
+            </div>
+        </div>
+        <div class="text-xs text-muted mt-2" style="font-family:var(--font-mono)">
+            Provider: {{ session.model or 'unknown' }} · Precision: provider-reported
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">Tool Calls by Agent</div>
-        {% for agent_group in tools_by_agent %}
-        {# Agent group header #}
-        <div class="agent-group" data-agent-id="{{ agent_group.agent_id }}">
-            <div class="agent-group__header" style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px;">
-                <span class="badge {{ 'badge-claude' if agent_group.agent_id else 'badge-primary' }}">
-                    {{ agent_group.agent_name }}
-                </span>
-                <span class="text-xs text-muted">
-                    {{ agent_group.tools | length + agent_group.agent_tools | length }} tools
-                    {% for child in agent_group.children %}
-                    + {{ child.total_tools }} in {{ child.agent_name }}
-                    {% endfor %}
-                </span>
+    <!-- Token per-round chart -->
+    {% if rounds and rounds | length > 1 %}
+    <div class="card" style="margin-bottom:12px">
+        <div class="card-title">Tokens per Round</div>
+        <div class="token-chart">
+            {% for round in rounds %}
+            {% set rb = round.token_breakdown() %}
+            {% set r_total = rb.input + rb.cache_read + rb.cache_write + rb.output %}
+            {% if r_total > 0 %}
+            <div class="token-chart__row">
+                <span class="token-chart__label">#{{ loop.index }}</span>
+                <div class="token-chart__bar">
+                    <div class="token-chart__fresh" style="width:{{ (rb.input / r_total * 100) | round(0) }}%" data-tooltip="Fresh: {{ rb.input | format_number }}"></div>
+                    <div class="token-chart__cache-read" style="width:{{ (rb.cache_read / r_total * 100) | round(0) }}%" data-tooltip="Cache read: {{ rb.cache_read | format_number }}"></div>
+                    <div class="token-chart__cache-write" style="width:{{ (rb.cache_write / r_total * 100) | round(0) }}%" data-tooltip="Cache write: {{ rb.cache_write | format_number }}"></div>
+                    <div class="token-chart__output" style="width:{{ (rb.output / r_total * 100) | round(0) }}%" data-tooltip="Output: {{ rb.output | format_number }}"></div>
+                </div>
+                <span class="text-xs mono" style="min-width:60px; text-align:right; color:var(--text-muted)">{{ r_total | format_number }}</span>
             </div>
-
-            {# Main agent tools #}
-            {% for tc in agent_group.agent_tools + agent_group.tools %}
-            <div class="tool-row" data-tool-name="{{ tc.name }}" data-scope="main" data-tool-id="{{ tc.tool_use_id }}">
-                <div class="tool-row__header" style="display:flex; align-items:center; gap:6px; padding:4px 8px; border-bottom:1px solid var(--border-light); cursor:{{ 'pointer' if tc.parameters or tc.result else 'default' }};" onclick="toggleToolRow(this)">
-                    {% if tc.parameters or tc.result %}
-                    <span class="tool-row__chevron">&#8250;</span>
-                    {% endif %}
-                    <span class="badge badge-primary" style="min-width:70px">{{ tc.name }}</span>
-                    <span class="text-xs mono" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        {% if tc.name == 'Bash' %}{{ tc.parameters.get('command', '')[:100] }}
-                        {% elif tc.name == 'Agent' %}Agent: {{ tc.subagent_summary.description or tc.subagent_summary.agent_type or '' }}
-                        {% elif tc.parameters.get('file_path') %}{{ tc.parameters.file_path }}
-                        {% else %}{{ tc.parameters | tojson | truncate(100) }}{% endif %}
-                    </span>
-                    {% if tc.is_failed %}
-                    <span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                    {% else %}
-                    <span class="badge badge-success">ok</span>
-                    {% endif %}
-                    <span class="text-xs text-muted mono">{{ tc.round_index + 1 if tc.round_index else '' }}</span>
-                </div>
-                <div class="tool-row__detail" style="display:none; padding:8px 8px 8px 28px; background:var(--bg);">
-                    <div style="margin-bottom:8px">
-                        <strong class="text-xs">Parameters:</strong>
-                        <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
-                    </div>
-                    {% if tc.result %}
-                    <div>
-                        <strong class="text-xs">Result:</strong>
-                        <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-
-            {# Subagent children #}
-            {% for child in agent_group.children %}
-            <div class="agent-group agent-group--subagent" data-agent-id="{{ child.agent_id }}" style="margin-left:24px; margin-top:8px;">
-                <div class="agent-group__header" style="padding:6px 0; display:flex; align-items:center; gap:8px;">
-                    <span class="badge badge-muted">{{ child.agent_name }}</span>
-                    {% if child.parent_tool %}
-                    <span class="text-xs text-muted">parent: {{ child.parent_tool.name }}</span>
-                    {% endif %}
-                    <span class="text-xs text-muted">{{ child.total_tools }} tools · {{ child.llm_calls }} LLM calls{% if child.failed_tools > 0 %} · <span class="highlight-error">{{ child.failed_tools }} failed</span>{% endif %}</span>
-                </div>
-
-                {% for tc in child.tools %}
-                <div class="tool-row" data-tool-name="{{ tc.name }}" data-scope="subagent" data-subagent-id="{{ tc.subagent_id }}">
-                    <div class="tool-row__header" style="display:flex; align-items:center; gap:6px; padding:4px 8px; border-bottom:1px solid var(--border-light); cursor:pointer;" onclick="toggleToolRow(this)">
-                        {% if tc.parameters or tc.result %}
-                        <span class="tool-row__chevron">&#8250;</span>
-                        {% endif %}
-                        <span class="badge badge-muted" style="min-width:70px">{{ tc.name }}</span>
-                        <span class="text-xs mono" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                            {% if tc.name == 'Bash' %}{{ tc.parameters.get('command', '')[:100] }}
-                            {% elif tc.parameters.get('file_path') %}{{ tc.parameters.file_path }}
-                            {% else %}{{ tc.parameters | tojson | truncate(100) }}{% endif %}
-                        </span>
-                        {% if tc.is_failed %}
-                        <span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                        {% else %}
-                        <span class="badge badge-success">ok</span>
-                        {% endif %}
-                        <span class="text-xs text-muted mono">R{{ tc.round_index + 1 if tc.round_index else '' }}</span>
-                    </div>
-                    <div class="tool-row__detail" style="display:none; padding:8px 8px 8px 28px; background:var(--bg);">
-                        <div style="margin-bottom:8px">
-                            <strong class="text-xs">Parameters:</strong>
-                            <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
-                        </div>
-                        {% if tc.result %}
-                        <div>
-                            <strong class="text-xs">Result:</strong>
-                            <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+            {% endif %}
             {% endfor %}
         </div>
-        {% endfor %}
-        {% if not tool_calls %}
-        <div class="empty-state">No tool calls in this session.</div>
-        {% endif %}
+        <div class="chart-legend" style="margin-top:8px">
+            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-input-fresh)"></span> Fresh</span>
+            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-read)"></span> Cache Read</span>
+            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-write)"></span> Cache Write</span>
+            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-output-visible)"></span> Output</span>
+        </div>
     </div>
-</div>
+    {% endif %}
 
-<!-- Tab: LLM Calls -->
-<div id="llm-calls" class="tab-content">
-    {# Summary cards #}
-    {% set main_calls = llm_calls | selectattr('scope', 'equalto', 'main') | list %}
-    {% set sub_calls = llm_calls | selectattr('scope', 'equalto', 'subagent') | list %}
+    <!-- LLM calls table -->
+    {% set main_calls_list = llm_calls | selectattr('scope', 'equalto', 'main') | list %}
+    {% set sub_calls_list = llm_calls | selectattr('scope', 'equalto', 'subagent') | list %}
     <div class="metrics-grid" style="margin-bottom:12px">
         <div class="metric-card metric-card--compact">
-            <div class="metric-label">Total Calls</div>
+            <div class="metric-label">Total LLM Calls</div>
             <div class="metric-value">{{ llm_calls | length }}</div>
-            <div class="metric-sub">{{ main_calls | length }} main + {{ sub_calls | length }} subagent</div>
+            <div class="metric-sub">{{ main_calls_list | length }} main + {{ sub_calls_list | length }} subagent</div>
         </div>
         <div class="metric-card metric-card--compact">
             <div class="metric-label">Total Input</div>
@@ -668,8 +727,8 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">LLM Calls ({{ llm_calls | length }})</div>
+    <div class="card" style="margin-bottom:12px">
+        <div class="card-title">LLM Calls Detail</div>
         {% if llm_calls %}
         <div class="table-wrap">
             <table>
@@ -716,7 +775,6 @@
                         </td>
                         <td class="text-xs text-muted mono">{{ call.timestamp[:19].replace('T', ' ') if call.timestamp else '' }}</td>
                     </tr>
-                    {# Expandable detail row #}
                     <tr class="llm-call-detail" style="display:none">
                         <td colspan="11" style="padding:0; background:var(--bg);">
                             <div style="padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -733,11 +791,7 @@
                                             <span class="tool-tree__name">{{ tc.name }}</span>
                                             <span class="tool-tree__detail">{{ tc.parameters | tojson | truncate(80) }}</span>
                                             <span class="tool-tree__status">
-                                                {% if tc.is_failed %}
-                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                                {% else %}
-                                                <span class="badge badge-success">ok</span>
-                                                {% endif %}
+                                                {% if tc.is_failed %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>{% else %}<span class="badge badge-success">ok</span>{% endif %}
                                             </span>
                                         </div>
                                         {% endfor %}
@@ -751,80 +805,16 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="empty-state">No LLM calls in this session.</div>
         {% endif %}
     </div>
-</div>
 
-<!-- Tab: Token Profile -->
-<div id="token-profile" class="tab-content">
+    <!-- Raw session data (collapsible) -->
     <div class="card">
-        <div class="card-title">Token Profile</div>
-
-        <div class="token-profile__section">
-            <div class="token-profile__label">Input Tokens: {{ input_total | format_number }}</div>
-            <div class="token-profile__row">
-                <span class="token-profile__name" style="color:var(--token-input-fresh)">Input Fresh</span>
-                <span class="token-profile__value">{{ session.input_tokens | format_number }}</span>
-                {% if input_total > 0 %}
-                <span class="token-profile__pct">{{ (session.input_tokens / input_total * 100) | round(1) }}%</span>
-                <div class="token-profile__bar">
-                    <div class="token-profile__bar-fill" style="width:{{ (session.input_tokens / input_total * 100) | round(1) }}%; background:var(--token-input-fresh)"></div>
-                </div>
-                {% endif %}
-            </div>
-            <div class="token-profile__row">
-                <span class="token-profile__name" style="color:var(--token-cache-read)">Cache Read</span>
-                <span class="token-profile__value">{{ session.cached_input_tokens | format_number }}</span>
-                {% if input_total > 0 %}
-                <span class="token-profile__pct">{{ (session.cached_input_tokens / input_total * 100) | round(1) }}%</span>
-                <div class="token-profile__bar">
-                    <div class="token-profile__bar-fill" style="width:{{ (session.cached_input_tokens / input_total * 100) | round(1) }}%; background:var(--token-cache-read)"></div>
-                </div>
-                {% endif %}
-            </div>
-            <div class="token-profile__row">
-                <span class="token-profile__name" style="color:var(--token-cache-write)">Cache Write</span>
-                <span class="token-profile__value">{{ session.cached_output_tokens | format_number }}</span>
-                {% if input_total > 0 %}
-                <span class="token-profile__pct">{{ (session.cached_output_tokens / input_total * 100) | round(1) }}%</span>
-                <div class="token-profile__bar">
-                    <div class="token-profile__bar-fill" style="width:{{ (session.cached_output_tokens / input_total * 100) | round(1) }}%; background:var(--token-cache-write)"></div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="token-profile__section">
-            <div class="token-profile__label">Output Tokens: {{ session.output_tokens | format_number }}</div>
-            <div class="token-profile__row">
-                <span class="token-profile__name" style="color:var(--token-output-visible)">Output Visible</span>
-                <span class="token-profile__value">{{ session.output_tokens | format_number }}</span>
-                <span class="token-profile__pct">100%</span>
-                <div class="token-profile__bar">
-                    <div class="token-profile__bar-fill" style="width:100%; background:var(--token-output-visible)"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="text-xs text-muted mt-2" style="font-family:var(--font-mono)">
-            Provider: {{ session.model or 'unknown' }} · Precision: provider-reported
-        </div>
-        <div class="text-xs text-muted mt-2" style="font-family:var(--font-mono)">
-            totalInput = inputFresh + cacheRead + cacheWrite = {{ session.input_tokens | format_number }} + {{ session.cached_input_tokens | format_number }} + {{ session.cached_output_tokens | format_number }}
-        </div>
-    </div>
-</div>
-
-<!-- Tab: Raw -->
-<div id="raw" class="tab-content">
-    <div class="card">
-        <div class="card-title flex justify-between items-center">
+        <div class="card-title" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.raw-toggle').textContent=this.nextElementSibling.style.display==='none'?'Show':'Hide'">
             Raw Session Data
-            <button class="filter-bar__btn" onclick="copyRawData()">Copy</button>
+            <span class="raw-toggle" style="margin-left:auto">Show</span>
         </div>
-        <pre id="raw-json" class="mono text-xs" style="max-height:400px; overflow-y:auto; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; white-space:pre-wrap">{
+        <pre id="raw-json" class="mono text-xs" style="display:none; max-height:400px; overflow-y:auto; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; white-space:pre-wrap">{
   "session_key": "{{ session.session_key }}",
   "agent": "{{ session.agent }}",
   "title": "{{ session.title[:200] }}",
@@ -874,6 +864,57 @@
         }
     };
 
+    /* ─── Expand/Collapse all rounds ─────────────────────────── */
+    window.expandAllRounds = function() {
+        var headers = document.querySelectorAll('.round-header-row');
+        headers.forEach(function(header) {
+            var detailRow = header.nextElementSibling;
+            if (detailRow && detailRow.classList.contains('round-detail-row')) {
+                if (detailRow.style.display === 'none' || detailRow.style.display === '') {
+                    detailRow.style.display = 'table-row';
+                    var chevron = header.querySelector('.round-chevron-inline');
+                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+                }
+            }
+        });
+        // Persist all expanded
+        var key = 'rounds_' + window._sessionId;
+        var allIdx = [];
+        headers.forEach(function(h) { if (h.dataset.roundIdx) allIdx.push(h.dataset.roundIdx); });
+        arpStorage.set(key, allIdx);
+    };
+
+    window.collapseAllRounds = function() {
+        var headers = document.querySelectorAll('.round-header-row');
+        headers.forEach(function(header) {
+            var detailRow = header.nextElementSibling;
+            if (detailRow && detailRow.classList.contains('round-detail-row')) {
+                if (detailRow.style.display !== 'none' && detailRow.style.display !== '') {
+                    detailRow.style.display = 'none';
+                    var chevron = header.querySelector('.round-chevron-inline');
+                    if (chevron) chevron.style.transform = '';
+                }
+            }
+        });
+        arpStorage.set('rounds_' + window._sessionId, []);
+    };
+
+    /* ─── Toggle LLM card (prompt/response expand) ────────────── */
+    window.toggleLLMCard = function(headerEl) {
+        var card = headerEl.closest('.llm-card');
+        if (!card) return;
+        var body = card.querySelector('.llm-card__body');
+        if (!body) return;
+        var chevron = headerEl.querySelector('.llm-card__chevron');
+        if (body.classList.contains('open')) {
+            body.classList.remove('open');
+            if (chevron) chevron.classList.remove('rotated');
+        } else {
+            body.classList.add('open');
+            if (chevron) chevron.classList.add('rotated');
+        }
+    };
+
     /* ─── Copy raw data ──────────────────────────────────────────── */
     window.copyRawData = function() {
         var el = document.getElementById('raw-json');
@@ -895,19 +936,19 @@
         });
     };
 
-    /* ─── Tool row expand/collapse ─────────────────────────── */
-    window.toggleToolRow = function(headerEl) {
-        var row = headerEl.closest('.tool-row');
-        if (!row) return;
-        var detail = row.querySelector('.tool-row__detail');
-        if (!detail) return;
-        var chevron = headerEl.querySelector('.tool-row__chevron');
-        if (detail.style.display === 'none' || detail.style.display === '') {
-            detail.style.display = 'block';
-            if (chevron) chevron.classList.add('rotated');
+    /* ─── Tool detail card expand/collapse ───────────────────── */
+    window.toggleToolDetail = function(headerEl) {
+        var card = headerEl.closest('.tool-detail-card');
+        if (!card) return;
+        var body = card.querySelector('.tool-detail-card__body');
+        if (!body) return;
+        var chevron = headerEl.querySelector('.tool-detail-card__chevron');
+        if (body.classList.contains('open')) {
+            body.classList.remove('open');
+            if (chevron) chevron.style.transform = '';
         } else {
-            detail.style.display = 'none';
-            if (chevron) chevron.classList.remove('rotated');
+            body.classList.add('open');
+            if (chevron) chevron.style.transform = 'rotate(90deg)';
         }
     };
 
@@ -922,46 +963,55 @@
         }
     };
 
+    /* ─── Show More / Less button ──────────────────────────── */
+    window.toggleShowMoreBtn = function(btn) {
+        var target = btn.previousElementSibling;
+        if (!target) return;
+        target.classList.toggle('expanded');
+        btn.textContent = target.classList.contains('expanded') ? 'Show less' : 'Show more';
+    };
+
     /* ─── Subagent card toggle ─────────────────────────────── */
     window.toggleSubagentCard = function(headerEl) {
-        var body = headerEl.nextElementSibling;
+        var card = headerEl.closest('.subagent-card');
+        if (!card) return;
+        var body = card.querySelector('.subagent-card__body');
         if (!body) return;
-        var chevron = headerEl.querySelector('.round-chevron-inline');
-        if (body.style.display === 'none' || body.style.display === '') {
-            body.style.display = 'block';
-            if (chevron) chevron.style.transform = 'rotate(90deg)';
+        var chevron = headerEl.querySelector('.llm-card__chevron, .round-chevron-inline');
+        if (body.classList.contains('open')) {
+            body.classList.remove('open');
+            if (chevron) {
+                if (chevron.classList.contains('llm-card__chevron')) chevron.classList.remove('rotated');
+                else chevron.style.transform = '';
+            }
         } else {
-            body.style.display = 'none';
-            if (chevron) chevron.style.transform = '';
+            body.classList.add('open');
+            if (chevron) {
+                if (chevron.classList.contains('llm-card__chevron')) chevron.classList.add('rotated');
+                else chevron.style.transform = 'rotate(90deg)';
+            }
         }
     };
 
-    /* ─── Tool filter ──────────────────────────────────────── */
-    window.filterTools = function(query) {
-        var rows = document.querySelectorAll('.tool-row');
-        var q = query.toLowerCase();
-        var visible = 0;
-        rows.forEach(function(row) {
-            var name = (row.dataset.toolName || '').toLowerCase();
-            var match = !q || name.indexOf(q) >= 0;
-            row.style.display = match ? '' : 'none';
-            if (match) visible++;
-        });
-        var countEl = document.getElementById('tool-count');
-        if (countEl) countEl.textContent = visible + ' tool calls';
-    };
-
-    window.filterToolsByScope = function(scope) {
-        var rows = document.querySelectorAll('.tool-row');
-        var visible = 0;
-        rows.forEach(function(row) {
-            var rowScope = row.dataset.scope || 'main';
-            var match = scope === 'all' || rowScope === scope;
-            row.style.display = match ? '' : 'none';
-            if (match) visible++;
-        });
-        var countEl = document.getElementById('tool-count');
-        if (countEl) countEl.textContent = visible + ' tool calls';
+    /* ─── Tool result markdown toggle ─────────────────────── */
+    window.toggleResultMd = function(btn) {
+        var wrapper = btn.closest('.tool-result-wrapper');
+        if (!wrapper) return;
+        var rawEl = wrapper.querySelector('.tool-result-raw');
+        var mdEl = wrapper.querySelector('.tool-result-md');
+        if (!rawEl || !mdEl) return;
+        var showingMd = mdEl.style.display !== 'none';
+        if (showingMd) {
+            mdEl.style.display = 'none';
+            rawEl.style.display = '';
+            btn.textContent = 'MD';
+            btn.classList.remove('active');
+        } else {
+            rawEl.style.display = 'none';
+            mdEl.style.display = '';
+            btn.textContent = 'Raw';
+            btn.classList.add('active');
+        }
     };
 
 })();

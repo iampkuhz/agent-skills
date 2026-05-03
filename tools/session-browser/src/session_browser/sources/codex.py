@@ -410,7 +410,7 @@ def scan_all_sessions(
 
     for sid, thread_info in threads_db.items():
         seen_ids.add(sid)
-        summary, _msgs, _tcs = parse_session_detail(sid, threads_db)
+        summary, _msgs, _tcs, _sa = parse_session_detail(sid, threads_db)
         # Enrich title from index if empty in threads DB
         if not summary.title:
             idx_entry = index_entries.get(sid)
@@ -442,7 +442,7 @@ def scan_all_sessions(
             "rollout_path": "",
             "first_user_message": "",
         }
-        summary, _msgs, _tcs = parse_session_detail(sid, {sid: thread_info})
+        summary, _msgs, _tcs, _sa = parse_session_detail(sid, {sid: thread_info})
         if not summary.title and idx_entry.get("thread_name"):
             summary.title = idx_entry["thread_name"][:120]
         yield summary

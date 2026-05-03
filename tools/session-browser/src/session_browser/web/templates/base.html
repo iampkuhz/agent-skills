@@ -659,6 +659,59 @@
         .tool-tree__item--error .tool-tree__name {
             color: var(--status-error);
         }
+
+        /* ─── Tool detail card (expandable, used in timeline) ───────── */
+        .tool-detail-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 4px;
+            background: var(--surface);
+            overflow: hidden;
+        }
+        .tool-detail-card--error {
+            border-left: 2px solid var(--status-error);
+        }
+        .tool-detail-card__header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .tool-detail-card__header:hover {
+            background: var(--surface-hover);
+        }
+        .tool-detail-card__chevron {
+            display: inline-block;
+            font-size: var(--text-micro);
+            color: var(--text-muted);
+            transition: transform 180ms ease;
+            width: 12px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .tool-detail-card__chevron.rotated {
+            transform: rotate(90deg);
+        }
+        .tool-detail-card__summary {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-muted);
+        }
+        .tool-detail-card__body {
+            display: none;
+            padding: 0 8px 10px 8px;
+        }
+        .tool-detail-card__body.open {
+            display: block;
+        }
+        .tool-detail-card__body pre {
+            font-size: 11px;
+            line-height: 1.4;
+        }
         .subagent-inline {
             color: var(--text);
             font-weight: 500;
@@ -1293,6 +1346,13 @@
         .session-header-v2 {
             margin-bottom: var(--space-md);
         }
+        .session-header-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
         .session-title-v2 {
             font-size: 15px;
             font-weight: 600;
@@ -1301,7 +1361,18 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-bottom: 4px;
+            flex: 1;
+            min-width: 0;
+        }
+        .session-model-inline {
+            font-size: var(--text-xs);
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .session-meta-row {
             display: flex;
@@ -1310,6 +1381,7 @@
             font-size: var(--text-xs);
             color: var(--text-muted);
             margin-bottom: 3px;
+            flex-wrap: wrap;
         }
         .meta-label {
             font-family: var(--font-mono);
@@ -1327,7 +1399,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 3px;
+            flex-wrap: wrap;
         }
         .session-path {
             font-size: var(--text-micro);
@@ -1699,6 +1771,523 @@
         .model-color-opus { color: #3b82f6; }
         .model-color-default { color: var(--text-muted); }
 
+        /* ─── Timeline LLM call cards ─────────────────────────────── */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .timeline__user-msg {
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: var(--accent-bg);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            font-size: var(--text-sm);
+        }
+        .timeline__user-msg .msg-label {
+            font-size: var(--text-micro);
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 4px;
+        }
+        .timeline__user-msg .msg-body {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .llm-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 4px;
+            background: var(--surface);
+            overflow: hidden;
+        }
+        .llm-card--main {
+            border-left: 3px solid var(--accent);
+        }
+        .llm-card--subagent {
+            border-left: 3px solid var(--token-tool);
+            background: var(--panel);
+            margin-left: 16px;
+        }
+
+        .llm-card__header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .llm-card__header:hover {
+            background: var(--surface-hover);
+        }
+        .llm-card__scope {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: var(--text-micro);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .llm-card__scope--main {
+            background: var(--accent-bg);
+            color: var(--accent);
+        }
+        .llm-card__scope--subagent {
+            background: var(--token-tool-bg);
+            color: var(--token-tool);
+        }
+        .llm-card__model {
+            font-family: var(--font-mono);
+            font-size: var(--text-micro);
+            color: var(--text-muted);
+        }
+        .llm-card__tokens {
+            margin-left: auto;
+            font-family: var(--font-mono);
+            font-size: var(--text-micro);
+            color: var(--text-secondary);
+        }
+        .llm-card__chevron {
+            font-size: var(--text-micro);
+            color: var(--text-muted);
+            transition: transform 180ms ease;
+            flex-shrink: 0;
+        }
+        .llm-card__chevron.rotated {
+            transform: rotate(90deg);
+        }
+
+        .llm-card__body {
+            display: none;
+            padding: 0 10px 10px 10px;
+        }
+        .llm-card__body.open {
+            display: block;
+        }
+
+        .llm-card__prompt {
+            margin-bottom: 8px;
+            padding: 6px 8px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+        .llm-card__prompt-label {
+            font-size: var(--text-micro);
+            font-weight: 600;
+            color: var(--token-input-fresh);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 2px;
+        }
+        .llm-card__prompt-text {
+            font-size: var(--text-micro);
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            max-height: 80px;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+        .llm-card__token-bar {
+            display: flex;
+            height: 4px;
+            background: var(--border-light);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+            gap: 1px;
+        }
+        .llm-card__token-bar__fresh { background: var(--token-input-fresh); }
+        .llm-card__token-bar__cache-read { background: var(--token-cache-read); }
+        .llm-card__token-bar__cache-write { background: var(--token-cache-write); }
+        .llm-card__token-bar__output { background: var(--token-output-visible); }
+
+        .llm-card__response {
+            padding: 6px 8px;
+            background: var(--surface-hover);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+        .llm-card__response-label {
+            font-size: var(--text-micro);
+            font-weight: 600;
+            color: var(--token-output-visible);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 2px;
+        }
+        .llm-card__response-text {
+            font-size: var(--text-sm);
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .llm-card__response-text.expanded {
+            max-height: none;
+        }
+
+        .llm-card__tools {
+            margin-top: 8px;
+        }
+        .llm-card__tools-label {
+            font-size: var(--text-micro);
+            font-weight: 600;
+            color: var(--token-tool);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 4px;
+        }
+
+        /* Flow arrow between LLM calls */
+        .timeline__flow-arrow {
+            display: flex;
+            align-items: center;
+            padding: 2px 0 2px 20px;
+            font-size: var(--text-micro);
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            gap: 6px;
+        }
+        .timeline__flow-arrow::before {
+            content: "\2193";
+            font-size: var(--text-sm);
+            color: var(--token-tool);
+        }
+
+        /* Subagent summary card */
+        .subagent-card {
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--token-tool);
+            border-radius: var(--radius);
+            margin: 4px 0 4px 16px;
+            background: var(--panel);
+            overflow: hidden;
+        }
+        .subagent-card__header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .subagent-card__header:hover {
+            background: var(--surface-hover);
+        }
+        .subagent-card__stats {
+            display: flex;
+            gap: 12px;
+            font-size: var(--text-micro);
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+        .subagent-card__body {
+            display: none;
+            padding: 0 10px 10px 10px;
+        }
+        .subagent-card__body.open {
+            display: block;
+        }
+
+        /* Round LLM call dots in summary table */
+        .round-llm-dots {
+            display: flex;
+            gap: 3px;
+            justify-content: flex-end;
+        }
+        .round-llm-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .round-llm-dot--main { background: var(--accent); }
+        .round-llm-dot--subagent { background: var(--token-tool); }
+        .round-llm-dot--error { background: var(--status-error); }
+
+        /* Token bar in summary table row */
+        .round-token-bar {
+            display: flex;
+            height: 4px;
+            background: var(--border-light);
+            border-radius: 2px;
+            overflow: hidden;
+            gap: 1px;
+            margin-top: 2px;
+        }
+        .round-token-bar__fresh { background: var(--token-input-fresh); }
+        .round-token-bar__cache-read { background: var(--token-cache-read); }
+        .round-token-bar__cache-write { background: var(--token-cache-write); }
+        .round-token-bar__output { background: var(--token-output-visible); }
+
+        /* Rich tooltip for token bar */
+        .token-bar-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            cursor: help;
+        }
+        .token-bar-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            background: var(--text);
+            color: var(--surface);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-size: var(--text-micro);
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 150ms ease, transform 150ms ease;
+            z-index: 100;
+            pointer-events: none;
+            box-shadow: var(--shadow);
+            line-height: 1.6;
+        }
+        .token-bar-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: var(--text);
+        }
+        .token-bar-wrapper:hover .token-bar-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        .token-bar-tooltip__title {
+            font-weight: bold;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        .token-bar-tooltip__row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .token-bar-tooltip__dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .token-bar-tooltip__name {
+            min-width: 80px;
+        }
+        .token-bar-tooltip__value {
+            font-family: var(--font-mono);
+            font-weight: bold;
+        }
+        .token-bar-tooltip__pct {
+            opacity: 0.7;
+            min-width: 42px;
+            text-align: right;
+        }
+        .token-bar-tooltip__bar-bg {
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .token-bar-tooltip__bar-fill {
+            height: 100%;
+            border-radius: 2px;
+        }
+
+        /* Expand/Collapse All button */
+        .expand-all-btn {
+            padding: 3px 8px;
+            font-size: var(--text-micro);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 150ms ease;
+        }
+        .expand-all-btn:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        /* Token per-round chart */
+        .token-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .token-chart__row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: var(--text-micro);
+        }
+        .token-chart__label {
+            min-width: 40px;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            text-align: right;
+        }
+        .token-chart__bar {
+            flex: 1;
+            display: flex;
+            height: 8px;
+            background: var(--border-light);
+            border-radius: 2px;
+            overflow: hidden;
+            gap: 1px;
+        }
+        .token-chart__fresh { background: var(--token-input-fresh); }
+        .token-chart__cache-read { background: var(--token-cache-read); }
+        .token-chart__cache-write { background: var(--token-cache-write); }
+        .token-chart__output { background: var(--token-output-visible); }
+
+        /* ─── Markdown rendered content (tables, etc.) ─────────── */
+        .msg__body table,
+        .llm-card__response-text table,
+        .timeline__user-msg table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: var(--text-xs);
+            overflow-x: auto;
+            display: table;
+        }
+        .msg__body thead,
+        .llm-card__response-text thead,
+        .timeline__user-msg thead {
+            display: table-header-group;
+        }
+        .msg__body tbody,
+        .llm-card__response-text tbody,
+        .timeline__user-msg tbody {
+            display: table-row-group;
+        }
+        .msg__body th,
+        .llm-card__response-text th,
+        .timeline__user-msg th {
+            padding: 4px 8px;
+            font-weight: 600;
+            font-size: var(--text-xs);
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            text-transform: none;
+            letter-spacing: normal;
+            cursor: default;
+            position: relative;
+            top: auto;
+            white-space: normal;
+        }
+        .msg__body td,
+        .llm-card__response-text td,
+        .timeline__user-msg td {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: top;
+            white-space: normal;
+        }
+        .msg__body tr:hover,
+        .llm-card__response-text tr:hover,
+        .timeline__user-msg tr:hover {
+            background: var(--surface-hover);
+        }
+
+        /* ─── Markdown toggle button ──────────────────────── */
+        .md-toggle-btn {
+            padding: 1px 6px;
+            font-size: var(--text-micro);
+            font-family: var(--font-mono);
+            font-weight: 600;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 150ms ease;
+        }
+        .md-toggle-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .md-toggle-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* ─── Tool result rendered markdown ───────────────── */
+        .tool-result-md h1 { margin: 10px 0 4px; font-size: 15px; font-weight: 600; }
+        .tool-result-md h2 { margin: 8px 0 4px; font-size: 14px; font-weight: 600; }
+        .tool-result-md h3 { margin: 6px 0 3px; font-size: 13px; font-weight: 600; }
+        .tool-result-md p { margin: 4px 0; }
+        .tool-result-md pre {
+            margin: 6px 0;
+            padding: 8px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow-x: auto;
+            font-size: var(--text-micro);
+            line-height: 1.4;
+        }
+        .tool-result-md code {
+            font-family: var(--font-mono);
+            font-size: var(--text-micro);
+            background: var(--border-light);
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .tool-result-md pre code {
+            background: none;
+            padding: 0;
+        }
+        .tool-result-md table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 6px 0;
+            font-size: var(--text-xs);
+        }
+        .tool-result-md th {
+            padding: 4px 8px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            text-align: left;
+        }
+        .tool-result-md td {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: top;
+        }
+        .tool-result-md ul, .tool-result-md ol {
+            margin: 4px 0 4px 20px;
+        }
+        .tool-result-md blockquote {
+            margin: 6px 0;
+            padding: 4px 10px;
+            border-left: 3px solid var(--border);
+            color: var(--text-secondary);
+        }
+
     </style>
 
     {% block head_extra %}{% endblock %}
@@ -1850,9 +2439,9 @@
         /* ─── Keyboard shortcuts ───────────────────────────────────── */
         document.addEventListener('keydown', function(e) {
             if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-            if (e.key === 't') switchTab('token-profile');
-            if (e.key === 'm') switchTab('messages');
-            if (e.key === 'r') switchTab('raw');
+            if (e.key === 't') switchTab('timeline');
+            if (e.key === 'c') switchTab('conversation');
+            if (e.key === 'p') switchTab('profile');
             if (e.key === 'Escape') {
                 // Collapse expanded round detail rows (table-based)
                 var detailRows = document.querySelectorAll('.round-detail-row[style]');

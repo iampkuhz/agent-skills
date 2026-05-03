@@ -55,7 +55,7 @@ _template_env = jinja2.Environment(
 )
 
 # Markdown renderer (shared instance)
-_md = MarkdownIt()
+_md = MarkdownIt().enable("table")
 
 
 def _md_filter(text: str) -> str:
@@ -265,6 +265,33 @@ def _make_round(
     )
 
 
+def _derive_prompt_preview(
+    msg: ChatMessage,
+    round_tool_calls: list[ToolCall],
+    prev_call_tools: list[ToolCall],
+    round: ConversationRound,
+    messages: list[ChatMessage],
+    call_index_in_round: int,
+) -> str:
+    """Derive a human-readable hint for what was sent as prompt to this LLM call.
+
+    Returns a short string (≤120 chars) summarising the prompt context.
+    """
+    # First call in round → show user message
+    if call_index_in_round == 0:
+        user_text = round.user_msg.content[:80] if round.user_msg.content else ""
+        if user_text:
+            return f"User: {user_text}"
+
+    # Subsequent calls → tool results from prior call(s)
+    if prev_call_tools:
+        tool_names = ", ".join(tc.name for tc in prev_call_tools[:3])
+        suffix = f" +{len(prev_call_tools) - 3}" if len(prev_call_tools) > 3 else ""
+        return f"{len(prev_call_tools)} tool results: {tool_names}{suffix}"
+
+    return ""
+
+
 def _build_llm_calls(
     messages: list[ChatMessage],
     tool_calls: list[ToolCall],
@@ -284,15 +311,30 @@ def _build_llm_calls(
         if r.assistant_msg.llm_call_id:
             call_id_to_round[r.assistant_msg.llm_call_id] = r_idx
 
-    # Main agent calls
+    # Main agent calls — track prior call's tools for prompt context
+    main_calls_in_round: dict[int, list[LLMCall]] = {}
     for msg in messages:
         if msg.role != "assistant" or not msg.llm_call_id:
             continue
         r_idx = call_id_to_round.get(msg.llm_call_id, 0)
         usage = msg.usage or {}
         round_tools = rounds[r_idx].tool_calls if r_idx < len(rounds) else []
+        round_obj = rounds[r_idx] if r_idx < len(rounds) else None
 
-        llm_calls.append(LLMCall(
+        prior_tools: list[ToolCall] = []
+        call_index = 0
+        if r_idx in main_calls_in_round and main_calls_in_round[r_idx]:
+            prior_call = main_calls_in_round[r_idx][-1]
+            prior_tools = prior_call.tool_calls
+            call_index = len(main_calls_in_round[r_idx])
+
+        prompt_hint = ""
+        if round_obj:
+            prompt_hint = _derive_prompt_preview(
+                msg, round_tools, prior_tools, round_obj, messages, call_index
+            )
+
+        llm_call = LLMCall(
             id=msg.llm_call_id,
             model=msg.model,
             scope="main",
@@ -306,13 +348,15 @@ def _build_llm_calls(
             output_tokens=usage.get("output_tokens", 0),
             cache_read_tokens=usage.get("cache_read_input_tokens", 0),
             cache_write_tokens=usage.get("cache_creation_input_tokens", 0),
-            prompt_preview="",
+            prompt_preview=prompt_hint,
             response_preview=msg.content[:200],
             response_full=msg.content,
             tool_calls=[tc for tc in round_tools if tc.scope == "main"],
             tool_call_count=len([tc for tc in round_tools if tc.scope == "main"]),
             failed_tool_count=sum(1 for tc in round_tools if tc.scope == "main" and tc.is_failed),
-        ))
+        )
+        main_calls_in_round.setdefault(r_idx, []).append(llm_call)
+        llm_calls.append(llm_call)
 
     # Subagent individual calls — one per internal LLM turn
     for run in subagent_runs:
@@ -351,7 +395,7 @@ def _build_llm_calls(
                 output_tokens=usage.get("output_tokens", 0),
                 cache_read_tokens=usage.get("cache_read_input_tokens", 0),
                 cache_write_tokens=usage.get("cache_creation_input_tokens", 0),
-                prompt_preview="",
+                prompt_preview=f"Subagent turn ({msg.content[:80]})" if msg.content else "Subagent turn",
                 response_preview=msg.content[:200],
                 response_full=msg.content,
                 tool_calls=[],
@@ -457,50 +501,6 @@ def _assign_interactions_to_rounds(
         sub_calls = sub_by_round.get(r_idx, [])
         # Main calls first, then subagent interactions
         r.interactions = main_calls + sub_calls
-
-
-def _group_tools_by_agent(tool_calls: list[ToolCall]) -> list[dict]:
-    """Group tool calls by agent scope, preserving parent-child hierarchy."""
-    main_tools = [tc for tc in tool_calls if tc.scope == "main"]
-    subagent_tools = [tc for tc in tool_calls if tc.scope == "subagent"]
-
-    # Group subagent tools by subagent_id
-    subagent_groups: dict[str, list[ToolCall]] = {}
-    for tc in subagent_tools:
-        subagent_groups.setdefault(tc.subagent_id, []).append(tc)
-
-    # Find parent Agent tool for each subagent
-    agent_tool_by_subagent: dict[str, ToolCall] = {}
-    for tc in main_tools:
-        if tc.name == "Agent" and tc.subagent_summary:
-            aid = tc.subagent_summary.get("agent_id", "")
-            if aid:
-                agent_tool_by_subagent[aid] = tc
-
-    root = {
-        "agent_name": "Main Agent",
-        "agent_id": "",
-        "tools": [tc for tc in main_tools if tc.name != "Agent"],
-        "agent_tools": [tc for tc in main_tools if tc.name == "Agent"],
-        "children": [],
-    }
-
-    for aid, tools in subagent_groups.items():
-        parent_tc = agent_tool_by_subagent.get(aid)
-        summary = parent_tc.subagent_summary if parent_tc else {}
-        child = {
-            "agent_name": summary.get("description", "") or summary.get("agent_type", "") or aid,
-            "agent_id": aid,
-            "parent_tool": parent_tc,
-            "tools": tools,
-            "children": [],
-            "llm_calls": summary.get("llm_call_count", 0),
-            "total_tools": len(tools),
-            "failed_tools": sum(1 for t in tools if t.is_failed),
-        }
-        root["children"].append(child)
-
-    return [root]
 
 
 class SessionBrowserHandler(BaseHTTPRequestHandler):
@@ -676,9 +676,6 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         llm_calls = _build_llm_calls(messages, tool_calls, rounds, subagent_runs)
         _assign_interactions_to_rounds(rounds, llm_calls, tool_calls, subagent_runs)
 
-        # Build hierarchical tool grouping
-        tools_by_agent = _group_tools_by_agent(tool_calls)
-
         # Compute derived metrics
         session_data = compute_derived_metrics(session.to_dict())
 
@@ -693,7 +690,6 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             rounds=rounds,
             tool_calls=tool_calls,
             llm_calls=llm_calls,
-            tools_by_agent=tools_by_agent,
             current_agent=agent,
             session_anomalies=sa,
         )
