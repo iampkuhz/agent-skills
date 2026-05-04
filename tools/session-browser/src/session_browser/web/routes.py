@@ -74,6 +74,9 @@ def _get_repo_root(cwd: str | None = None) -> str | None:
 # Cache the repo root at server startup
 _REPO_ROOT = _get_repo_root()
 
+# Per-request repo root (set before template render)
+_SESSION_REPO_ROOT: str | None = None
+
 # Markdown renderer (shared instance)
 _md = MarkdownIt().enable("table")
 
@@ -112,6 +115,23 @@ _template_env.filters["markdown"] = _md_filter
 _template_env.filters["tojson_safe"] = lambda v: json.dumps(v) if v else "null"
 
 
+def _relative_paths_in_json(obj: any) -> any:
+    """Recursively replace file_path values in a dict with relative-to-repo paths."""
+    if isinstance(obj, dict):
+        return {
+            k: (_relative_to_repo(v) if k == "file_path" and isinstance(v, str) else _relative_paths_in_json(v))
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_relative_paths_in_json(item) for item in obj]
+    return obj
+
+
+_template_env.filters["tojson_repo"] = lambda v, indent=None: json.dumps(
+    _relative_paths_in_json(v), indent=indent, ensure_ascii=False
+) if v else "null"
+
+
 def _truncate_path(path: str) -> str:
     """Truncate a long path, keeping first and last segments."""
     if not path or len(path) <= 40:
@@ -124,13 +144,17 @@ def _truncate_path(path: str) -> str:
 
 
 def _relative_to_repo(path: str) -> str:
-    """If path is within the git repo, return relative path. Otherwise return absolute path."""
-    if not path or not _REPO_ROOT:
+    """If path is within the current session's git repo, return relative path.
+    Falls back to server-level _REPO_ROOT, then absolute path."""
+    if not path:
         return path or ""
+    repo_root = _SESSION_REPO_ROOT or _REPO_ROOT
+    if not repo_root:
+        return path
     try:
         abs_path = os.path.abspath(path)
-        if abs_path.startswith(_REPO_ROOT + os.sep) or abs_path == _REPO_ROOT:
-            return os.path.relpath(abs_path, _REPO_ROOT)
+        if abs_path.startswith(repo_root + os.sep) or abs_path == repo_root:
+            return os.path.relpath(abs_path, repo_root)
     except Exception:
         pass
     return path
@@ -576,6 +600,9 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
                 self._serve_static(path[len("/static/"):])
             else:
                 self._send_404()
+        except BrokenPipeError:
+            # Client closed the connection before we could respond — normal.
+            pass
         except Exception as e:
             self._send_500(str(e))
 
@@ -713,12 +740,20 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         llm_calls = _build_llm_calls(messages, tool_calls, rounds, subagent_runs)
         _assign_interactions_to_rounds(rounds, llm_calls, tool_calls, subagent_runs)
 
+        # Compute preview text for each round after interactions are assigned
+        for r in rounds:
+            r.compute_preview()
+
         # Compute derived metrics
         session_data = compute_derived_metrics(session.to_dict())
 
         # Detect anomalies for this session
         from session_browser.index.anomalies import detect_session_anomalies
         sa = detect_session_anomalies(session_data)
+
+        # Set repo root to session's project directory for relative path rendering
+        global _SESSION_REPO_ROOT
+        _SESSION_REPO_ROOT = _get_repo_root(session.cwd)
 
         html = self._render_template(
             "session.html",

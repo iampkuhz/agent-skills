@@ -384,6 +384,7 @@ def incremental_scan(
 
     claude_count = 0
     codex_count = 0
+    new_count = 0
     skipped_count = 0
 
     scan_claude = agent is None or agent == "claude_code"
@@ -435,7 +436,8 @@ def incremental_scan(
                     # Can't find file, skip
                     skipped_count += 1
                     continue
-            # else: new session (not in DB), parse it
+            else:
+                new_count += 1
 
             # Parse session detail
             summary, _msgs, _tcs, _sa = claude_source.parse_session_detail(
@@ -504,6 +506,8 @@ def incremental_scan(
                 else:
                     skipped_count += 1
                     continue
+            else:
+                new_count += 1
 
             # Parse session
             thread_info = threads_db.get(sid, {})
@@ -543,6 +547,7 @@ def incremental_scan(
         "claude_count": claude_count,
         "codex_count": codex_count,
         "total": claude_count + codex_count,
+        "new_count": new_count,
         "skipped": skipped_count,
     }
 

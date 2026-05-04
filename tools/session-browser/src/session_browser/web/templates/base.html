@@ -1602,12 +1602,25 @@
         }
 
         /* ─── Signal badges for round summary ───────────────────────── */
+        .preview-cell {
+            max-width: 320px;
+            min-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .preview-cell code {
+            font-size: inherit;
+            background: var(--panel);
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
         .signals-cell {
             display: flex;
             gap: 4px;
             flex-wrap: nowrap;
             overflow-x: auto;
-            max-width: 300px;
+            max-width: 140px;
             min-width: 0;
         }
         .signal-badge {
@@ -1751,6 +1764,22 @@
         }
         .round-summary-table td {
             padding: 4px 10px;
+        }
+        /* Column width constraints for timeline table */
+        .round-summary-table th:nth-child(4),
+        .round-summary-table td:nth-child(4) {
+            max-width: 140px;
+            width: 140px;
+        }
+        .round-summary-table th:nth-child(6),
+        .round-summary-table td:nth-child(6) {
+            max-width: 60px;
+            width: 60px;
+        }
+        .round-summary-table th:nth-child(7),
+        .round-summary-table td:nth-child(7) {
+            max-width: 150px;
+            width: 150px;
         }
         .round-header-row {
             transition: background 150ms ease;
@@ -2140,7 +2169,7 @@
             overflow: hidden;
             gap: 1px;
             margin-top: 2px;
-            width: 60px;
+            width: 40px;
         }
         .round-token-bar__fresh { background: var(--token-input-fresh); }
         .round-token-bar__cache-read { background: var(--token-cache-read); }

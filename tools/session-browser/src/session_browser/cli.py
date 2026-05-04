@@ -198,6 +198,9 @@ class _BackgroundScanner:
     - Hot (within TIER_HOT_SECONDS):  scanned every TIER_HOT_INTERVAL seconds
     - Warm (within TIER_WARM_SECONDS): scanned every TIER_WARM_INTERVAL seconds
     - Cold (older than TIER_WARM_SECONDS): skipped, only handled by full_scan
+
+    Only prints output when new sessions are discovered (active sessions
+    being re-updated is expected and noisy).
     """
 
     def __init__(
@@ -240,14 +243,18 @@ class _BackgroundScanner:
 
                 if needs_hot:
                     result = incremental_scan(conn, max_age_seconds=self.hot_seconds)
-                    if result["total"] > 0:
-                        print(f"  [hot scan] {result['total']} updated, {result['skipped']} skipped")
+                    if result.get("new_count", 0) > 0:
+                        print(f"  [hot scan] {result['new_count']} new session(s), "
+                              f"{result['total'] - result['new_count']} updated, "
+                              f"{result['skipped']} skipped")
                     self._last_hot_scan = time.time()
 
                 if needs_warm:
                     result = incremental_scan(conn, max_age_seconds=self.warm_seconds)
-                    if result["total"] > 0:
-                        print(f"  [warm scan] {result['total']} updated, {result['skipped']} skipped")
+                    if result.get("new_count", 0) > 0:
+                        print(f"  [warm scan] {result['new_count']} new session(s), "
+                              f"{result['total'] - result['new_count']} updated, "
+                              f"{result['skipped']} skipped")
                     self._last_warm_scan = time.time()
 
                 conn.close()

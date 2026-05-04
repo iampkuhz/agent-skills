@@ -203,6 +203,60 @@ class ConversationRound:
     llm_call_count: int = 0
     llm_error_count: int = 0
     interactions: list[LLMCall] = field(default_factory=list)
+    preview_text: str = ""  # concise human-readable summary for timeline table
+
+    def compute_preview(self) -> None:
+        """Derive a short preview from interactions/tool_calls after they are assigned."""
+        # Collect all tool calls from interactions
+        all_tools: list[ToolCall] = []
+        has_subagent = False
+        for ix in self.interactions:
+            if ix.scope == "main":
+                all_tools.extend(ix.tool_calls)
+            elif ix.scope == "subagent":
+                has_subagent = True
+                all_tools.extend(ix.tool_calls)
+
+        # No tool calls and no user message — only assistant response
+        has_user_input = bool(self.user_msg.content)
+        if not all_tools and not has_user_input:
+            content = self.assistant_msg.content
+            if content:
+                self.preview_text = content[:120]
+            return
+
+        # Subagent takes priority
+        if has_subagent:
+            sub_desc = ""
+            for ix in self.interactions:
+                if ix.scope == "subagent" and ix.parent_tool_name:
+                    sub_desc = ix.parent_tool_name
+                    break
+            if all_tools:
+                tool_counts: dict[str, int] = {}
+                for tc in all_tools:
+                    tool_counts[tc.name] = tool_counts.get(tc.name, 0) + 1
+                parts = [f"<code>{name}</code> {count}" for name, count in tool_counts.items()]
+                self.preview_text = f"Subagent({sub_desc}): {', '.join(parts)}"
+            else:
+                self.preview_text = f"Subagent({sub_desc})"
+            return
+
+        # Main agent with tool calls
+        if all_tools:
+            tool_counts: dict[str, int] = {}
+            for tc in all_tools:
+                tool_counts[tc.name] = tool_counts.get(tc.name, 0) + 1
+            parts = []
+            for name, count in tool_counts.items():
+                parts.append(f"<code>{name}</code> {count} time{'s' if count != 1 else ''}")
+            self.preview_text = ", ".join(parts)
+            return
+
+        # No tool calls but has user input — show truncated user message
+        content = self.user_msg.content
+        if content:
+            self.preview_text = content[:120]
 
     @property
     def input_tokens(self) -> int:

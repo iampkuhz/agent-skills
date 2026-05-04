@@ -337,6 +337,7 @@
                 <thead>
                     <tr>
                         <th class="numeric">#</th>
+                        <th>Preview</th>
                         <th>Signal</th>
                         <th class="numeric">Tokens</th>
                         <th class="numeric">LLM</th>
@@ -386,6 +387,9 @@
                         onclick="toggleRoundDetail(this)">
                         <td class="numeric mono text-xs">
                             <span class="round-chevron-inline">&#8250;</span> #{{ loop.index }}
+                        </td>
+                        <td class="preview-cell mono text-xs" data-tooltip="{{ round.preview_text }}">
+                            {{ round.preview_text[:80] | safe if round.preview_text else '—' }}
                         </td>
                         <td class="signals-cell">
                             {% if signals %}
@@ -481,10 +485,10 @@
                             <span class="badge badge-error">{{ round.tool_calls | selectattr('is_failed') | list | length }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-xs text-muted">{{ round.user_msg.timestamp[:16].replace('T', ' ') if round.user_msg.timestamp else '' }}</td>
+                        <td class="text-xs text-muted mono">{{ round.user_msg.timestamp[:19].replace('T', ' ') if round.user_msg.timestamp else '' }}</td>
                     </tr>
                     <tr class="round-detail-row" data-round-idx="{{ loop.index }}" style="display:none">
-                        <td colspan="6" class="round-detail-cell">
+                        <td colspan="7" class="round-detail-cell">
                             <div class="round {{ 'has-failed' if has_failed_tools else '' }}">
                                 <div class="round-content">
                                     <div class="timeline">
@@ -589,7 +593,7 @@
                                                                     {% elif tc.parameters.get('file_path') %}
                                                                         <code class="mono text-xs">{{ tc.parameters.file_path | relative_to_repo }}</code>
                                                                     {% else %}
-                                                                        <span class="mono text-xs">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                                                        <span class="mono text-xs">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
                                                                     {% endif %}
                                                                 </span>
                                                                 {% if tc.is_failed %}
@@ -601,7 +605,7 @@
                                                             <div class="tool-detail-card__body">
                                                                 <div style="margin-bottom:8px">
                                                                     <strong class="text-xs">Parameters:</strong>
-                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
+                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                                 </div>
                                                                 {% if tc.result %}
                                                                 <div>
@@ -667,7 +671,7 @@
                                                                     {% elif tc.parameters.get('file_path') %}
                                                                         <code class="mono text-xs">{{ tc.parameters.file_path | relative_to_repo }}</code>
                                                                     {% else %}
-                                                                        <span class="mono text-xs">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                                                        <span class="mono text-xs">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
                                                                     {% endif %}
                                                                 </span>
                                                                 {% if tc.is_failed %}
@@ -679,7 +683,7 @@
                                                             <div class="tool-detail-card__body">
                                                                 <div style="margin-bottom:8px">
                                                                     <strong class="text-xs">Parameters:</strong>
-                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
+                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                                 </div>
                                                                 {% if tc.result %}
                                                                 <div>
@@ -730,7 +734,7 @@
                                                     {% elif tc.parameters.get('file_path') %}
                                                         <code class="mono text-xs">{{ tc.parameters.file_path | relative_to_repo }}</code>
                                                     {% else %}
-                                                        <span class="mono text-xs">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                                        <span class="mono text-xs">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
                                                     {% endif %}
                                                     {% endif %}
                                                     {% if tc.subagent_summary %}
@@ -751,7 +755,7 @@
                                             <div class="tool-detail-card__body">
                                                 <div style="margin-bottom:8px">
                                                     <strong class="text-xs">Parameters:</strong>
-                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson(indent=2) if tc.parameters else '—' }}</pre>
+                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                 </div>
                                                 {% if tc.result %}
                                                 <div>
@@ -880,7 +884,7 @@
                                         {% for tc in call.tool_calls %}
                                         <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
                                             <span class="tool-tree__name">{{ tc.name }}</span>
-                                            <span class="tool-tree__detail">{{ tc.parameters | tojson | truncate(80) }}</span>
+                                            <span class="tool-tree__detail">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
                                             <span class="tool-tree__status">
                                                 {% if tc.is_failed %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>{% else %}<span class="badge badge-success">ok</span>{% endif %}
                                             </span>
