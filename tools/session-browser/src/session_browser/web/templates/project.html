@@ -33,7 +33,8 @@
         <div class="metric-value">{{ project.total_sessions }}</div>
         <div class="metric-sub">
             <span class="badge badge-claude" style="margin-right:2px">{{ project.claude_sessions }} CC</span>
-            <span class="badge badge-codex">{{ project.codex_sessions }} CX</span>
+            <span class="badge badge-codex" style="margin-right:2px">{{ project.codex_sessions }} CX</span>
+            <span class="badge badge-qoder">{{ project.qoder_sessions }} QD</span>
         </div>
     </div>
     <div class="metric-card metric-card--compact" data-tooltip="Total input-side tokens">
@@ -83,13 +84,13 @@
             <tbody>
                 {% for s in sessions %}
                 <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}">
-                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
+                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'qoder' if s.agent == 'qoder' else 'codex' }}"></span></td>
                     <td>
                         <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:260px; display:block" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:70] or 'Untitled' }}
                         </a>
                     </td>
-                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'CX' }}</span></td>
+                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-qoder' if s.agent == 'qoder' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'QD' if s.agent == 'qoder' else 'CX' }}</span></td>
                     <td class="text-xs text-muted mono truncate" style="max-width:160px" data-tooltip="{{ s.model or 'unknown' }}">{{ s.model or '—' }}</td>
                     <td class="numeric mono text-xs">{{ s.user_message_count + s.assistant_message_count }}</td>
                     <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>

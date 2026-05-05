@@ -21,6 +21,7 @@ from session_browser.config import INDEX_PATH, ensure_index_dir
 from session_browser.domain.models import SessionSummary, ProjectStats
 from session_browser.sources import claude as claude_source
 from session_browser.sources import codex as codex_source
+from session_browser.sources import qoder as qoder_source
 
 # ─── Tiered background scan config ────────────────────────────────────────
 
@@ -93,6 +94,7 @@ def init_schema(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
             finished_at REAL,
             claude_count INTEGER DEFAULT 0,
             codex_count INTEGER DEFAULT 0,
+            qoder_count INTEGER DEFAULT 0,
             mode TEXT DEFAULT 'full',
             status TEXT DEFAULT 'running'
         );
@@ -196,9 +198,11 @@ def full_scan(
 
     claude_count = 0
     codex_count = 0
+    qoder_count = 0
 
     scan_claude = agent is None or agent == "claude_code"
     scan_codex = agent is None or agent == "codex"
+    scan_qoder = agent is None or agent == "qoder"
 
     # Scan Claude Code
     if scan_claude:
@@ -255,17 +259,38 @@ def full_scan(
 
         conn.commit()
 
+    # Scan Qoder (walk projects/ directory)
+    if scan_qoder:
+        if verbose:
+            print("Scanning Qoder...")
+        for summary in qoder_source.scan_all_sessions():
+            # Record file mtime + path for future incremental scans
+            file_mtime = 0.0
+            file_path = ""
+            fpath = _locate_qoder_session_file(summary.project_key, summary.session_id)
+            if fpath and fpath.exists():
+                file_path = str(fpath)
+                file_mtime = os.path.getmtime(fpath)
+
+            upsert_session(conn, summary, file_mtime=file_mtime, file_path=file_path)
+            qoder_count += 1
+            if verbose and qoder_count % 50 == 0:
+                print(f"  Qoder: {qoder_count} sessions")
+
+        conn.commit()
+
     # Update log
     conn.execute(
-        "UPDATE scan_log SET finished_at=?, claude_count=?, codex_count=?, status='done' WHERE id=?",
-        (time.time(), claude_count, codex_count, log_id),
+        "UPDATE scan_log SET finished_at=?, claude_count=?, codex_count=?, qoder_count=?, status='done' WHERE id=?",
+        (time.time(), claude_count, codex_count, qoder_count, log_id),
     )
     conn.commit()
 
     return {
         "claude_count": claude_count,
         "codex_count": codex_count,
-        "total": claude_count + codex_count,
+        "qoder_count": qoder_count,
+        "total": claude_count + codex_count + qoder_count,
     }
 
 
@@ -320,6 +345,26 @@ def _locate_codex_session_file(session_id: str, rollout_path: str = "") -> Path 
                 found = list(day_dir.glob(f"rollout-*-{session_id}.jsonl"))
                 if found:
                     return found[0]
+    return None
+
+
+def _locate_qoder_session_file(project_key: str, session_id: str) -> Path | None:
+    """Find a Qoder session .jsonl file on disk."""
+    from session_browser.config import QODER_DATA_DIR
+
+    projects_dir = QODER_DATA_DIR / "projects"
+    if not projects_dir.exists():
+        return None
+
+    # Try direct match
+    candidate = projects_dir / project_key / f"{session_id}.jsonl"
+    if candidate.exists():
+        return candidate
+
+    # Walk all subdirectories
+    for root, _dirs, files in os.walk(projects_dir):
+        if f"{session_id}.jsonl" in files:
+            return Path(root) / f"{session_id}.jsonl"
     return None
 
 
@@ -384,11 +429,13 @@ def incremental_scan(
 
     claude_count = 0
     codex_count = 0
+    qoder_count = 0
     new_count = 0
     skipped_count = 0
 
     scan_claude = agent is None or agent == "claude_code"
     scan_codex = agent is None or agent == "codex"
+    scan_qoder = agent is None or agent == "qoder"
 
     # ── Scan Claude ──────────────────────────────────────────────────
     if scan_claude:
@@ -536,17 +583,74 @@ def incremental_scan(
 
         conn.commit()
 
+    # ── Scan Qoder ───────────────────────────────────────────────────
+    if scan_qoder:
+        discovered = qoder_source._discover_sessions()
+        if verbose:
+            print(f"Incremental scan: {len(discovered)} Qoder sessions...")
+
+        for project_key, sid, fpath in discovered:
+            skey = f"qoder:{sid}"
+
+            info = existing.get(skey)
+            if info:
+                ended_at = info["ended_at"] or ""
+                if cutoff_iso and ended_at < cutoff_iso:
+                    skipped_count += 1
+                    continue
+
+                stored_mtime = info["file_mtime"]
+                stored_path = info["file_path"]
+                if stored_path:
+                    p = Path(stored_path)
+                    if p.exists():
+                        current_mtime = os.path.getmtime(p)
+                        if current_mtime <= stored_mtime:
+                            skipped_count += 1
+                            continue
+                    else:
+                        fpath = _locate_qoder_session_file(project_key, sid)
+                else:
+                    fpath = _locate_qoder_session_file(project_key, sid)
+
+                if fpath and fpath.exists():
+                    current_mtime = os.path.getmtime(fpath)
+                    if current_mtime <= stored_mtime:
+                        skipped_count += 1
+                        continue
+                else:
+                    skipped_count += 1
+                    continue
+            else:
+                new_count += 1
+
+            summary, _msgs, _tcs, _sa = qoder_source.parse_session_detail(
+                project_key, sid, session_file=fpath
+            )
+
+            file_mtime = 0.0
+            file_path_str = ""
+            if fpath and fpath.exists():
+                file_path_str = str(fpath)
+                file_mtime = os.path.getmtime(fpath)
+
+            upsert_session(conn, summary, file_mtime=file_mtime, file_path=file_path_str)
+            qoder_count += 1
+
+        conn.commit()
+
     # Update log
     conn.execute(
-        "UPDATE scan_log SET finished_at=?, claude_count=?, codex_count=?, status='done' WHERE id=?",
-        (time.time(), claude_count, codex_count, log_id),
+        "UPDATE scan_log SET finished_at=?, claude_count=?, codex_count=?, qoder_count=?, status='done' WHERE id=?",
+        (time.time(), claude_count, codex_count, qoder_count, log_id),
     )
     conn.commit()
 
     return {
         "claude_count": claude_count,
         "codex_count": codex_count,
-        "total": claude_count + codex_count,
+        "qoder_count": qoder_count,
+        "total": claude_count + codex_count + qoder_count,
         "new_count": new_count,
         "skipped": skipped_count,
     }
@@ -634,6 +738,7 @@ def get_project_stats(conn: sqlite3.Connection, project_key: str) -> ProjectStat
             COUNT(*) as total_sessions,
             SUM(CASE WHEN agent='claude_code' THEN 1 ELSE 0 END) as claude_sessions,
             SUM(CASE WHEN agent='codex' THEN 1 ELSE 0 END) as codex_sessions,
+            SUM(CASE WHEN agent='qoder' THEN 1 ELSE 0 END) as qoder_sessions,
             MIN(started_at) as first_seen,
             MAX(ended_at) as last_seen,
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
@@ -660,6 +765,7 @@ def get_project_stats(conn: sqlite3.Connection, project_key: str) -> ProjectStat
         total_sessions=row["total_sessions"],
         claude_sessions=row["claude_sessions"],
         codex_sessions=row["codex_sessions"],
+        qoder_sessions=row["qoder_sessions"],
         first_seen=row["first_seen"] or "",
         last_seen=row["last_seen"] or "",
         total_input_tokens=row["total_input_tokens"],
@@ -683,6 +789,7 @@ def list_projects(conn: sqlite3.Connection, limit: int = 20) -> list[ProjectStat
             COUNT(*) as total_sessions,
             SUM(CASE WHEN agent='claude_code' THEN 1 ELSE 0 END) as claude_sessions,
             SUM(CASE WHEN agent='codex' THEN 1 ELSE 0 END) as codex_sessions,
+            SUM(CASE WHEN agent='qoder' THEN 1 ELSE 0 END) as qoder_sessions,
             MIN(started_at) as first_seen,
             MAX(ended_at) as last_seen,
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
@@ -708,6 +815,7 @@ def list_projects(conn: sqlite3.Connection, limit: int = 20) -> list[ProjectStat
             total_sessions=r["total_sessions"],
             claude_sessions=r["claude_sessions"],
             codex_sessions=r["codex_sessions"],
+            qoder_sessions=r["qoder_sessions"],
             first_seen=r["first_seen"] or "",
             last_seen=r["last_seen"] or "",
             total_input_tokens=r["total_input_tokens"],
@@ -731,6 +839,7 @@ def get_dashboard_stats(conn: sqlite3.Connection) -> dict:
             COUNT(*) as total_sessions,
             SUM(CASE WHEN agent='claude_code' THEN 1 ELSE 0 END) as claude_sessions,
             SUM(CASE WHEN agent='codex' THEN 1 ELSE 0 END) as codex_sessions,
+            SUM(CASE WHEN agent='qoder' THEN 1 ELSE 0 END) as qoder_sessions,
             COUNT(DISTINCT project_key) as project_count,
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
             COALESCE(SUM(output_tokens), 0) as total_output_tokens,
@@ -746,6 +855,7 @@ def get_dashboard_stats(conn: sqlite3.Connection) -> dict:
         "total_sessions": row["total_sessions"],
         "claude_sessions": row["claude_sessions"],
         "codex_sessions": row["codex_sessions"],
+        "qoder_sessions": row["qoder_sessions"],
         "project_count": row["project_count"],
         "total_input_tokens": row["total_input_tokens"],
         "total_output_tokens": row["total_output_tokens"],
@@ -771,6 +881,7 @@ def get_trend_data(
             DATE(ended_at) as day,
             SUM(CASE WHEN agent='claude_code' THEN 1 ELSE 0 END) as claude_count,
             SUM(CASE WHEN agent='codex' THEN 1 ELSE 0 END) as codex_count,
+            SUM(CASE WHEN agent='qoder' THEN 1 ELSE 0 END) as qoder_count,
             COALESCE(SUM(input_tokens), 0) as input_tokens,
             COALESCE(SUM(output_tokens), 0) as output_tokens,
             COALESCE(SUM(cached_input_tokens), 0) as cache_read_tokens,
@@ -791,6 +902,7 @@ def get_trend_data(
             "date": r["day"],
             "claude_count": r["claude_count"],
             "codex_count": r["codex_count"],
+            "qoder_count": r["qoder_count"],
             "input_tokens": r["input_tokens"],
             "output_tokens": r["output_tokens"],
             "cache_read_tokens": r["cache_read_tokens"],

@@ -85,8 +85,8 @@
                     {{ item.title[:80] or 'Untitled' }}
                 </a>
                 <div class="attention-item__meta">
-                    <span class="badge {{ 'badge-claude' if item.agent == 'claude_code' else 'badge-codex' }}">
-                        {{ 'CC' if item.agent == 'claude_code' else 'CX' }}
+                    <span class="badge {{ 'badge-claude' if item.agent == 'claude_code' else 'badge-qoder' if item.agent == 'qoder' else 'badge-codex' }}">
+                        {{ 'CC' if item.agent == 'claude_code' else 'QD' if item.agent == 'qoder' else 'CX' }}
                     </span>
                     <span class="attention-item__project" data-tooltip="{{ item.project_key }}">{{ item.project_name }}</span>
                     <span class="mono text-micro" data-tooltip="{{ item.model }}">{{ (item.model or '?')[:30] }}</span>
@@ -139,8 +139,8 @@
     <div class="flex gap-3 items-center mb-2">
         {% for agent, count in agent_dist.items() %}
         <div class="flex items-center gap-2">
-            <span class="agent-dot {{ 'claude' if agent == 'claude_code' else 'codex' }}"></span>
-            <span class="text-sm">{{ 'Claude Code' if agent == 'claude_code' else 'Codex' }}: {{ count | format_number }}</span>
+            <span class="agent-dot {{ 'claude' if agent == 'claude_code' else 'qoder' if agent == 'qoder' else 'codex' }}"></span>
+            <span class="text-sm">{{ 'Claude Code' if agent == 'claude_code' else 'Qoder' if agent == 'qoder' else 'Codex' }}: {{ count | format_number }}</span>
         </div>
         {% endfor %}
     </div>
@@ -241,7 +241,7 @@
                 {% set has_anomalies = s.get('anomalies') and s['anomalies'] | length > 0 %}
                 <tr data-title="{{ s.title | lower }}" data-session-id="{{ s.session_id | lower }}"
                     {% if has_anomalies %}class="row--anomaly"{% endif %}>
-                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
+                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'qoder' if s.agent == 'qoder' else 'codex' }}"></span></td>
                     <td>
                         <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:240px; display:block" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:80] or 'Untitled' }}
@@ -335,12 +335,16 @@
             var h = (d.total_count / maxVal) * ch;
             var y = pad.t + ch - h;
             var codexH = d.total_count > 0 ? (d.codex_count / d.total_count) * h : 0;
-            var claudeH = h - codexH;
-            if (d.codex_count > 0) {
-                svg += '<rect x="'+x+'" y="'+(y+claudeH)+'" width="'+barW+'" height="'+codexH+'" fill="#10b981" rx="1" opacity="0.85"/>';
-            }
+            var qoderH = d.total_count > 0 ? (d.qoder_count / d.total_count) * h : 0;
+            var claudeH = h - codexH - qoderH;
             if (d.claude_count > 0) {
                 svg += '<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+claudeH+'" fill="#8b5cf6" rx="1" opacity="0.85"/>';
+            }
+            if (d.qoder_count > 0) {
+                svg += '<rect x="'+x+'" y="'+(y+claudeH)+'" width="'+barW+'" height="'+qoderH+'" fill="#f59e0b" rx="1" opacity="0.85"/>';
+            }
+            if (d.codex_count > 0) {
+                svg += '<rect x="'+x+'" y="'+(y+claudeH+qoderH)+'" width="'+barW+'" height="'+codexH+'" fill="#10b981" rx="1" opacity="0.85"/>';
             }
             if (i % Math.max(Math.floor(data.length / 8), 1) === 0) {
                 var dateStr = d.date ? d.date.substring(5) : '';

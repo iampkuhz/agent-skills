@@ -84,6 +84,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
         print(f"\nIncremental scan complete in {elapsed:.1f}s")
         print(f"  Updated Claude: {result['claude_count']} sessions")
         print(f"  Updated Codex:  {result['codex_count']} sessions")
+        if 'qoder_count' in result:
+            print(f"  Updated Qoder:  {result['qoder_count']} sessions")
         print(f"  Skipped:        {result['skipped']} sessions")
         print(f"  Total updated:  {result['total']} sessions")
     else:
@@ -95,6 +97,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
         print(f"\nScan complete in {elapsed:.1f}s")
         print(f"  Claude Code: {result['claude_count']} sessions")
         print(f"  Codex:       {result['codex_count']} sessions")
+        if 'qoder_count' in result:
+            print(f"  Qoder:       {result['qoder_count']} sessions")
         print(f"  Total:       {result['total']} sessions")
 
     conn.close()
@@ -140,6 +144,7 @@ def _ensure_schema_exists(conn) -> None:
             finished_at REAL,
             claude_count INTEGER DEFAULT 0,
             codex_count INTEGER DEFAULT 0,
+            qoder_count INTEGER DEFAULT 0,
             mode TEXT DEFAULT 'full',
             status TEXT DEFAULT 'running'
         );
@@ -310,8 +315,8 @@ def main() -> None:
     scan_p = sub.add_parser("scan", help="Scan and index all local sessions")
     scan_p.add_argument("--incremental", action="store_true",
                         help="Only scan sessions whose source files have changed")
-    scan_p.add_argument("--agent", choices=["claude_code", "codex"],
-                        help="Scan only a specific agent (claude_code or codex)")
+    scan_p.add_argument("--agent", choices=["claude_code", "codex", "qoder"],
+                        help="Scan only a specific agent (claude_code, codex, or qoder)")
 
     # serve command
     serve_p = sub.add_parser("serve", help="Start local web server")

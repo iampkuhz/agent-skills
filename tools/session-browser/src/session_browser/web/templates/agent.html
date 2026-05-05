@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = 'agents' %}
 
-{% block title %}{{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }} - Agent Run Profiler{% endblock %}
+{% block title %}{{ 'Claude Code' if current_agent == 'claude_code' else 'Qoder' if current_agent == 'qoder' else 'Codex' }} - Agent Run Profiler{% endblock %}
 
 {% block topbar %}
 <div class="topbar-breadcrumb">
@@ -9,7 +9,7 @@
     <span class="sep">/</span>
     <a href="/agents">Agents</a>
     <span class="sep">/</span>
-    <span class="current">{{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }}</span>
+    <span class="current">{{ 'Claude Code' if current_agent == 'claude_code' else 'Qoder' if current_agent == 'qoder' else 'Codex' }}</span>
 </div>
 {% endblock %}
 

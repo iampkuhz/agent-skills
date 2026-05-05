@@ -21,6 +21,7 @@
         <select id="filter-agent" class="filter-bar__select">
             <option value="">All Agents</option>
             <option value="claude_code">Claude Code</option>
+            <option value="qoder">Qoder</option>
             <option value="codex">Codex</option>
         </select>
         <select id="filter-model" class="filter-bar__select">
@@ -108,7 +109,7 @@
                     data-has-anomalies="{{ 'true' if has_anomalies else 'false' }}"
                     data-anomaly-types="{% if has_anomalies %}{% for a in s.anomalies %}{{ a.type }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
                     class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }} {{ 'row--anomaly' if has_anomalies else '' }}">
-                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'codex' }}"></span></td>
+                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'qoder' if s.agent == 'qoder' else 'codex' }}"></span></td>
                     <td>
                         <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:240px; display:block" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:80] or 'Untitled' }}
@@ -117,7 +118,7 @@
                     <td class="text-xs">
                         <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted" data-tooltip="{{ s.project_key }}">{{ s.project_name }}</a>
                     </td>
-                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'CX' }}</span></td>
+                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-qoder' if s.agent == 'qoder' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'QD' if s.agent == 'qoder' else 'CX' }}</span></td>
                     <td class="text-xs text-muted mono truncate" style="max-width:120px" data-tooltip="{{ s.model or 'unknown' }}">{{ s.model or '—' }}</td>
                     <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ s.cached_input_tokens | format_number }}</td>

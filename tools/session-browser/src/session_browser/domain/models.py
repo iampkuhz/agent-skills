@@ -22,6 +22,7 @@ class TokenProvider:
     OPENAI = "openai"
     CODEX = "codex"
     QWEN_ANTHROPIC_COMPATIBLE = "qwen-anthropic-compatible"
+    QODER = "qoder"
     UNKNOWN = "unknown"
 
 
@@ -81,9 +82,9 @@ class TokenBreakdown:
 
 @dataclass
 class SessionSummary:
-    """Unified session index model for both Claude Code and Codex."""
+    """Unified session index model for Claude Code, Codex, and Qoder."""
 
-    agent: str  # "claude_code" | "codex"
+    agent: str  # "claude_code" | "codex" | "qoder"
     session_id: str
     title: str
     project_key: str  # full normalized path
@@ -304,6 +305,7 @@ class ProjectStats:
     total_sessions: int = 0
     claude_sessions: int = 0
     codex_sessions: int = 0
+    qoder_sessions: int = 0
     first_seen: str = ""
     last_seen: str = ""
     total_input_tokens: int = 0

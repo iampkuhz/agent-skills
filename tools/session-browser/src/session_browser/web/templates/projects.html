@@ -90,6 +90,7 @@
                     <td class="numeric"><strong>{{ p.total_sessions }}</strong></td>
                     <td class="numeric"><span class="badge badge-claude">{{ p.claude_sessions }}</span></td>
                     <td class="numeric"><span class="badge badge-codex">{{ p.codex_sessions }}</span></td>
+                    <td class="numeric"><span class="badge badge-qoder">{{ p.qoder_sessions }}</span></td>
                     <td class="numeric mono text-xs {{ 'muted-zero' if p.total_input_tokens == 0 else '' }}">{{ p.total_input_tokens | format_number }}</td>
                     <td class="numeric mono text-xs {{ 'muted-zero' if p.total_cached_tokens == 0 else '' }}">{{ p_cache_reuse }}%</td>
                     <td class="numeric mono text-xs {{ 'muted-zero' if p.total_cache_write_tokens == 0 else '' }}">{{ p.total_cache_write_tokens | format_number }}</td>

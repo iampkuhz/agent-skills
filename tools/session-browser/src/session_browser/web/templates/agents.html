@@ -20,10 +20,10 @@
     <a href="/agents/{{ a.agent }}" class="agent-card">
         <div class="agent-card__header">
             <span class="agent-card__name">
-                <span class="agent-dot {{ 'claude' if a.agent == 'claude_code' else 'codex' }}"></span>
-                {{ 'Claude Code' if a.agent == 'claude_code' else 'Codex' }}
+                <span class="agent-dot {{ 'claude' if a.agent == 'claude_code' else 'qoder' if a.agent == 'qoder' else 'codex' }}"></span>
+                {{ 'Claude Code' if a.agent == 'claude_code' else 'Qoder' if a.agent == 'qoder' else 'Codex' }}
             </span>
-            <span class="badge {{ 'badge-claude' if a.agent == 'claude_code' else 'badge-codex' }}">
+            <span class="badge {{ 'badge-claude' if a.agent == 'claude_code' else 'badge-qoder' if a.agent == 'qoder' else 'badge-codex' }}">
                 {{ a.session_count | format_number }} sessions
             </span>
         </div>
@@ -76,8 +76,8 @@
                 {% for e in efficiency %}
                 <tr>
                     <td>
-                        <span class="agent-dot {{ 'claude' if e.agent == 'claude_code' else 'codex' }}"></span>
-                        {{ 'Claude Code' if e.agent == 'claude_code' else 'Codex' }}
+                        <span class="agent-dot {{ 'claude' if e.agent == 'claude_code' else 'qoder' if e.agent == 'qoder' else 'codex' }}"></span>
+                        {{ 'Claude Code' if e.agent == 'claude_code' else 'Qoder' if e.agent == 'qoder' else 'Codex' }}
                     </td>
                     <td class="mono text-xs truncate" style="max-width:180px" data-tooltip="{{ e.model }}">{{ (e.model or '?')[:50] }}</td>
                     <td class="numeric mono text-xs">{{ e.session_count }}</td>

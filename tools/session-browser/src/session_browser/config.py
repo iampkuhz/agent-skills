@@ -19,6 +19,7 @@ def _home() -> Path:
 # Base directories for agent session data
 CLAUDE_DATA_DIR = Path(os.environ.get("CLAUDE_DATA_DIR", str(_home() / ".claude")))
 CODEX_DATA_DIR = Path(os.environ.get("CODEX_DATA_DIR", str(_home() / ".codex")))
+QODER_DATA_DIR = Path(os.environ.get("QODER_DATA_DIR", str(_home() / ".qoder")))
 
 
 # ─── Index storage ───────────────────────────────────────────────────────

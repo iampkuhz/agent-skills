@@ -708,6 +708,11 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             raw_summary, messages, tool_calls, subagent_runs = parse_session_detail(
                 session.project_key, session_id
             )
+        elif agent == "qoder":
+            from session_browser.sources.qoder import parse_session_detail
+            raw_summary, messages, tool_calls, subagent_runs = parse_session_detail(
+                session.project_key, session_id
+            )
         else:
             from session_browser.sources.codex import parse_session_detail
             raw_summary, messages, tool_calls, subagent_runs = parse_session_detail(session_id)
