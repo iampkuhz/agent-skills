@@ -43,8 +43,8 @@
 <!-- Sessions for this agent -->
 <div class="card">
     <div class="card-title">
-        <span class="badge {{ 'badge-claude' if current_agent == 'claude_code' else 'badge-codex' }}" style="margin-right:8px">
-            {{ 'Claude Code' if current_agent == 'claude_code' else 'Codex' }}
+        <span class="badge {{ 'badge-claude' if current_agent == 'claude_code' else 'badge-qoder' if current_agent == 'qoder' else 'badge-codex' }}" style="margin-right:8px">
+            {{ 'Claude Code' if current_agent == 'claude_code' else 'Qoder' if current_agent == 'qoder' else 'Codex' }}
         </span>
         Sessions ({{ sessions | length }})
     </div>

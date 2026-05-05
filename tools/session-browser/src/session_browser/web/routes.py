@@ -82,10 +82,12 @@ _md = MarkdownIt().enable("table")
 
 
 def _md_filter(text: str) -> str:
-    """Render markdown to HTML."""
+    """Render markdown to HTML. Escapes raw HTML in input to prevent XSS."""
     if not text:
         return ""
-    return _md.render(text)
+    import html
+    escaped = html.escape(text)
+    return _md.render(escaped)
 
 
 # Register template filters

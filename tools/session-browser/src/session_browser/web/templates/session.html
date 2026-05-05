@@ -38,8 +38,8 @@
 
     <!-- Identity row: agent badge, title, model -->
     <div class="overview__identity">
-        <span class="overview__agent-badge {{ 'overview__agent-badge--claude' if session.agent == 'claude_code' else 'overview__agent-badge--codex' }}">
-            {{ 'Claude' if session.agent == 'claude_code' else 'Codex' }}
+        <span class="overview__agent-badge {{ 'overview__agent-badge--claude' if session.agent == 'claude_code' else 'overview__agent-badge--qoder' if session.agent == 'qoder' else 'overview__agent-badge--codex' }}">
+            {{ 'Claude' if session.agent == 'claude_code' else 'Qoder' if session.agent == 'qoder' else 'Codex' }}
         </span>
         <h1 class="overview__title" data-tooltip="{{ session.title }}">{{ session.title[:140] or 'Untitled Session' }}</h1>
         {% if session.model %}
@@ -325,7 +325,7 @@
 <!-- Tab: Timeline -->
 <div id="timeline" class="tab-content">
     <div class="card">
-        <div class="card-title">Conversation Flow ({{ total_rounds }})
+        <div class="card-title">Conversation Flow ({{ rounds | length }})
             <span style="margin-left:auto; display:flex; gap:6px;">
                 <button class="expand-all-btn" onclick="expandAllRounds()">Expand All</button>
                 <button class="expand-all-btn" onclick="collapseAllRounds()">Collapse All</button>

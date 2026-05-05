@@ -1770,20 +1770,53 @@
             padding: 4px 10px;
         }
         /* Column width constraints for timeline table */
+        .round-summary-table {
+            table-layout: auto;
+            width: 100%;
+        }
+        .round-summary-table th:nth-child(1),
+        .round-summary-table td:nth-child(1) {
+            width: 50px;
+            min-width: 50px;
+            max-width: 50px;
+        }
+        .round-summary-table th:nth-child(2),
+        .round-summary-table td:nth-child(2) {
+            min-width: 160px;
+        }
+        .round-summary-table th:nth-child(3),
+        .round-summary-table td:nth-child(3) {
+            width: 140px;
+            min-width: 100px;
+        }
         .round-summary-table th:nth-child(4),
         .round-summary-table td:nth-child(4) {
-            max-width: 140px;
-            width: 140px;
+            width: 160px;
+            min-width: 120px;
+        }
+        .round-summary-table th:nth-child(5),
+        .round-summary-table td:nth-child(5) {
+            width: 80px;
+            min-width: 70px;
         }
         .round-summary-table th:nth-child(6),
         .round-summary-table td:nth-child(6) {
-            max-width: 60px;
-            width: 60px;
+            width: 70px;
+            min-width: 60px;
         }
         .round-summary-table th:nth-child(7),
         .round-summary-table td:nth-child(7) {
-            max-width: 150px;
-            width: 150px;
+            width: 140px;
+            min-width: 120px;
+        }
+        /* Allow wrapping in cells that need it */
+        .round-summary-table .signals-cell {
+            max-width: none;
+            white-space: normal;
+        }
+        .round-summary-table .preview-cell {
+            white-space: normal;
+            max-width: none;
         }
         .round-header-row {
             transition: background 150ms ease;
@@ -2930,33 +2963,6 @@
             }
         });
 
-        /* ─── Keyboard shortcuts ───────────────────────────────────── */
-        document.addEventListener('keydown', function(e) {
-            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-            if (e.key === 't') switchTab('timeline');
-            if (e.key === 'c') switchTab('conversation');
-            if (e.key === 'p') switchTab('profile');
-            if (e.key === 'Escape') {
-                // Collapse expanded round detail rows (table-based)
-                var detailRows = document.querySelectorAll('.round-detail-row[style]');
-                detailRows.forEach(function(row) {
-                    if (row.style.display !== 'none') {
-                        row.style.display = 'none';
-                        var headerRow = row.previousElementSibling;
-                        if (headerRow) {
-                            var chevron = headerRow.querySelector('.round-chevron-inline');
-                            if (chevron) chevron.style.transform = '';
-                        }
-                    }
-                });
-                // Also collapse old .round structure if present
-                var expanded = document.querySelectorAll('.round.expanded');
-                if (expanded.length > 0) {
-                    expanded.forEach(function(r) { r.classList.remove('expanded'); });
-                }
-                document.activeElement.blur();
-            }
-        });
 
         /* ─── Restore session tab on load ──────────────────────────── */
         if (window._sessionId) {
