@@ -9,13 +9,11 @@ from typing import Optional
 
 
 # Fallback thresholds when data is insufficient (< 20 rows)
+# Fixed thresholds — percentile-based computation is unreliable on skewed distributions.
 FALLBACK_THRESHOLDS = {
-    "duration_seconds": {"warning": 3600, "critical": 7200},  # 1h / 2h
-    "tool_call_count": {"warning": 100, "critical": 200},
-    "cached_input_tokens": {"warning_ratio": 0.1},  # < 10% cache reuse
-    "output_tokens": {"warning_ratio": 0.05},  # output/input < 5%
-    "cached_output_tokens": {"warning": 50000, "critical": 100000},  # cache write spike
-    "tokens_per_round": {"warning": 30000, "critical": 50000},
+    "duration_seconds": {"warning": 7200, "critical": 21600},  # 2h / 6h
+    "tool_call_count": {"warning": 200, "critical": 500},
+    "cached_output_tokens": {"warning": 200000, "critical": 500000},  # cache write spike
 }
 
 MIN_ROWS = 20

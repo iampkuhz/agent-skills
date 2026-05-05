@@ -32,8 +32,10 @@ case "$CMD" in
         echo "  scan                          Full scan: drop DB and re-scan all sessions"
         echo "  scan --incremental            Incremental scan: only re-parse changed .jsonl files"
         echo "  scan --agent <name>           Scan only a specific agent (claude_code or codex)"
+        echo "  scan --force                  Kill existing scan process without prompting"
         echo "  serve                         Start local web server (with background incremental scanner)"
         echo "  serve --no-scan               Start server without background scanner"
+        echo "  serve --force                 Kill existing server on port without prompting"
         echo "  stop                          Stop the running web server"
         echo ""
         echo "Background scanner tiers:"
@@ -46,7 +48,9 @@ case "$CMD" in
         echo "  $0 scan --incremental"
         echo "  $0 scan --agent codex"
         echo "  $0 scan --agent claude_code"
+        echo "  $0 scan --force            # kill existing scan, restart"
         echo "  $0 serve --port 8899"
+        echo "  $0 serve --force           # kill existing server, restart"
         echo "  $0 stop"
         ;;
 esac

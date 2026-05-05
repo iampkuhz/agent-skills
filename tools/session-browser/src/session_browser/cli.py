@@ -65,9 +65,69 @@ def _run_command(
     return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
+def _find_running_scan_pid() -> int | None:
+    """Find PID of a running 'session_browser scan' process (excluding self)."""
+    my_pid = os.getpid()
+    try:
+        result = subprocess.run(
+            ["ps", "aux"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.splitlines():
+            if "session_browser" in line and " scan" in line and str(my_pid) not in line.split()[1:2]:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        pid = int(parts[1])
+                        if pid != my_pid:
+                            return pid
+                    except ValueError:
+                        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+def _kill_process(pid: int) -> bool:
+    """Try to kill a process, return True if successful."""
+    try:
+        os.kill(pid, signal.SIGTERM)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        try:
+            os.kill(pid, signal.SIGKILL)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+
 def cmd_scan(args: argparse.Namespace) -> None:
     """Run a full or incremental scan."""
     from session_browser.index.indexer import full_scan, incremental_scan, init_schema, _get_connection
+
+    # Check if a scan is already running
+    force = getattr(args, "force", False)
+    scan_pid = _find_running_scan_pid()
+    if scan_pid is not None:
+        print(f"A scan process (PID {scan_pid}) is already running.")
+        if force:
+            print("--force: killing existing scan automatically.")
+        else:
+            try:
+                answer = input("Kill it and restart? [y/N]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                answer = "n"
+        if force or answer in ("y", "yes"):
+            if _kill_process(scan_pid):
+                print(f"Killed PID {scan_pid}. Waiting for process to exit...")
+                time.sleep(1)
+            else:
+                print(f"Failed to kill PID {scan_pid}, proceeding anyway.")
+        else:
+            print("Aborted.")
+            sys.exit(0)
 
     conn = _get_connection()
 
@@ -152,6 +212,23 @@ def _ensure_schema_exists(conn) -> None:
     conn.commit()
 
 
+def _find_pids_on_port(port: int) -> list[int]:
+    """Find PIDs of processes listening on the given port."""
+    pids = []
+    try:
+        result = _run_command(["lsof", "-ti", f":{port}"], timeout=5)
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    pids.append(int(line))
+                except ValueError:
+                    pass
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return pids
+
+
 def cmd_serve(args: argparse.Namespace) -> None:
     """Start the local web server with tiered background incremental scanner."""
     from session_browser.web.routes import create_server
@@ -160,6 +237,33 @@ def cmd_serve(args: argparse.Namespace) -> None:
         TIER_HOT_SECONDS, TIER_HOT_INTERVAL,
         TIER_WARM_SECONDS, TIER_WARM_INTERVAL,
     )
+
+    port = args.port or SERVER_PORT
+    host = args.host or SERVER_HOST
+    force = getattr(args, "force", False)
+
+    # Check if a server is already running on this port
+    existing_pids = _find_pids_on_port(port)
+    if existing_pids:
+        pid_list = ", ".join(str(p) for p in existing_pids)
+        print(f"A process is already listening on {host}:{port} (PIDs: {pid_list}).")
+        if force:
+            print("--force: killing existing server automatically.")
+        else:
+            try:
+                answer = input("Kill it and restart? [y/N]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                answer = "n"
+        if force or answer in ("y", "yes"):
+            for pid in existing_pids:
+                if _kill_process(pid):
+                    print(f"Killed PID {pid}.")
+                else:
+                    print(f"Failed to kill PID {pid}.")
+            time.sleep(1)
+        else:
+            print("Aborted.")
+            sys.exit(0)
 
     # Ensure index exists (without dropping existing data)
     conn = _get_connection()
@@ -183,9 +287,6 @@ def cmd_serve(args: argparse.Namespace) -> None:
         )
         scanner.start()
         print(f"Background scanner started (hot: every {TIER_HOT_INTERVAL}s, warm: every {TIER_WARM_INTERVAL}s)")
-
-    host = args.host or SERVER_HOST
-    port = args.port or SERVER_PORT
 
     server = create_server(host=host, port=port)
     print(f"Starting session-browser on http://{host}:{port}")
@@ -317,6 +418,8 @@ def main() -> None:
                         help="Only scan sessions whose source files have changed")
     scan_p.add_argument("--agent", choices=["claude_code", "codex", "qoder"],
                         help="Scan only a specific agent (claude_code, codex, or qoder)")
+    scan_p.add_argument("--force", "-f", action="store_true",
+                        help="Kill existing scan process without prompting")
 
     # serve command
     serve_p = sub.add_parser("serve", help="Start local web server")
@@ -324,6 +427,8 @@ def main() -> None:
     serve_p.add_argument("--port", type=int, default=SERVER_PORT, help=f"Port (default: {SERVER_PORT})")
     serve_p.add_argument("--allow-empty", action="store_true", help="Allow starting with empty index")
     serve_p.add_argument("--no-scan", action="store_true", help="Disable background incremental scanner")
+    serve_p.add_argument("--force", "-f", action="store_true",
+                        help="Kill existing server on port without prompting")
 
     # stop command
     stop_p = sub.add_parser("stop", help="Stop the running web server")
