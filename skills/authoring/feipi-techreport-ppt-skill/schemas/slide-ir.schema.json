@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SlideIR",
+  "description": "Slide Intermediate Representation — 页面布局的稳定中间表示",
+  "type": "object",
+  "required": [
+    "version",
+    "slide_id",
+    "language",
+    "audience",
+    "canvas",
+    "layout_pattern",
+    "source_summary",
+    "takeaway",
+    "regions",
+    "elements",
+    "constraints",
+    "provenance"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Slide IR schema 版本，例如 v1",
+      "const": "v1"
+    },
+    "slide_id": {
+      "type": "string",
+      "description": "页面唯一标识符，用于追踪和 QA 报告引用"
+    },
+    "language": {
+      "type": "string",
+      "description": "页面语言",
+      "default": "zh-CN"
+    },
+    "audience": {
+      "type": "string",
+      "description": "目标受众",
+      "default": "CTO / technical executive"
+    },
+    "canvas": {
+      "$ref": "#/$defs/canvas"
+    },
+    "layout_pattern": {
+      "$ref": "#/$defs/layout_pattern"
+    },
+    "source_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_item"
+      },
+      "minItems": 1,
+      "description": "用户提供的原始材料摘要列表"
+    },
+    "takeaway": {
+      "type": "string",
+      "description": "一句话结论，对应 Page Contract 中的「一句话结论」",
+      "minLength": 1
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/region"
+      },
+      "minItems": 1,
+      "description": "页面区域划分，定义空间布局"
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/element"
+      },
+      "minItems": 1,
+      "description": "页面元素列表，每个元素对应一个具体组件"
+    },
+    "constraints": {
+      "$ref": "#/$defs/global_constraints"
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/provenance_entry"
+      },
+      "minItems": 1,
+      "description": "来源追溯，记录每个元素来自哪些原始材料"
+    },
+    "backend_hints": {
+      "$ref": "#/$defs/backend_hints"
+    }
+  },
+  "additionalProperties": false,
+
+  "$defs": {
+    "canvas": {
+      "type": "object",
+      "required": ["preset", "width_in", "height_in", "safe_margin_in"],
+      "properties": {
+        "preset": {
+          "type": "string",
+          "default": "wide_16_9",
+          "description": "预设尺寸名称"
+        },
+        "width_in": {
+          "type": "number",
+          "minimum": 1,
+          "default": 13.33,
+          "description": "页面宽度（英寸）"
+        },
+        "height_in": {
+          "type": "number",
+          "minimum": 1,
+          "default": 7.5,
+          "description": "页面高度（英寸）"
+        },
+        "safe_margin_in": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "description": "统一四周边距（英寸）"
+            },
+            {
+              "type": "object",
+              "required": ["top", "right", "bottom", "left"],
+              "properties": {
+                "top": { "type": "number", "minimum": 0 },
+                "right": { "type": "number", "minimum": 0 },
+                "bottom": { "type": "number", "minimum": 0 },
+                "left": { "type": "number", "minimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "layout_pattern": {
+      "type": "string",
+      "enum": [
+        "architecture-map",
+        "layered-stack",
+        "flow-diagram",
+        "comparison-matrix",
+        "roadmap-timeline",
+        "metrics-dashboard",
+        "decision-tree",
+        "capability-map"
+      ],
+      "description": "页面版式模式，对应 layout-patterns.md 中定义的 8 类"
+    },
+
+    "source_item": {
+      "type": "object",
+      "required": ["source_id", "content_type", "description"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "description": "原始材料唯一标识，例如 src_1"
+        },
+        "content_type": {
+          "type": "string",
+          "enum": ["text", "data", "diagram_desc", "table", "comparison", "roadmap", "other"],
+          "description": "原始材料类型"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始材料摘要"
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "region": {
+      "type": "object",
+      "required": ["id", "role", "bounds", "capacity", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "区域唯一标识符，例如 region_header"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "header",
+            "primary_visual",
+            "side_panel",
+            "evidence_zone",
+            "takeaway_bar",
+            "footer",
+            "kpi_row",
+            "insight_panel"
+          ],
+          "description": "区域语义角色"
+        },
+        "bounds": {
+          "type": "object",
+          "required": ["x", "y", "w", "h"],
+          "properties": {
+            "x": { "type": "number", "description": "左上角 x 坐标（英寸）" },
+            "y": { "type": "number", "description": "左上角 y 坐标（英寸）" },
+            "w": { "type": "number", "minimum": 0, "description": "宽度（英寸）" },
+            "h": { "type": "number", "minimum": 0, "description": "高度（英寸）" }
+          },
+          "additionalProperties": false,
+          "description": "区域边界（inch 坐标）"
+        },
+        "capacity": {
+          "type": "object",
+          "properties": {
+            "max_items": { "type": "integer", "minimum": 1, "description": "最大元素数量" },
+            "max_text_chars": { "type": "integer", "minimum": 1, "description": "最大文字数量" },
+            "max_table_rows": { "type": "integer", "minimum": 1, "description": "最大表格行数" },
+            "max_table_cols": { "type": "integer", "minimum": 1, "description": "最大表格列数" }
+          },
+          "additionalProperties": false,
+          "description": "区域容量限制"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "区域优先级，1 为最高"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "element": {
+      "type": "object",
+      "required": ["id", "kind", "semantic_role", "region_id", "content"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "元素唯一标识符，例如 elem_title"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "text",
+            "component_node",
+            "connector",
+            "step_marker",
+            "table",
+            "matrix",
+            "kpi_card",
+            "note",
+            "legend",
+            "footer_note"
+          ],
+          "description": "元素类型"
+        },
+        "semantic_role": {
+          "type": "string",
+          "enum": [
+            "title",
+            "subtitle",
+            "takeaway",
+            "system_component",
+            "process_step",
+            "data_flow",
+            "explanation",
+            "risk",
+            "evidence",
+            "source_note"
+          ],
+          "description": "元素语义角色"
+        },
+        "region_id": {
+          "type": "string",
+          "description": "该元素所属的区域 ID，必须引用 regions 中存在的 id"
+        },
+        "content": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "description": "文本内容"
+            },
+            {
+              "type": "object",
+              "description": "结构化内容（表格、矩阵等）",
+              "properties": {
+                "headers": { "type": "array", "items": { "type": "string" } },
+                "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+                "cells": { "type": "array", "items": { "type": "object" } },
+                "value": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+                "label": { "type": "string" },
+                "steps": { "type": "array", "items": { "type": "object" } },
+                "text": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number", "description": "x 坐标（英寸），Layout Solver 输出" },
+            "y": { "type": "number", "description": "y 坐标（英寸）" },
+            "w": { "type": "number", "minimum": 0, "description": "宽度（英寸）" },
+            "h": { "type": "number", "minimum": 0, "description": "高度（英寸）" },
+            "alignment": { "type": "string", "enum": ["left", "center", "right", "top", "bottom"] },
+            "position_hint": { "type": "string", "description": "位置提示，用于 Layout Solver" }
+          },
+          "additionalProperties": true,
+          "description": "布局信息，可由 Layout Solver 填充"
+        },
+        "style": {
+          "type": "object",
+          "properties": {
+            "font_size_pt": { "type": "number", "minimum": 6 },
+            "font_family": { "type": "string" },
+            "bold": { "type": "boolean" },
+            "color": { "type": "string" },
+            "background_color": { "type": "string" },
+            "border": { "type": "object" },
+            "shape_type": { "type": "string", "description": "shape 类型，如 rect, rounded_rect, arrow 等" },
+            "connector_type": { "type": "string", "description": "连接线类型" },
+            "highlight": { "type": "boolean", "description": "是否高亮" }
+          },
+          "additionalProperties": true,
+          "description": "样式属性"
+        },
+        "constraints": {
+          "$ref": "#/$defs/element_constraints"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "引用的 source_id 列表，必须与 provenance 中的 source_id 对应"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "global_constraints": {
+      "type": "object",
+      "properties": {
+        "min_font_pt": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "number", "minimum": 1 },
+            "body": { "type": "number", "minimum": 1 },
+            "footnote": { "type": "number", "minimum": 1 },
+            "table_cell": { "type": "number", "minimum": 1 }
+          },
+          "additionalProperties": false,
+          "description": "全局最小字号（pt）"
+        },
+        "no_overlap": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否禁止元素重叠"
+        },
+        "max_table_rows": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "全局最大表格行数"
+        },
+        "max_table_cols": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "全局最大表格列数"
+        },
+        "max_kpi_cards": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "全局最大 KPI card 数量"
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "element_constraints": {
+      "type": "object",
+      "properties": {
+        "min_font_pt": { "type": "number", "minimum": 1, "description": "该元素最小字号" },
+        "max_lines": { "type": "integer", "minimum": 1, "description": "最大行数" },
+        "no_overlap_with": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "不可与之重叠的元素 ID 列表"
+        },
+        "must_stay_within_region": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否必须停留在所属区域内"
+        },
+        "allow_intentional_containment": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否允许有意包含（如高亮框覆盖某元素）"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "约束优先级"
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "provenance_entry": {
+      "type": "object",
+      "required": ["source_id", "source_type", "quote_or_summary", "used_by_elements"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "description": "与 source_summary 中的 source_id 对应"
+        },
+        "source_type": {
+          "type": "string",
+          "enum": ["user_input", "derived", "layout_only"],
+          "description": "来源类型：用户输入、推导结果、纯布局"
+        },
+        "quote_or_summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始引用或摘要"
+        },
+        "used_by_elements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "使用该来源的元素 ID 列表"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "backend_hints": {
+      "type": "object",
+      "properties": {
+        "preferred_backend": {
+          "type": "string",
+          "enum": ["pptxgenjs-native", "template-placeholder", "svg-to-drawingml", "html-to-pptx"],
+          "description": "推荐后端"
+        },
+        "template_path": {
+          "type": "string",
+          "description": "模板文件路径（当 backend 为 template-placeholder 时）"
+        },
+        "master_slide_name": {
+          "type": "string",
+          "description": "母版名称"
+        },
+        "notes": {
+          "type": "string",
+          "description": "其他后端相关提示"
+        }
+      },
+      "additionalProperties": true,
+      "description": "Backend 编译提示信息"
+    }
+  }
+}

@@ -1,0 +1,226 @@
+{
+  "version": "v1",
+  "slide_id": "matrix-consensus-comparison-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "comparison-matrix",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "comparison",
+      "description": "Whale vs Tempo vs Arc vs Solana 在共识机制、TPS、出块时间、节点要求、最终性 5 个维度的对比数据"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "text",
+      "description": "Whale 当前目标：TPS 从 2,400 提升至 10,000，P99 延迟降至 200ms 以内"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "关键差距：最终性时间 Whale 为 6s，Solana 为 0.4s；TPS Whale 实测 2,400，Solana 实测 3,500"
+    }
+  ],
+  "takeaway": "Whale 在最终性时间上差距最大，共识机制优化是下一阶段优先方向",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_kpi",
+      "role": "kpi_row",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 4, "max_text_chars": 80 },
+      "priority": 2
+    },
+    {
+      "id": "region_matrix",
+      "role": "evidence_zone",
+      "bounds": { "x": 0.5, "y": 2.5, "w": 8.5, "h": 3.5 },
+      "capacity": { "max_items": 1, "max_table_rows": 5, "max_table_cols": 5 },
+      "priority": 3
+    },
+    {
+      "id": "region_insight",
+      "role": "insight_panel",
+      "bounds": { "x": 9.2, "y": 2.5, "w": 3.63, "h": 3.5 },
+      "capacity": { "max_items": 3, "max_text_chars": 200 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.5, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 7.1, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 80 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "共识链性能对比：Whale 目标与差距",
+      "layout": { "alignment": "left", "position_hint": "header-top" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_kpi_1",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "TPS 差距", "value": "2,400 vs 3,500" },
+      "layout": { "x": 0.5, "y": 1.5, "w": 2.8, "h": 0.7, "position_hint": "kpi-left" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_kpi_2",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "最终性", "value": "6s vs 0.4s" },
+      "layout": { "x": 3.5, "y": 1.5, "w": 2.8, "h": 0.7, "position_hint": "kpi-center-left" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_kpi_3",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "目标 TPS", "value": "10,000" },
+      "layout": { "x": 6.5, "y": 1.5, "w": 2.8, "h": 0.7, "position_hint": "kpi-center-right" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_kpi_4",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "目标延迟", "value": "P99 < 200ms" },
+      "layout": { "x": 9.5, "y": 1.5, "w": 2.8, "h": 0.7, "position_hint": "kpi-right" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_matrix",
+      "kind": "matrix",
+      "semantic_role": "evidence",
+      "region_id": "region_matrix",
+      "content": {
+        "headers": ["维度", "Whale", "Tempo", "Arc", "Solana"],
+        "rows": [
+          ["共识机制", "PBFT 变种", "PoS + BFT", "PoW + PoS", "PoH + PoS"],
+          ["实测 TPS", "2,400", "1,800", "900", "3,500"],
+          ["出块间隔", "2s", "3s", "10s", "0.4s"],
+          ["最终性", "6s", "9s", "60s", "0.4s"],
+          ["节点配置", "32C/128G", "16C/64G", "8C/32G", "轻量"]
+        ]
+      },
+      "layout": { "x": 0.5, "y": 2.5, "w": 8.5, "h": 3.5, "position_hint": "center-left" },
+      "style": { "font_size_pt": 10 },
+      "constraints": {
+        "must_stay_within_region": true,
+        "max_lines": 5,
+        "no_overlap_with": ["elem_insight"],
+        "priority": "critical"
+      },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_insight",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_insight",
+      "content": "关键差距\n\n1. 最终性时间差距最大（6s vs 0.4s）\n2. TPS 需提升 4x 才达目标\n3. 节点配置要求偏高，不利于去中心化",
+      "layout": { "x": 9.2, "y": 2.5, "w": 3.63, "h": 3.5 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 8, "no_overlap_with": ["elem_matrix"], "priority": "high" },
+      "source_refs": ["src_3", "src_1"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "Whale 在最终性时间上差距最大，共识机制优化是下一阶段优先方向",
+      "layout": { "alignment": "center", "position_hint": "bottom-bar" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：各链官方文档 2026 Q1 · 实测数据可能存在波动",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": {
+      "title": 18,
+      "body": 10,
+      "footnote": 8.5,
+      "table_cell": 8.5
+    },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 5,
+    "max_kpi_cards": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "Whale vs Tempo vs Arc vs Solana 在共识机制、TPS、出块时间、节点要求、最终性 5 个维度的对比",
+      "used_by_elements": ["elem_title", "elem_matrix", "elem_insight", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "Whale 当前目标：TPS 从 2,400 提升至 10,000，P99 延迟降至 200ms",
+      "used_by_elements": ["elem_kpi_3", "elem_kpi_4"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "关键差距：最终性时间 Whale 6s vs Solana 0.4s；TPS 实测 2,400 vs 3,500",
+      "used_by_elements": ["elem_kpi_1", "elem_kpi_2", "elem_insight", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "包含矩阵和 KPI cards，需要 table 和 shape 组合能力"
+  }
+}

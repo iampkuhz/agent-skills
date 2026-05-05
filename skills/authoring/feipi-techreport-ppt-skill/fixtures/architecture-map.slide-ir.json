@@ -1,0 +1,281 @@
+{
+  "version": "v1",
+  "slide_id": "arch-whale-consensus-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "architecture-map",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "diagram_desc",
+      "description": "Whale 共识层采用 PBFT 变种，当前 128 个验证节点，出块间隔 2 秒，吞吐实测 2,400 TPS，理论上限 20,000 TPS"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "text",
+      "description": "共识路径分为三阶段：提议（Propose）→ 预投票（Pre-Vote）→ 提交（Commit），每阶段可容忍最多 f=42 个拜占庭节点"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "关键风险：网络分区导致预投票超时，需引入 fallback 机制；当前 P99 延迟 800ms，目标降至 200ms"
+    }
+  ],
+  "takeaway": "共识路径三阶段清晰，但 P99 延迟和分区容错是当前主要瓶颈",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 8.5, "h": 4.8 },
+      "capacity": { "max_items": 10, "max_text_chars": 300 },
+      "priority": 2
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.2, "y": 1.5, "w": 3.63, "h": 4.8 },
+      "capacity": { "max_items": 4, "max_text_chars": 250 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.5, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 7.1, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 80 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "Whale 共识路径与关键瓶颈",
+      "layout": { "alignment": "left", "position_hint": "header-top" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "PBFT 变种 · 128 节点 · P99 延迟 800ms",
+      "layout": { "alignment": "left", "position_hint": "header-bottom" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "elem_node_propose",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "Propose\n提议阶段", "shape_type": "rounded_rect" },
+      "layout": { "x": 1.0, "y": 2.0, "w": 2.2, "h": 1.2, "position_hint": "left" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_node_prevote",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "Pre-Vote\n预投票阶段", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.8, "y": 2.0, "w": 2.2, "h": 1.2, "position_hint": "center" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_node_propose"], "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_node_commit",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "Commit\n提交阶段", "shape_type": "rounded_rect" },
+      "layout": { "x": 6.6, "y": 2.0, "w": 2.2, "h": 1.2, "position_hint": "right" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_node_prevote"], "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_conn_1",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_node_propose", "to": "elem_node_prevote" },
+      "layout": { "position_hint": "between-propose-prevote" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_conn_2",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_node_prevote", "to": "elem_node_commit" },
+      "layout": { "position_hint": "between-prevote-commit" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_bft_tolerance",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "拜占庭容错: f=42 (n=128)\n出块间隔: 2s | 实测吞吐: 2,400 TPS",
+      "layout": { "x": 1.0, "y": 3.8, "w": 5.0, "h": 1.0, "position_hint": "below-nodes" },
+      "style": { "font_size_pt": 10, "color": "#444444" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_1", "src_2"]
+    },
+    {
+      "id": "elem_step_1",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Phase 1", "value": 1 },
+      "layout": { "x": 1.0, "y": 1.6, "w": 0.5, "h": 0.3 },
+      "style": { "font_size_pt": 9, "color": "#1A73E8", "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "low" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_step_2",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Phase 2", "value": 2 },
+      "layout": { "x": 3.8, "y": 1.6, "w": 0.5, "h": 0.3 },
+      "style": { "font_size_pt": 9, "color": "#1A73E8", "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "low" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_step_3",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Phase 3", "value": 3 },
+      "layout": { "x": 6.6, "y": 1.6, "w": 0.5, "h": 0.3 },
+      "style": { "font_size_pt": 9, "color": "#1A73E8", "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "low" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_risk_partition",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "网络分区风险\n预投票超时需 fallback 机制",
+      "layout": { "x": 9.5, "y": 1.8, "w": 3.0, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#C5221F", "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "no_overlap_with": ["elem_risk_latency"], "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_risk_latency",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "延迟瓶颈\nP99: 800ms → 目标 200ms",
+      "layout": { "x": 9.5, "y": 3.0, "w": 3.0, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#E37400", "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "no_overlap_with": ["elem_risk_partition"], "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_throughput",
+      "kind": "note",
+      "semantic_role": "evidence",
+      "region_id": "region_side",
+      "content": "吞吐能力\n实测 2,400 TPS\n理论 20,000 TPS\n利用率 12%",
+      "layout": { "x": 9.5, "y": 4.2, "w": 3.0, "h": 1.2 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 5, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "共识路径三阶段清晰，但 P99 延迟和分区容错是当前主要瓶颈",
+      "layout": { "alignment": "center", "position_hint": "bottom-bar" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：Whale 技术文档 v3.2 · 2026 Q1 实测数据",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": {
+      "title": 18,
+      "body": 10,
+      "footnote": 8.5,
+      "table_cell": 8.5
+    },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "Whale 共识层采用 PBFT 变种，128 个验证节点，出块间隔 2 秒，吞吐实测 2,400 TPS，理论上限 20,000 TPS",
+      "used_by_elements": ["elem_subtitle", "elem_bft_tolerance", "elem_throughput", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "共识路径三阶段：提议 → 预投票 → 提交，每阶段容错 f=42",
+      "used_by_elements": ["elem_node_propose", "elem_node_prevote", "elem_node_commit", "elem_conn_1", "elem_conn_2", "elem_bft_tolerance", "elem_step_1", "elem_step_2", "elem_step_3", "elem_takeaway"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "网络分区导致预投票超时需 fallback；P99 延迟 800ms 目标 200ms",
+      "used_by_elements": ["elem_subtitle", "elem_risk_partition", "elem_risk_latency", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "架构图需要可编辑的 shape 和连接线，使用 pptxgenjs-native 生成"
+  }
+}

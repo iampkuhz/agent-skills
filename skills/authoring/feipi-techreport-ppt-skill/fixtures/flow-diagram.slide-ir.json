@@ -1,0 +1,290 @@
+{
+  "version": "v1",
+  "slide_id": "flow-api-gateway-lifecycle-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "flow-diagram",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "text",
+      "description": "API Gateway 请求处理 6 步流程：接收请求 → 身份验证 → 限流检查 → 路由分发 → 后端调用 → 响应组装返回"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "text",
+      "description": "每步输入输出：身份验证输入 JWT Token，输出用户上下文；限流输入请求特征，输出允许/拒绝决策"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "关键瓶颈：限流检查 P99 延迟 45ms，占全链路 30%；路由分发需支持动态权重"
+    }
+  ],
+  "takeaway": "限流检查是当前最大延迟来源，优化后全链路 P99 可降低 30%",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 12.33, "h": 3.5 },
+      "capacity": { "max_items": 12, "max_text_chars": 400 },
+      "priority": 2
+    },
+    {
+      "id": "region_evidence",
+      "role": "evidence_zone",
+      "bounds": { "x": 0.5, "y": 5.2, "w": 12.33, "h": 1.2 },
+      "capacity": { "max_items": 4, "max_text_chars": 200 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.5, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 7.1, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 80 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "API Gateway 请求处理链路",
+      "layout": { "alignment": "left", "position_hint": "header-top" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_step_1",
+      "kind": "component_node",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "接收请求", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.8, "y": 2.5, "w": 1.6, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_step_2",
+      "kind": "component_node",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "身份验证", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.8, "y": 2.5, "w": 1.6, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_step_1"], "priority": "high" },
+      "source_refs": ["src_1", "src_2"]
+    },
+    {
+      "id": "elem_step_3",
+      "kind": "component_node",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "限流检查", "shape_type": "rounded_rect" },
+      "layout": { "x": 4.8, "y": 2.5, "w": 1.6, "h": 0.8 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FEF7E0", "color": "#E37400" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_step_2"], "priority": "critical" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "elem_step_4",
+      "kind": "component_node",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "路由分发", "shape_type": "rounded_rect" },
+      "layout": { "x": 6.8, "y": 2.5, "w": 1.6, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_step_3"], "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "elem_step_5",
+      "kind": "component_node",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "后端调用", "shape_type": "rounded_rect" },
+      "layout": { "x": 8.8, "y": 2.5, "w": 1.6, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_step_4"], "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_step_6",
+      "kind": "component_node",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "响应组装", "shape_type": "rounded_rect" },
+      "layout": { "x": 10.8, "y": 2.5, "w": 1.6, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "no_overlap_with": ["elem_step_5"], "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_1",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_step_1", "to": "elem_step_2" },
+      "layout": { "position_hint": "between-1-2" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_2",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_step_2", "to": "elem_step_3" },
+      "layout": { "position_hint": "between-2-3" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_3",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_step_3", "to": "elem_step_4" },
+      "layout": { "position_hint": "between-3-4" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_4",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_step_4", "to": "elem_step_5" },
+      "layout": { "position_hint": "between-4-5" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_5",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_step_5", "to": "elem_step_6" },
+      "layout": { "position_hint": "between-5-6" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_io_auth",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_evidence",
+      "content": "身份验证：输入 JWT Token → 输出用户上下文（uid, roles, exp）",
+      "layout": { "x": 0.5, "y": 5.3, "w": 5.8, "h": 0.5 },
+      "style": { "font_size_pt": 9.5 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_io_ratelimit",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_evidence",
+      "content": "限流检查：输入请求特征（ip, uid, path）→ 输出 允许/拒绝决策 · P99 45ms",
+      "layout": { "x": 6.5, "y": 5.3, "w": 6.3, "h": 0.5 },
+      "style": { "font_size_pt": 9.5, "color": "#E37400" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "high" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_io_route",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_evidence",
+      "content": "路由分发：需支持动态权重，按灰度比例路由到新旧版本",
+      "layout": { "x": 0.5, "y": 5.9, "w": 5.8, "h": 0.5 },
+      "style": { "font_size_pt": 9.5 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "限流检查是当前最大延迟来源，优化后全链路 P99 可降低 30%",
+      "layout": { "alignment": "center", "position_hint": "bottom-bar" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：API Gateway 监控面板 · 2026 Q1 生产环境采样",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": {
+      "title": 18,
+      "body": 10,
+      "footnote": 8.5,
+      "table_cell": 8.5
+    },
+    "no_overlap": true
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "API Gateway 请求处理 6 步流程：接收请求 → 身份验证 → 限流检查 → 路由分发 → 后端调用 → 响应组装返回",
+      "used_by_elements": ["elem_title", "elem_step_1", "elem_step_2", "elem_step_3", "elem_step_4", "elem_step_5", "elem_step_6", "elem_conn_1", "elem_conn_2", "elem_conn_3", "elem_conn_4", "elem_conn_5", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "身份验证输入 JWT Token 输出用户上下文；限流输入请求特征输出允许/拒绝决策",
+      "used_by_elements": ["elem_step_2", "elem_io_auth", "elem_io_ratelimit"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "限流检查 P99 延迟 45ms 占全链路 30%；路由分发需支持动态权重",
+      "used_by_elements": ["elem_step_3", "elem_step_4", "elem_io_ratelimit", "elem_io_route", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "6 步流程图需要 connector 连接各节点，使用 pptxgenjs-native 生成"
+  }
+}
