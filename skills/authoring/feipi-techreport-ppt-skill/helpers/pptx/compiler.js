@@ -13,7 +13,12 @@ const theme = require('./theme');
 const BUILDERS = {
   'architecture-map':  require('./builders/architecture-map'),
   'flow-diagram':       require('./builders/flow-diagram'),
-  'comparison-matrix':  require('./builders/comparison-matrix')
+  'comparison-matrix':  require('./builders/comparison-matrix'),
+  'layered-stack':      require('./builders/layered-stack'),
+  'roadmap-timeline':   require('./builders/roadmap-timeline'),
+  'metrics-dashboard':  require('./builders/metrics-dashboard'),
+  'decision-tree':      require('./builders/decision-tree'),
+  'capability-map':     require('./builders/capability-map')
 };
 
 /**
@@ -35,9 +40,9 @@ function checkDependency() {
  * 编译 Slide IR 为 PPTX。
  * @param {Object} slideIR - Slide IR 对象
  * @param {string} outputPath - 输出文件路径
- * @returns {{success: boolean, summary: Object|null, error: string|null}}
+ * @returns {Promise<{success: boolean, summary: Object|null, error: string|null}>}
  */
-function compile(slideIR, outputPath) {
+async function compile(slideIR, outputPath) {
   const depCheck = checkDependency();
   if (!depCheck.available) {
     return { success: false, summary: null, error: depCheck.error };
@@ -70,7 +75,17 @@ function compile(slideIR, outputPath) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    pres.writeFile({ outputType: 'nodefs', fileName: outputPath });
+    // writeFile returns a Promise when using nodefs — must await
+    await pres.writeFile({ outputType: 'nodefs', fileName: outputPath });
+
+    // Verify output file exists and is non-empty
+    if (!fs.existsSync(outputPath)) {
+      return { success: false, summary: null, error: `PPTX 文件未生成: ${outputPath}` };
+    }
+    const stat = fs.statSync(outputPath);
+    if (stat.size === 0) {
+      return { success: false, summary: null, error: `PPTX 文件大小为 0: ${outputPath}` };
+    }
 
     return {
       success: true,

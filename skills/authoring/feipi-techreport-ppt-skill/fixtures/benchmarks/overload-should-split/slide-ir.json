@@ -1,0 +1,317 @@
+{
+  "version": "v1",
+  "slide_id": "bench-overload-should-split-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "architecture-map",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "text",
+      "description": "系统架构：12 个微服务组件，分为接入层（API Gateway、负载均衡、WAF）、业务层（用户、订单、支付、库存、通知、搜索）、数据层（PostgreSQL、Redis）、基础设施（Prometheus、Grafana）"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "data",
+      "description": "性能数据表：8 行 × 5 列，包含服务名、QPS、P99 延迟、错误率、CPU 使用率。数据行：Gateway 50K/45ms/0.01%/60%，用户服务 10K/30ms/0.02%/45%，订单 15K/80ms/0.05%/75%，支付 8K/120ms/0.1%/85%，库存 12K/25ms/0.01%/40%，通知 5K/200ms/0.5%/30%，搜索 20K/15ms/0.005%/55%，PG /10ms/0%/90%，Redis /2ms/0%/65%，Prometheus /50ms/0%/40%"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "团队规划 10+ bullet：Q1 招 3 名后端、Q2 引入 SRE 角色、Q3 建立 oncall 机制、Q4 技术分享月度化、推动代码评审覆盖率 100%、建立性能预算、引入混沌工程、推进 GitOps、建立容量规划流程、推动 API 版本管理"
+    }
+  ],
+  "takeaway": "本页包含架构、性能、团队规划三个独立主题，应拆分为三页以便清晰传达",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 150 },
+      "priority": 1
+    },
+    {
+      "id": "region_arch",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 6.0, "h": 3.0 },
+      "capacity": { "max_items": 12, "max_text_chars": 200 },
+      "priority": 2
+    },
+    {
+      "id": "region_perf",
+      "role": "evidence_zone",
+      "bounds": { "x": 6.7, "y": 1.5, "w": 6.13, "h": 2.5 },
+      "capacity": { "max_items": 10, "max_text_chars": 300 },
+      "priority": 3
+    },
+    {
+      "id": "region_team",
+      "role": "side_panel",
+      "bounds": { "x": 0.5, "y": 4.7, "w": 12.33, "h": 1.5 },
+      "capacity": { "max_items": 12, "max_text_chars": 250 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.4, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 7.0, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "系统架构 · 性能数据 · 团队规划",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1", "src_2", "src_3"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "架构概览 + 性能指标 + 团队规划（本页内容较多，建议拆分）",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 11, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_2", "src_3"]
+    },
+    {
+      "id": "arch_gateway",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "API Gateway", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 1.7, "w": 1.5, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_lb",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "负载均衡", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.4, "y": 1.7, "w": 1.2, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_waf",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "WAF", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.8, "y": 1.7, "w": 1.0, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_user",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "用户", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 2.5, "w": 0.9, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_order",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "订单", "shape_type": "rounded_rect" },
+      "layout": { "x": 1.8, "y": 2.5, "w": 0.9, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_payment",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "支付", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.9, "y": 2.5, "w": 0.9, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_inventory",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "库存", "shape_type": "rounded_rect" },
+      "layout": { "x": 4.0, "y": 2.5, "w": 0.9, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_notify",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "通知", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.1, "y": 2.5, "w": 0.9, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_search",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "搜索", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 3.3, "w": 0.9, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_pg",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "PostgreSQL", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.4, "y": 3.3, "w": 1.2, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_redis",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "Redis", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.8, "y": 3.3, "w": 1.0, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "arch_monitor",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_arch",
+      "content": { "label": "Prometheus\nGrafana", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.1, "y": 3.3, "w": 1.2, "h": 0.5 },
+      "style": { "font_size_pt": 10, "background_color": "#F3E8FF" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "perf_table",
+      "kind": "table",
+      "semantic_role": "evidence",
+      "region_id": "region_perf",
+      "content": {
+        "headers": ["服务", "QPS", "P99", "错误率", "CPU"],
+        "rows": [
+          ["Gateway", "50K", "45ms", "0.01%", "60%"],
+          ["用户", "10K", "30ms", "0.02%", "45%"],
+          ["订单", "15K", "80ms", "0.05%", "75%"],
+          ["支付", "8K", "120ms", "0.1%", "85%"],
+          ["库存", "12K", "25ms", "0.01%", "40%"],
+          ["通知", "5K", "200ms", "0.5%", "30%"],
+          ["搜索", "20K", "15ms", "0.005%", "55%"],
+          ["PG", "—", "10ms", "0%", "90%"]
+        ]
+      },
+      "layout": { "x": 6.9, "y": 1.7, "w": 5.8, "h": 2.0 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "team_q1",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_team",
+      "content": "团队规划：Q1 招 3 名后端 · Q2 引入 SRE · Q3 建立 oncall · Q4 技术分享月度化 · 代码评审 100% · 性能预算 · 混沌工程 · GitOps · 容量规划 · API 版本管理",
+      "layout": { "x": 0.7, "y": 4.9, "w": 12.0, "h": 1.2 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 4, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "本页包含架构、性能、团队规划三个独立主题，应拆分为三页以便清晰传达",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#E37400" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_1", "src_2", "src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：架构评审 + APM 监控 + 团队规划 2026 Q1",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 10, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 5
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "12 个微服务组件，分为接入层、业务层、数据层、基础设施",
+      "used_by_elements": ["elem_title", "elem_subtitle", "arch_gateway", "arch_lb", "arch_waf", "arch_user", "arch_order", "arch_payment", "arch_inventory", "arch_notify", "arch_search", "arch_pg", "arch_redis", "arch_monitor", "elem_takeaway", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "性能数据表：8 行 × 5 列，包含各服务 QPS、P99、错误率、CPU 使用率",
+      "used_by_elements": ["elem_title", "elem_subtitle", "perf_table", "elem_takeaway"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "团队规划 10+ bullet：招聘、SRE、oncall、技术分享、代码评审、性能预算、混沌工程、GitOps、容量规划、API 版本管理",
+      "used_by_elements": ["elem_title", "elem_subtitle", "team_q1", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "此页故意过载，容量检查应输出 needs_user_decision，建议拆分为架构页、性能页、团队规划页"
+  }
+}

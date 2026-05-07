@@ -174,6 +174,66 @@ Repair (修改 IR → 重新求解)
   - `fixtures/comparison-matrix.slide-ir.json` — 对比矩阵示例
   - `fixtures/flow-diagram.slide-ir.json` — 流程图示例
 
+## Normalized IR（规范化 IR）
+
+Authored IR（用户/LLM 手写）和 Normalized IR（规范化后）存在差异。规范化是保守的，不新增事实内容。
+
+规范化动作：
+- 补默认 canvas（`wide_16_9`、`13.33×7.5 inch`、`0.5 inch` 边距）。
+- 规范 region id（确保以 `region_` 开头）。
+- 补默认 priority（按 region role 映射：header=1, primary_visual=2, side_panel=3, footer=4）。
+- 排序 elements（按 region_id 分组 → 按 semantic_role 排序 → 按 id 稳定排序）。
+- 补默认 constraints（`must_stay_within_region: true`, `priority: medium`）。
+- 补默认 provenance 空数组。
+
+入口：
+```bash
+node scripts/normalize_slide_ir.js <input.slide-ir.json> <output.slide-ir.json>
+node scripts/normalize_slide_ir.js fixtures/architecture-map.slide-ir.json /tmp/normalized.json
+```
+
+实现：`helpers/ir/normalize.js`。
+
+## Provenance 硬规则
+
+1. **每个事实性元素必须有 `source_refs`**。layout_only、分隔线等纯装饰元素除外。
+2. **每个 `source_refs` 中的 ID 必须在 `provenance` 中存在**。
+3. **每个 `provenance.source_id` 必须在 `source_summary` 中存在**。
+4. **takeaway 必须有 provenance 追溯**——takeaway 必须是对已提供事实的归纳，不能凭空产生结论。
+5. **不允许出现未追溯事实**——如果一个元素携带了用户未提供的信息，校验必须失败。
+6. **source_summary 中的原始材料应至少被一个元素引用**——未被使用的原始材料会产出 warning。
+
+入口：
+```bash
+node scripts/check_provenance.js <slide-ir.json> [--json]
+```
+
+实现：`helpers/ir/provenance.js`。
+
+## 容量预算（Capacity Budget）
+
+每类 layout pattern 有基本容量限制，超过时需建议拆页/降维：
+
+| Pattern | 限制 | 最佳值 | 警告阈值 |
+|---------|------|--------|----------|
+| architecture-map | component_node ≤ 18 | ≤ 9 | > 14 |
+| architecture-map | step_marker ≤ 12 | — | > 9 |
+| comparison-matrix | 对象 ≤ 4 | — | 4 |
+| comparison-matrix | 维度 ≤ 5 | — | 5 |
+| flow-diagram | step_marker ≤ 10 | 5-7 | > 8 |
+| metrics-dashboard | kpi_card ≤ 6 | — | > 5 |
+| 全局 | bullet text ≤ 5 | 3-5 | 4 |
+
+过载时输出 `needs_user_decision` 建议。
+
+入口：
+```js
+const { checkCapacity } = require('./helpers/ir/capacity.js');
+const issues = checkCapacity(ir);
+```
+
+实现：`helpers/ir/capacity.js`。
+
 ## 当前状态
 
 Slide IR schema 已形式化为 JSON Schema（Draft 2020-12）。

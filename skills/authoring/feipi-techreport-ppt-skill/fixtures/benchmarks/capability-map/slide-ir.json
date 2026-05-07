@@ -1,0 +1,276 @@
+{
+  "version": "v1",
+  "slide_id": "bench-capability-map-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "capability-map",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "text",
+      "description": "技术团队 6 大能力域：基础设施、后端开发、前端开发、数据工程、安全合规、DevOps 自动化"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "data",
+      "description": "能力评估：基础设施-熟练、后端开发-熟练、前端开发-一般、数据工程-一般、安全合规-缺失、DevOps 自动化-缺失"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "缺口分析：安全合规和 DevOps 自动化是当前最大缺口，需要招聘和培训补齐；基础设施和后端开发能力强，可支援其他领域"
+    }
+  ],
+  "takeaway": "基础设施和后端开发能力强，安全合规和 DevOps 自动化是当前最大缺口",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 8.5, "h": 4.5 },
+      "capacity": { "max_items": 12, "max_text_chars": 350 },
+      "priority": 2
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.2, "y": 1.5, "w": 3.63, "h": 4.5 },
+      "capacity": { "max_items": 4, "max_text_chars": 200 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.2, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 6.9, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "技术团队能力域地图",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "6 大能力域 · 2 熟练 · 2 一般 · 2 缺失",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_2"]
+    },
+    {
+      "id": "cap_infra",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "基础设施\n熟练 ★", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 1.8, "w": 2.5, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "cap_backend",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "后端开发\n熟练 ★", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.5, "y": 1.8, "w": 2.5, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "cap_frontend",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "前端开发\n一般", "shape_type": "rounded_rect" },
+      "layout": { "x": 6.3, "y": 1.8, "w": 2.5, "h": 1.0 },
+      "style": { "font_size_pt": 10, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "cap_data",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "数据工程\n一般", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 3.1, "w": 2.5, "h": 1.0 },
+      "style": { "font_size_pt": 10, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "cap_security",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "安全合规\n缺失 ✗", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.5, "y": 3.1, "w": 2.5, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "cap_devops",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "DevOps 自动化\n缺失 ✗", "shape_type": "rounded_rect" },
+      "layout": { "x": 6.3, "y": 3.1, "w": 2.5, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "sub_cap_k8s",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "基础设施子能力：K8s 熟练、网络熟练、多云一般",
+      "layout": { "x": 0.7, "y": 4.4, "w": 2.5, "h": 0.6 },
+      "style": { "font_size_pt": 8.5 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "sub_cap_api",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "后端子能力：Go 熟练、Java 熟练、Rust 一般",
+      "layout": { "x": 3.5, "y": 4.4, "w": 2.5, "h": 0.6 },
+      "style": { "font_size_pt": 8.5 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "sub_cap_ui",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "前端子能力：React 一般、Vue 缺失、TypeScript 一般",
+      "layout": { "x": 6.3, "y": 4.4, "w": 2.5, "h": 0.6 },
+      "style": { "font_size_pt": 8.5 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "gap_security",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "安全合规缺口\n无专职安全工程师\n合规审计依赖外包\n建议：招聘 1 名安全负责人",
+      "layout": { "x": 9.5, "y": 1.8, "w": 3.0, "h": 1.4 },
+      "style": { "font_size_pt": 9, "color": "#C5221F", "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 5, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "gap_devops",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "DevOps 缺口\nCI/CD pipeline 半自动化\n缺乏 IaC 实践\n建议：引入 DevOps 工程师 1-2 名",
+      "layout": { "x": 9.5, "y": 3.4, "w": 3.0, "h": 1.4 },
+      "style": { "font_size_pt": 9, "color": "#C5221F", "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 5, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "strength_note",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "content": "优势领域\n基础设施和后端可支援\n其他团队的技术选型和评审",
+      "layout": { "x": 9.5, "y": 5.0, "w": 3.0, "h": 0.8 },
+      "style": { "font_size_pt": 9, "color": "#0D652D" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "基础设施和后端开发能力强，安全合规和 DevOps 自动化是当前最大缺口",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：技术团队能力评估 2026 Q1",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "6 大能力域定义：基础设施、后端开发、前端开发、数据工程、安全合规、DevOps 自动化",
+      "used_by_elements": ["elem_title", "elem_subtitle", "sub_cap_k8s", "sub_cap_api", "sub_cap_ui", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "能力评估：基础设施-熟练、后端-熟练、前端-一般、数据-一般、安全-缺失、DevOps-缺失",
+      "used_by_elements": ["cap_infra", "cap_backend", "cap_frontend", "cap_data", "cap_security", "cap_devops"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "缺口分析：安全合规和 DevOps 是最大缺口，需招聘和培训；基础设施和后端能力强可支援",
+      "used_by_elements": ["cap_security", "cap_devops", "gap_security", "gap_devops", "strength_note", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "能力域地图用 2×3 卡片网格，绿/黄/红三色标识熟练度"
+  }
+}

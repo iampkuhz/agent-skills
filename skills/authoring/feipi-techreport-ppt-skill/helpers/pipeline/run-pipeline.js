@@ -30,9 +30,9 @@ try {
  * @param {Object} slideIR - Slide IR 对象
  * @param {string} outputDir - 输出目录
  * @param {Object} options - 可选参数
- * @returns {Object} pipeline report
+ * @returns {Promise<Object>} pipeline report
  */
-function runPipeline(slideIR, outputDir, options = {}) {
+async function runPipeline(slideIR, outputDir, options = {}) {
   const {
     maxRounds = 3,
     allowWarnings = true,
@@ -56,7 +56,7 @@ function runPipeline(slideIR, outputDir, options = {}) {
 
   // --- Round 1..N ---
   for (let round = 1; round <= maxRounds; round++) {
-    const roundReport = _runRound(slideIR, outputDir, round, {
+    const roundReport = await _runRound(slideIR, outputDir, round, {
       allowWarnings,
       render: render && round === 1, // 只在第一轮尝试 render
       dryRun
@@ -89,7 +89,7 @@ function runPipeline(slideIR, outputDir, options = {}) {
   return report;
 }
 
-function _runRound(slideIR, outputDir, round, options) {
+async function _runRound(slideIR, outputDir, round, options) {
   const { allowWarnings, render, dryRun } = options;
   const roundReport = {
     round,
@@ -143,7 +143,7 @@ function _runRound(slideIR, outputDir, round, options) {
       const depCheck = buildPptx.checkDependency();
       if (depCheck.available) {
         const pptxPath = path.join(outputDir, 'output.pptx');
-        const buildResult = buildPptx.compile(slideIR, pptxPath);
+        const buildResult = await buildPptx.compile(slideIR, pptxPath);
         roundReport.build_result = buildResult;
 
         if (!buildResult.success) {

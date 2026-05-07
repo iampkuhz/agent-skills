@@ -139,19 +139,21 @@ if (!depCheck.available) {
   process.exit(1);
 }
 
-console.log('\n开始编译 PPTX...');
-const result = compiler.compile(slideIR, outputPath);
+(async () => {
+  console.log('\n开始编译 PPTX...');
+  const result = await compiler.compile(slideIR, outputPath);
 
-if (result.success) {
-  console.log(`\nPPTX 编译成功!`);
-  console.log(`  输出文件: ${outputPath}`);
-  console.log(`  slide_id: ${result.summary.slide_id}`);
-  console.log(`  版式: ${result.summary.layout_pattern}`);
-  console.log(`  渲染元素数: ${result.summary.elements_rendered}`);
-  console.log(`  画布尺寸: ${result.summary.canvas.width_in}" × ${result.summary.canvas.height_in}"`);
-  process.exit(0);
-} else {
-  console.error(`\nPPTX 编译失败:`);
-  console.error(`  ${result.error}`);
-  process.exit(1);
-}
+  if (result.success) {
+    console.log(`\nPPTX 编译成功!`);
+    console.log(`  输出文件: ${outputPath}`);
+    console.log(`  slide_id: ${result.summary.slide_id}`);
+    console.log(`  版式: ${result.summary.layout_pattern}`);
+    console.log(`  渲染元素数: ${result.summary.elements_rendered}`);
+    console.log(`  画布尺寸: ${result.summary.canvas.width_in}" × ${result.summary.canvas.height_in}"`);
+    process.exit(0);
+  } else {
+    console.error(`\nPPTX 编译失败:`);
+    console.error(`  ${result.error}`);
+    process.exit(1);
+  }
+})();

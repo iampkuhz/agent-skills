@@ -1,9 +1,14 @@
 /**
  * PPTX 主题定义
  * 中文技术汇报默认主题：克制、清晰、结构化、高信息密度。
+ *
+ * 本文件是向后兼容的默认值来源；新增代码应优先通过
+ * helpers/style/style-lock.js 加载 style lock token。
  */
 
 'use strict';
+
+const { loadDefaultStyleLock, resolveStyleLock } = require('../style/style-lock');
 
 // --- 颜色 token ---
 const COLORS = {
@@ -104,5 +109,8 @@ module.exports = {
   CANVAS_PRESETS,
   getCanvasSize,
   textColorForRole,
-  bgColorForRole
+  bgColorForRole,
+  // Style lock integration
+  loadDefaultStyleLock,
+  resolveStyleLock,
 };

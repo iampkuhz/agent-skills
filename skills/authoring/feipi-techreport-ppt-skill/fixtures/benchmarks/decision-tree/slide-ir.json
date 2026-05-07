@@ -1,0 +1,298 @@
+{
+  "version": "v1",
+  "slide_id": "bench-decision-tree-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "decision-tree",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "text",
+      "description": "关于是否从单体迁移到微服务的决策分析，决策因素包括团队规模、业务增速、运维能力、技术债"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "text",
+      "description": "三条路径：不拆分（维持现状，技术债累积）、渐进式拆分（先拆最高频服务，风险最低）、全量拆分（一次性迁移，高风险高收益）"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "data",
+      "description": "当前状态：团队 25 人、业务增速 40% YoY、运维能力中等、技术债评级 B-。推荐路径：渐进式拆分，先拆订单和支付服务"
+    }
+  ],
+  "takeaway": "当前团队规模和业务增速下，渐进式拆分是风险最低的路径",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 8.5, "h": 4.5 },
+      "capacity": { "max_items": 10, "max_text_chars": 300 },
+      "priority": 2
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.2, "y": 1.5, "w": 3.63, "h": 4.5 },
+      "capacity": { "max_items": 4, "max_text_chars": 250 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.2, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 6.9, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "单体 → 微服务迁移决策分析",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "团队 25 人 · 增速 40% YoY · 运维中等 · 技术债 B-",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "root_node",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "是否拆分微服务？", "shape_type": "diamond" },
+      "layout": { "x": 0.7, "y": 2.5, "w": 2.0, "h": 1.2 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "branch_yes",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "需要拆分", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.2, "y": 1.8, "w": 1.6, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "branch_no",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "维持现状", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.2, "y": 3.8, "w": 1.6, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "leaf_gradual",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "渐进式拆分 ★\n先拆订单+支付", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.2, "y": 1.8, "w": 1.8, "h": 0.8 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "leaf_full",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "全量拆分\n高风险", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.2, "y": 2.9, "w": 1.8, "h": 0.8 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "leaf_stay",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "技术债累积\n不推荐", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.2, "y": 3.8, "w": 1.8, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "conn_root_yes",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "root_node", "to": "branch_yes" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "conn_root_no",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "root_node", "to": "branch_no" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "conn_yes_gradual",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "branch_yes", "to": "leaf_gradual" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "conn_yes_full",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "branch_yes", "to": "leaf_full" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "conn_no_stay",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "branch_no", "to": "leaf_stay" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "path_gradual",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "content": "★ 推荐：渐进式拆分\n利：风险可控、迭代推进\n弊：过渡期运维复杂度高\n适合当前 25 人团队",
+      "layout": { "x": 9.5, "y": 1.8, "w": 3.0, "h": 1.4 },
+      "style": { "font_size_pt": 10, "bold": true, "color": "#0D652D", "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 5, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "path_full",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "content": "全量拆分\n利：一步到位\n弊：迁移风险大、需 3+月\n当前团队规模不支持",
+      "layout": { "x": 9.5, "y": 3.4, "w": 3.0, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#E37400" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 4, "priority": "high" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "path_stay",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "content": "维持现状\n利：零迁移成本\n弊：技术债持续累积\n40% 增速下不可持续",
+      "layout": { "x": 9.5, "y": 4.6, "w": 3.0, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#C5221F" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 4, "priority": "high" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "当前团队规模和业务增速下，渐进式拆分是风险最低的路径",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：架构评审 2026 Q1 · 团队评估报告",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "单体到微服务迁移决策分析，决策因素：团队规模、业务增速、运维能力、技术债",
+      "used_by_elements": ["elem_title", "elem_subtitle", "root_node", "branch_yes", "branch_no", "conn_root_yes", "conn_root_no", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "三条路径：不拆分（技术债累积）、渐进式拆分（风险最低）、全量拆分（高风险高收益）",
+      "used_by_elements": ["leaf_gradual", "leaf_full", "leaf_stay", "conn_yes_gradual", "conn_yes_full", "conn_no_stay", "path_gradual", "path_full", "path_stay"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "当前状态：团队 25 人、增速 40%、运维中等、技术债 B-，推荐渐进式拆分",
+      "used_by_elements": ["leaf_gradual", "path_gradual", "path_full", "path_stay", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "决策树从左到右分支，菱形根节点，推荐路径用绿色高亮"
+  }
+}

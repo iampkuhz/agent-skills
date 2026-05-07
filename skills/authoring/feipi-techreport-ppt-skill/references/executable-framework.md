@@ -114,6 +114,20 @@ Raw Input
 | QA（6-7） | 静态 + 渲染检查 | 提供渲染/缩略图/文本提取能力 |
 | Repair（8） | 修复策略、迭代控制 | 执行修复后的 PPTX 重写 |
 
+## 运行时环境
+
+本 skill 的运行时分为两级，详见 `references/runtime-environment.md`：
+
+- **最小环境**：仅需 Node.js，可运行 IR 校验、Static QA 和 Pipeline dry-run。
+- **完整环境**：额外需要 `pptxgenjs` 和 LibreOffice，可运行全部 Pipeline 阶段。
+
+环境探测入口：
+```bash
+node scripts/doctor.js          # 人类可读诊断
+node scripts/doctor.js --json   # JSON 格式（CI 消费）
+node scripts/runtime_capabilities.js  # 纯 JSON 能力探测
+```
+
 ## 安全约束
 
 1. **禁止 LLM 直接写 PPTX 坐标**：必须先经过 Page Contract → Slide IR → Layout Solver。

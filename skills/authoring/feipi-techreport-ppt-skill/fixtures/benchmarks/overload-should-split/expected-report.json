@@ -1,0 +1,28 @@
+{
+  "benchmark_name": "overload-should-split",
+  "layout_pattern": "architecture-map",
+  "expected_status": "needs_user_decision",
+  "expected_qa_static": {
+    "hard_fail_max": 0,
+    "warning_max": 5,
+    "checks": {
+      "no_overlap": true,
+      "font_size_minimums": true,
+      "region_containment": true,
+      "connector_endpoints_valid": true,
+      "has_capacity_warning": true,
+      "has_split_suggestion": true
+    }
+  },
+  "expected_provenance": {
+    "all_elements_traced": true,
+    "hard_fail_max": 0
+  },
+  "expected_capacity": {
+    "status": "needs_user_decision",
+    "reason": "内容过载：包含 12 个组件节点 + 8 行表格 + 10+ bullet，应拆分为 3 页",
+    "recommended_split": ["架构页：12 个组件 + 连接线", "性能页：8 行数据表 + 关键指标", "团队规划页：10+ bullet 规划项"]
+  },
+  "expected_score_min": 60,
+  "notes": "此 benchmark 为负向测试，期望输出 needs_user_decision 而非 pass。只要静态 QA 有容量警告或拆页建议，即视为合格。"
+}

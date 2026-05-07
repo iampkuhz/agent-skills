@@ -20,7 +20,7 @@ PPTX 的创建、编辑、shape 生成由 backend 实现。本文档定义后端
 
 **限制**：
 - 复杂图形（如自定义路径、渐变）支持有限。
-- 需要 Node.js 运行时和 `pptxgenjs` 依赖。
+- 需要 Node.js 运行时和 `pptxgenjs` 依赖（详见 `references/runtime-environment.md`）。
 
 ### 2. `template-placeholder`
 
@@ -64,6 +64,21 @@ PPTX 的创建、编辑、shape 生成由 backend 实现。本文档定义后端
 **限制**：
 - Editability 有损：生成的元素可能是图片组或扁平化 shape。
 - 不推荐作为最终交付后端，除非用户明确接受。
+
+## 支持的版式（Layout Patterns）
+
+当前 `pptxgenjs-native` 后端支持以下版式：
+
+| 版式 | Builder | 说明 |
+|------|---------|------|
+| `architecture-map` | `builders/architecture-map.js` | 单体架构图，组件节点 + 连接线 |
+| `flow-diagram` | `builders/flow-diagram.js` | 流程图，步骤节点 + 箭头连接 |
+| `comparison-matrix` | `builders/comparison-matrix.js` | 对比矩阵，KPI + 表格 + 洞察 |
+| `layered-stack` | `builders/layered-stack.js` | 分层架构，垂直堆叠层 + 层间连接 |
+| `roadmap-timeline` | `builders/roadmap-timeline.js` | 交付路线图，时间轴 + 里程碑 |
+| `metrics-dashboard` | `builders/metrics-dashboard.js` | 指标仪表板，KPI 卡片行 + 主图 |
+| `decision-tree` | `builders/decision-tree.js` | 决策树，分支节点 + 条件连接 |
+| `capability-map` | `builders/capability-map.js` | 能力域分组，域网格 + 域间关系 |
 
 ## 选择决策树
 

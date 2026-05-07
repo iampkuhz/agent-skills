@@ -1,0 +1,250 @@
+{
+  "version": "v1",
+  "slide_id": "bench-metrics-dashboard-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "metrics-dashboard",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "data",
+      "description": "5 个核心 KPI：可用性 99.95%（目标 99.9%，✅），P99 延迟 280ms（目标 200ms，❌ 连续两周劣化），错误率 0.03%（目标 0.1%，✅），吞吐量 12K RPS（目标 10K RPS，✅），部署频率 15 次/周（目标 10 次/周，✅）"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "text",
+      "description": "趋势分析：P99 延迟从 180ms → 220ms → 280ms 连续两周劣化，根因定位为数据库慢查询增多；其余 KPI 稳定或改善"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "系统整体健康，但 P99 延迟需 Q2 前解决"
+    }
+  ],
+  "takeaway": "系统整体健康，但 P99 延迟连续两周劣化，需在 Q2 前解决",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_kpi_row",
+      "role": "kpi_row",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 12.33, "h": 2.0 },
+      "capacity": { "max_items": 5, "max_text_chars": 200 },
+      "priority": 2
+    },
+    {
+      "id": "region_trend",
+      "role": "insight_panel",
+      "bounds": { "x": 0.5, "y": 3.7, "w": 8.5, "h": 2.5 },
+      "capacity": { "max_items": 3, "max_text_chars": 300 },
+      "priority": 3
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.2, "y": 3.7, "w": 3.63, "h": 2.5 },
+      "capacity": { "max_items": 2, "max_text_chars": 150 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.4, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 7.0, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "核心 KPI 看板 — 2026 Q1",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "5 项指标 · 4 项达标 · P99 延迟需关注",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "kpi_availability",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi_row",
+      "content": { "label": "可用性", "value": "99.95%" },
+      "layout": { "x": 0.7, "y": 1.8, "w": 2.2, "h": 1.4 },
+      "style": { "font_size_pt": 16, "bold": true, "color": "#0D652D", "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "kpi_latency",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi_row",
+      "content": { "label": "P99 延迟", "value": "280ms ✗" },
+      "layout": { "x": 3.1, "y": 1.8, "w": 2.2, "h": 1.4 },
+      "style": { "font_size_pt": 16, "bold": true, "color": "#C5221F", "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1", "src_2"]
+    },
+    {
+      "id": "kpi_error",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi_row",
+      "content": { "label": "错误率", "value": "0.03%" },
+      "layout": { "x": 5.5, "y": 1.8, "w": 2.2, "h": 1.4 },
+      "style": { "font_size_pt": 16, "bold": true, "color": "#0D652D", "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "kpi_throughput",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi_row",
+      "content": { "label": "吞吐量", "value": "12K RPS" },
+      "layout": { "x": 7.9, "y": 1.8, "w": 2.2, "h": 1.4 },
+      "style": { "font_size_pt": 16, "bold": true, "color": "#0D652D", "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "kpi_deploy",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi_row",
+      "content": { "label": "部署频率", "value": "15 次/周" },
+      "layout": { "x": 10.3, "y": 1.8, "w": 2.2, "h": 1.4 },
+      "style": { "font_size_pt": 16, "bold": true, "color": "#0D652D", "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "trend_p99",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_trend",
+      "content": "P99 延迟趋势\nW1: 180ms → W2: 220ms → W3: 280ms\n根因：数据库慢查询增多",
+      "layout": { "x": 0.7, "y": 3.9, "w": 8.0, "h": 1.2 },
+      "style": { "font_size_pt": 10, "color": "#C5221F", "bold": true },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "critical" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "trend_stable",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_trend",
+      "content": "其余 KPI 稳定或改善\n可用性从 99.90% 提升至 99.95%\n吞吐量增长 20%",
+      "layout": { "x": 0.7, "y": 5.3, "w": 8.0, "h": 0.8 },
+      "style": { "font_size_pt": 10, "color": "#0D652D" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "alert_p99",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "⚠ 异常标注\nP99 延迟连续两周劣化\n目标 200ms，实际 280ms\n需 Q2 前解决",
+      "layout": { "x": 9.5, "y": 3.9, "w": 3.0, "h": 1.5 },
+      "style": { "font_size_pt": 10, "color": "#C5221F", "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 5, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "target_gap",
+      "kind": "note",
+      "semantic_role": "evidence",
+      "region_id": "region_side",
+      "content": "目标差距\n可用性: +0.05%\nP99: +80ms",
+      "layout": { "x": 9.5, "y": 5.0, "w": 3.0, "h": 0.8 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "系统整体健康，但 P99 延迟连续两周劣化，需在 Q2 前解决",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：Prometheus + Grafana · 2026 Q1 W3",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "5 个核心 KPI 当前值和目标值：可用性 99.95%/99.9%，P99 280ms/200ms，错误率 0.03%/0.1%，吞吐量 12K/10K RPS，部署频率 15/10 次/周",
+      "used_by_elements": ["elem_title", "kpi_availability", "kpi_latency", "kpi_error", "kpi_throughput", "kpi_deploy", "target_gap", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "P99 延迟趋势 180ms→220ms→280ms 连续两周劣化，根因数据库慢查询；其余 KPI 稳定或改善",
+      "used_by_elements": ["kpi_latency", "trend_p99", "trend_stable", "alert_p99"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "系统整体健康，P99 延迟需 Q2 前解决",
+      "used_by_elements": ["elem_subtitle", "alert_p99", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "KPI 卡片需要绿/黄/红三色标识状态，异常用红色背景"
+  }
+}

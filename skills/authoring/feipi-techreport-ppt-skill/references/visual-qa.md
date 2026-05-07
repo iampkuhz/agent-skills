@@ -29,7 +29,12 @@ Static QA 通过 → PPTX 编译 → PPTX → PNG 渲染 → Render Manifest →
 | `scripts/render_pptx.sh` | PPTX → PNG 渲染包装器（shell 层） |
 | `scripts/render_pptx.js` | 渲染 manifest 生成（Node 层） |
 | `scripts/visual_qa_report.js` | Visual QA 报告生成 |
+| `scripts/create_render_montage.js` | HTML 拼图浏览页面 |
+| `scripts/compare_render_baseline.js` | 基线回归比较 |
 | `helpers/render/manifest.js` | PNG header 解析 + manifest 构建工具 |
+| `helpers/render/png-info.js` | 轻量 PNG 信息读取（宽高、bit depth、color type） |
+| `helpers/render/visual-score.js` | 质量 proxy score 计算 |
+| `helpers/render/montage.js` | HTML montage 生成 |
 
 ### 使用方式
 
@@ -40,6 +45,12 @@ bash scripts/render_pptx.sh <input.pptx> <output_dir>
 # 2. 生成 Visual QA 报告
 node scripts/visual_qa_report.js <output_dir>/render-manifest.json
 node scripts/visual_qa_report.js <output_dir>/render-manifest.json --json
+
+# 3. 生成 Montage 浏览页
+node scripts/create_render_montage.js <render-root-dir> <output.html>
+
+# 4. 基线回归比较
+node scripts/compare_render_baseline.js <current-summary.json> <baseline-summary.json>
 ```
 
 ### 渲染策略
@@ -132,3 +143,50 @@ PNG 转换策略：
 ```
 
 如果发现硬失败，不能直接交付，应先执行 `references/repair-policy.md` 中的修复策略。
+
+## Render QA 组件
+
+### 截图检查（Visual QA Report）
+
+`visual_qa_report.js` 负责渲染后的基本图像检查：
+- 图片文件存在性
+- 文件大小非空、异常小检测（< 1KB）
+- 宽高比例验证（16:9 ± 10%）
+- PNG header 有效性
+
+### Montage 浏览页
+
+`create_render_montage.js` 生成 HTML 浏览页，汇总所有 benchmark 的渲染结果。每张图展示：
+- 缩略图（如果存在）
+- benchmark 名称
+- QA status
+- 质量分数
+- issue summary
+
+如果渲染引擎不可用，montage 仍能列出 skip 状态，不依赖实际 PNG。
+
+### 质量 Proxy Score
+
+`helpers/render/visual-score.js` 计算 0-100 的工程代理分数，不是审美判断：
+
+| 扣分项 | 分值 | 说明 |
+|--------|------|------|
+| 渲染引擎不可用 | -30 | 工程分 |
+| 图片缺失 | -40/slide | hard_fail |
+| 图片异常小 | -10 | < 1KB |
+| 宽高比偏离 16:9 | -5 | 超过 10% |
+| Static QA hard_fail | -10 每项 | 最多 -40 |
+| Static QA warning | -2 每项 | 最多 -15 |
+| Post-check hard_fail | -15 每项 | 产物验证失败 |
+
+> **注意**：视觉评分是工程 proxy，不是替代人工/模型审美检查。它衡量的是工程质量（渲染是否完整、结构是否正确），不是美学质量（是否美观、易读）。最终交付仍需人工确认主视觉清晰度和整体排版效果。
+
+### 基线回归比较
+
+`compare_render_baseline.js` 对比当前结果与基线分数：
+- 分数低于基线超过阈值（默认 5 分）→ 失败
+- hard_fail 增加 → 失败
+- 渲染从可用变为 skip → warning
+- 新增/移除的 benchmark → 提示
+
+这是 Release Gate 的组成部分（详见 `qa-gates.md`）。

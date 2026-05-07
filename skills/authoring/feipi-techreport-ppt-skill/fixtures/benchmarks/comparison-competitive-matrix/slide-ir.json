@@ -1,0 +1,208 @@
+{
+  "version": "v1",
+  "slide_id": "bench-comparison-competitive-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "comparison-matrix",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "comparison",
+      "description": "4 家云厂商 Serverless 平台对比：AWS Lambda、GCP Cloud Run、Azure Container Apps、Cloudflare Workers"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "data",
+      "description": "性能数据：冷启动 Lambda 200ms/Cloud Run 500ms/Container Apps 800ms/Workers 5ms；最大并发 Lambda 10K/Cloud Run 1K/Container Apps 500/Workers 无限"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "data",
+      "description": "定价：Lambda $0.20/百万请求+GB-s、Cloud Run $0.40/百万请求+GB-s、Container Apps $0.25/百万请求、Workers $0.30/百万请求+CPU-ms"
+    },
+    {
+      "source_id": "src_4",
+      "content_type": "text",
+      "description": "结论：Workers 极致冷启动速度适合边缘计算场景，Lambda 生态最成熟适合通用场景，Cloud Run 容器化友好但冷启动差"
+    }
+  ],
+  "takeaway": "Workers 在边缘场景优势明显，Lambda 在通用场景生态领先，选型应基于延迟敏感度和容器化需求",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 8.5, "h": 4.5 },
+      "capacity": { "max_items": 8, "max_text_chars": 400 },
+      "priority": 2
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.2, "y": 1.5, "w": 3.63, "h": 4.5 },
+      "capacity": { "max_items": 3, "max_text_chars": 200 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.2, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 6.9, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "Serverless 平台竞争对比",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "Lambda vs Cloud Run vs Container Apps vs Workers · 2026 Q1",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_matrix",
+      "kind": "matrix",
+      "semantic_role": "evidence",
+      "region_id": "region_main",
+      "content": {
+        "headers": ["维度", "Lambda", "Cloud Run", "Container Apps", "Workers"],
+        "rows": [
+          ["冷启动", "200ms", "500ms", "800ms", "5ms ★"],
+          ["最大并发", "10K", "1K", "500", "无限 ★"],
+          ["定价", "$0.20/req", "$0.40/req", "$0.25/req", "$0.30/req"],
+          ["运行时", "多语言", "容器", "容器", "JS/Wasm"],
+          ["生态成熟度", "高 ★", "中", "中", "低"]
+        ]
+      },
+      "layout": { "x": 0.7, "y": 1.7, "w": 8.0, "h": 3.5 },
+      "style": { "font_size_pt": 9 },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1", "src_2", "src_3"]
+    },
+    {
+      "id": "elem_kpi_workers",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_side",
+      "content": { "label": "Workers 冷启动", "value": "5ms" },
+      "layout": { "x": 9.5, "y": 1.8, "w": 3.0, "h": 0.8 },
+      "style": { "font_size_pt": 14, "bold": true, "color": "#0D652D" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_kpi_lambda",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_side",
+      "content": { "label": "Lambda 最大并发", "value": "10K" },
+      "layout": { "x": 9.5, "y": 2.8, "w": 3.0, "h": 0.8 },
+      "style": { "font_size_pt": 14, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "elem_conclusion",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "content": "选型建议\n边缘计算 → Workers\n通用后端 → Lambda\n容器优先 → Cloud Run",
+      "layout": { "x": 9.5, "y": 3.8, "w": 3.0, "h": 1.5 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 5, "priority": "high" },
+      "source_refs": ["src_4"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "Workers 在边缘场景优势明显，Lambda 在通用场景生态领先，选型应基于延迟敏感度和容器化需求",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_2", "src_4"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：各厂商官方文档 · 2026 Q1 实测数据",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 5
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "4 家 Serverless 平台：Lambda、Cloud Run、Container Apps、Workers",
+      "used_by_elements": ["elem_title", "elem_subtitle", "elem_matrix", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "冷启动和最大并发性能数据",
+      "used_by_elements": ["elem_matrix", "elem_kpi_workers", "elem_kpi_lambda", "elem_takeaway"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "定价数据",
+      "used_by_elements": ["elem_matrix"]
+    },
+    {
+      "source_id": "src_4",
+      "source_type": "user_input",
+      "quote_or_summary": "结论：Workers 边缘快、Lambda 生态强、Cloud Run 容器友好",
+      "used_by_elements": ["elem_conclusion", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "对比矩阵需要可编辑表格，高亮列用背景色区分"
+  }
+}

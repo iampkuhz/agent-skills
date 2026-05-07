@@ -1,5 +1,31 @@
 # 视觉规范
 
+## Style Lock（风格真源）
+
+本 skill 使用 style lock JSON 作为长期风格真源，定义在 `templates/style-locks/` 目录。
+
+模板和 backend 应优先消费 style lock token，不在代码中散落硬编码的颜色、字号、间距值。
+
+可用 style lock：
+- `cto-technical-report.style-lock.json` — 默认 CTO 技术汇报风格
+- `architecture-blueprint.style-lock.json` — 架构蓝图风格
+- `comparison-brief.style-lock.json` — 对比简报风格
+
+加载方式：
+```js
+const { loadDefaultStyleLock, resolveStyleLock } = require('../helpers/style/style-lock.js');
+const styleLock = resolveStyleLock(slideIR); // 从 IR backend_hints 获取
+```
+
+若 Slide IR 未指定 `backend_hints.style_lock`，默认使用 `cto-technical-report`。
+
+校验入口：
+```bash
+node scripts/validate_style_lock.js templates/style-locks/cto-technical-report.style-lock.json
+```
+
+详细 schema 定义见 `schemas/style-lock.schema.json`。
+
 ## 默认风格
 
 正式技术汇报风格。克制、清晰、结构化、高信息密度。不要营销化，不要花哨动效，不要随意插图，不要 AI 味很重的装饰。

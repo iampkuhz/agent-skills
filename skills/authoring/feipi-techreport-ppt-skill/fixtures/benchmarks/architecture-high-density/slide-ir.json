@@ -1,0 +1,309 @@
+{
+  "version": "v1",
+  "slide_id": "bench-arch-high-density-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "architecture-map",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "diagram_desc",
+      "description": "系统采用分层架构：接入层（API Gateway + 负载均衡）→ 业务层（用户、订单、支付、通知 4 个微服务）→ 数据层（PostgreSQL + Redis + Elasticsearch）→ 基础设施层（K8s + Istio + Prometheus）"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "data",
+      "description": "API Gateway 峰值 50,000 RPS，P99 延迟 45ms；业务层服务间通过 gRPC 通信，平均调用延迟 12ms"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "已知瓶颈：PostgreSQL 主库 CPU 在高峰达 85%，连接池耗尽频繁；Redis 缓存命中率 78% 低于目标 90%"
+    }
+  ],
+  "takeaway": "架构分层清晰，但数据层是当前性能瓶颈，需优先优化数据库连接和缓存策略",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 8.5, "h": 5.0 },
+      "capacity": { "max_items": 15, "max_text_chars": 350 },
+      "priority": 2
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.2, "y": 1.5, "w": 3.63, "h": 5.0 },
+      "capacity": { "max_items": 4, "max_text_chars": 200 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.7, "w": 12.33, "h": 0.4 },
+      "capacity": { "max_items": 1, "max_text_chars": 80 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 7.15, "w": 12.33, "h": 0.25 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "微服务架构全景与性能瓶颈",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "4 层架构 · 4 微服务 · PG CPU 85% · 缓存命中 78%",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "elem_gateway",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "API Gateway\n50K RPS / P99 45ms", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.0, "y": 1.7, "w": 2.5, "h": 0.8 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1", "src_2"]
+    },
+    {
+      "id": "elem_svc_user",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "用户服务", "shape_type": "rounded_rect" },
+      "layout": { "x": 1.0, "y": 2.8, "w": 1.5, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_svc_order",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "订单服务", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.8, "y": 2.8, "w": 1.5, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_svc_payment",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "支付服务", "shape_type": "rounded_rect" },
+      "layout": { "x": 4.6, "y": 2.8, "w": 1.5, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_svc_notify",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "通知服务", "shape_type": "rounded_rect" },
+      "layout": { "x": 6.4, "y": 2.8, "w": 1.5, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_pg",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "PostgreSQL\nCPU 85% · 连接池耗尽", "shape_type": "rounded_rect" },
+      "layout": { "x": 1.0, "y": 3.8, "w": 2.5, "h": 0.8 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "elem_redis",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "Redis\n缓存命中 78%", "shape_type": "rounded_rect" },
+      "layout": { "x": 3.8, "y": 3.8, "w": 2.0, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "elem_es",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "Elasticsearch", "shape_type": "rounded_rect" },
+      "layout": { "x": 6.1, "y": 3.8, "w": 2.0, "h": 0.8 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_gw_user",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_gateway", "to": "elem_svc_user" },
+      "layout": { "position_hint": "gateway-to-services" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_gw_order",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_gateway", "to": "elem_svc_order" },
+      "layout": { "position_hint": "gateway-to-services" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_gw_payment",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_gateway", "to": "elem_svc_payment" },
+      "layout": { "position_hint": "gateway-to-services" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_conn_gw_notify",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "elem_gateway", "to": "elem_svc_notify" },
+      "layout": { "position_hint": "gateway-to-services" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_perf",
+      "kind": "note",
+      "semantic_role": "evidence",
+      "region_id": "region_side",
+      "content": "性能数据\nGateway P99: 45ms\n服务间 gRPC: 12ms\nPG 连接池: 频繁耗尽",
+      "layout": { "x": 9.5, "y": 1.8, "w": 3.0, "h": 1.2 },
+      "style": { "font_size_pt": 10 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 4, "priority": "high" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_risk_pg",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "数据库瓶颈\nPG 主库 CPU 85%\n需优化连接池或读写分离",
+      "layout": { "x": 9.5, "y": 3.2, "w": 3.0, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#C5221F", "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_risk_redis",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "缓存命中率低\n78% vs 目标 90%\n需优化缓存策略",
+      "layout": { "x": 9.5, "y": 4.4, "w": 3.0, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#E37400", "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "架构分层清晰，但数据层是当前性能瓶颈，需优先优化数据库连接和缓存策略",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：架构评审 2026 Q1 · APM 监控数据",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "分层架构：接入层 → 业务层（4 微服务）→ 数据层（PG + Redis + ES）→ 基础设施层",
+      "used_by_elements": ["elem_title", "elem_subtitle", "elem_gateway", "elem_svc_user", "elem_svc_order", "elem_svc_payment", "elem_svc_notify", "elem_pg", "elem_redis", "elem_es", "elem_conn_gw_user", "elem_conn_gw_order", "elem_conn_gw_payment", "elem_conn_gw_notify", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "Gateway 峰值 50K RPS，P99 45ms；gRPC 平均延迟 12ms",
+      "used_by_elements": ["elem_gateway", "elem_perf", "elem_takeaway"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "PG CPU 85% 连接池耗尽；Redis 缓存命中 78% 低于 90% 目标",
+      "used_by_elements": ["elem_subtitle", "elem_pg", "elem_redis", "elem_perf", "elem_risk_pg", "elem_risk_redis", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "高密度架构图，需注意节点间距和连接线清晰度"
+  }
+}

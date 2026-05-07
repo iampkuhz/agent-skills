@@ -74,8 +74,16 @@ if "$NODE_BIN" "$SKILL_DIR/scripts/inspect_slide_ir_layout.js" "$SKILL_DIR/fixtu
   exit 1
 fi
 
-# PPTX backend compilation test — skip if pptxgenjs not available
-PPTXGENJS_AVAILABLE=$("$NODE_BIN" -e "try{require('pptxgenjs');console.log('yes')}catch(e){console.log('no')}" 2>/dev/null || echo "no")
+# --- PPTX dependency detection (consistent with doctor.js: skill-local node_modules first) ---
+PPTXGENJS_AVAILABLE=$("$NODE_BIN" -e "
+const fs = require('fs');
+const path = require('path');
+// Check skill-local node_modules first (same as doctor.js)
+const localPath = path.join('$SKILL_DIR', 'node_modules', 'pptxgenjs', 'package.json');
+if (fs.existsSync(localPath)) { console.log('yes'); process.exit(0); }
+// Fall back to global/parent require
+try { require('pptxgenjs'); console.log('yes'); } catch(e) { console.log('no'); }
+" 2>/dev/null || echo "no")
 TMPDIR_PPTX=$(mktemp -d)
 trap "rm -rf $TMPDIR_PPTX" EXIT
 
@@ -88,6 +96,13 @@ if [[ "$PPTXGENJS_AVAILABLE" == "yes" ]]; then
 
   "$NODE_BIN" "$SKILL_DIR/scripts/build_pptx_from_ir.js" "$SKILL_DIR/fixtures/comparison-matrix.slide-ir.json" "$TMPDIR_PPTX/comparison-matrix.pptx" --allow-warnings > /dev/null
   [[ -s "$TMPDIR_PPTX/comparison-matrix.pptx" ]] || { echo "错误: comparison-matrix.pptx 未生成或为空"; exit 1; }
+
+  # --- PPTX Postcheck on real artifact ---
+  INSPECT_JSON=$("$NODE_BIN" "$SKILL_DIR/scripts/inspect_pptx_artifact.js" "$TMPDIR_PPTX/architecture-map.pptx" --json --expected-slides 1)
+  INSPECT_SLIDE_COUNT=$(echo "$INSPECT_JSON" | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.stdout.write(String(d.slide_count))")
+  [[ "$INSPECT_SLIDE_COUNT" == "1" ]] || { echo "错误: architecture-map.pptx 应有 1 张幻灯片，实际 $INSPECT_SLIDE_COUNT"; exit 1; }
+  INSPECT_SUCCESS=$(echo "$INSPECT_JSON" | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.stdout.write(String(d.postcheck?.success ?? false))")
+  [[ "$INSPECT_SUCCESS" == "true" ]] || { echo "错误: architecture-map.pptx postcheck 未通过"; exit 1; }
 
   # --- Render QA: PPTX → PNG → Visual QA Report ---
   TMPDIR_RENDER="$TMPDIR_PPTX/render"
@@ -132,6 +147,20 @@ else
   echo "跳过 PPTX 编译测试: pptxgenjs 未安装 (npm install pptxgenjs)"
 fi
 
+# --- Runtime capability checks ---
+# doctor.js --json 必须输出可解析的 JSON
+DOCTOR_JSON=$("$NODE_BIN" "$SKILL_DIR/scripts/doctor.js" --json 2>/dev/null)
+"$NODE_BIN" -e "const d=JSON.parse(process.argv[1]); if(!d.pipeline_level) process.exit(1)" "$DOCTOR_JSON"
+
+# runtime_capabilities.js 必须输出可解析的 JSON，且包含 pipeline_level
+RUNTIME_JSON=$("$NODE_BIN" "$SKILL_DIR/scripts/runtime_capabilities.js" 2>/dev/null)
+"$NODE_BIN" -e "const d=JSON.parse(process.argv[1]); if(!d.pipeline_level) process.exit(1)" "$RUNTIME_JSON"
+
+# --- Benchmark smoke test (lightweight: validate + normalize + provenance only) ---
+"$NODE_BIN" "$SKILL_DIR/scripts/validate_slide_ir.js" "$SKILL_DIR/fixtures/benchmarks/architecture-high-density/slide-ir.json" > /dev/null
+"$NODE_BIN" "$SKILL_DIR/scripts/validate_slide_ir.js" "$SKILL_DIR/fixtures/benchmarks/flow-api-lifecycle/slide-ir.json" > /dev/null
+"$NODE_BIN" "$SKILL_DIR/scripts/validate_slide_ir.js" "$SKILL_DIR/fixtures/benchmarks/comparison-competitive-matrix/slide-ir.json" > /dev/null
+
 # --- Pipeline 测试 ---
 TMPDIR_PIPELINE=$(mktemp -d)
 trap "rm -rf $TMPDIR_PPTX $TMPDIR_PIPELINE" EXIT
@@ -171,5 +200,109 @@ if [[ "$PPTXGENJS_AVAILABLE" == "yes" ]]; then
 fi
 
 bash -n "$SKILL_DIR/scripts/test.sh"
+
+# --- Regression: pipeline level consistency between doctor.js and runtime_capabilities.js ---
+DOCTOR_LEVEL=$("$NODE_BIN" "$SKILL_DIR/scripts/doctor.js" --json 2>/dev/null | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.stdout.write(d.pipeline_level)")
+RUNTIME_LEVEL=$("$NODE_BIN" "$SKILL_DIR/scripts/runtime_capabilities.js" 2>/dev/null | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.stdout.write(d.pipeline_level)")
+[[ "$DOCTOR_LEVEL" == "$RUNTIME_LEVEL" ]] || { echo "错误: doctor.js pipeline_level=$DOCTOR_LEVEL 与 runtime_capabilities.js pipeline_level=$RUNTIME_LEVEL 不一致"; exit 1; }
+
+# --- Regression: needs_user_decision without real capacity evidence must fail ---
+# Use score_quality_report.js directly with a synthetic result
+TMP_SCORE=$(mktemp -d)
+cat > "$TMP_SCORE/result.json" << 'REOF'
+{
+  "name": "test-clean-pass",
+  "checks": {
+    "static_qa": {
+      "summary": { "hard_fail": 0, "warning": 1 },
+      "issues": [{ "type": "layout_unsolved", "severity": "warning", "message": "test" }]
+    },
+    "provenance": { "status": "pass", "summary": { "hard_fail": 0 } },
+    "capacity": []
+  },
+  "score": 95
+}
+REOF
+cat > "$TMP_SCORE/expected-report.json" << 'EXPEOF'
+{
+  "benchmark_name": "test-clean-pass",
+  "layout_pattern": "architecture-map",
+  "expected_status": "needs_user_decision",
+  "expected_qa_static": { "hard_fail_max": 0, "warning_max": 5 },
+  "expected_score_min": 60
+}
+EXPEOF
+
+# This should FAIL because there's no real capacity/split evidence
+SCORE_RESULT=$("$NODE_BIN" "$SKILL_DIR/scripts/score_quality_report.js" "$TMP_SCORE" --json 2>/dev/null) || true
+SCORE_ACTUAL=$(echo "$SCORE_RESULT" | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.stdout.write(d.actual_status)" 2>/dev/null || echo "error")
+[[ "$SCORE_ACTUAL" == "fail" ]] || { echo "错误: 无容量证据的 needs_user_decision 应该 fail，实际为 $SCORE_ACTUAL"; rm -rf "$TMP_SCORE"; exit 1; }
+rm -rf "$TMP_SCORE"
+
+# --- Regression: full benchmark missing expected-report.json must fail ---
+# Use --single to run a benchmark from an arbitrary directory that has slide-ir.json but no expected-report.json
+TMP_BENCH_NO_EXPECTED=$(mktemp -d)
+mkdir -p "$TMP_BENCH_NO_EXPECTED/test-missing-expected"
+cp "$SKILL_DIR/fixtures/benchmarks/architecture-high-density/slide-ir.json" "$TMP_BENCH_NO_EXPECTED/test-missing-expected/slide-ir.json"
+# Intentionally do NOT create expected-report.json
+
+# Run benchmark with --single pointing to the temp directory
+# In --full mode, missing expected-report.json should cause a failure
+BENCH_NO_EXPECTED_EXIT=0
+"$NODE_BIN" "$SKILL_DIR/scripts/run_benchmarks.js" --dry-run --full --single "$TMP_BENCH_NO_EXPECTED/test-missing-expected" --json > "$TMP_BENCH_NO_EXPECTED/result.json" 2>/dev/null || BENCH_NO_EXPECTED_EXIT=$?
+# In full mode, missing expected should cause exit non-zero
+[[ $BENCH_NO_EXPECTED_EXIT -ne 0 ]] || { echo "错误: 缺少 expected-report.json 的 benchmark 在 full 模式下应该 exit 非 0"; rm -rf "$TMP_BENCH_NO_EXPECTED"; exit 1; }
+# Verify the result status is "fail"
+BENCH_NO_EXPECTED_STATUS=$("$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('$TMP_BENCH_NO_EXPECTED/result.json','utf8')); const r=d.results[0]; process.stdout.write(r?r.status:'missing')" 2>/dev/null || echo "error")
+[[ "$BENCH_NO_EXPECTED_STATUS" == "fail" ]] || { echo "错误: 缺少 expected-report.json 应该导致 status=fail，实际为 $BENCH_NO_EXPECTED_STATUS"; rm -rf "$TMP_BENCH_NO_EXPECTED"; exit 1; }
+rm -rf "$TMP_BENCH_NO_EXPECTED"
+
+# --- Regression: overload-should-split must have real capacity evidence ---
+# Check for actual capacity/split evidence, not just hard_fail >= 0 (which is always true)
+OVERLOAD_RESULT=$("$NODE_BIN" "$SKILL_DIR/scripts/run_benchmarks.js" --dry-run --full --filter "overload" --json 2>/dev/null)
+OVERLOAD_ACTUAL=$(echo "$OVERLOAD_RESULT" | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); const r=d.results.find(x=>x.name==='overload-should-split'); process.stdout.write(r?r.actual_status:'missing')")
+[[ "$OVERLOAD_ACTUAL" == "needs_user_decision" ]] || { echo "错误: overload-should-split 应该返回 needs_user_decision，实际为 $OVERLOAD_ACTUAL"; exit 1; }
+# Verify real capacity evidence by reading the result file (stdout JSON doesn't include full checks)
+OVERLOAD_RESULT_FILE=$(find "$SKILL_DIR/../../../tmp/ppt-skill-v2-run/benchmarks/overload-should-split" -name "result.json" 2>/dev/null | head -1)
+if [[ -n "$OVERLOAD_RESULT_FILE" ]]; then
+  OVERLOAD_CAPACITY=$("$NODE_BIN" -e "
+const d=JSON.parse(require('fs').readFileSync('$OVERLOAD_RESULT_FILE','utf8'));
+const capItems = d.checks?.capacity || [];
+const hasCapacityDecision = capItems.some(i => i.severity === 'needs_user_decision');
+process.stdout.write(hasCapacityDecision ? 'has-evidence' : 'no-evidence');
+" 2>/dev/null || echo "no-evidence")
+else
+  # If result file not found, run benchmarks to generate it
+  "$NODE_BIN" "$SKILL_DIR/scripts/run_benchmarks.js" --dry-run --full --filter "overload" --json > /dev/null 2>&1 || true
+  OVERLOAD_RESULT_FILE=$(find "$SKILL_DIR/../../../tmp/ppt-skill-v2-run/benchmarks/overload-should-split" -name "result.json" 2>/dev/null | head -1)
+  if [[ -n "$OVERLOAD_RESULT_FILE" ]]; then
+    OVERLOAD_CAPACITY=$("$NODE_BIN" -e "
+const d=JSON.parse(require('fs').readFileSync('$OVERLOAD_RESULT_FILE','utf8'));
+const capItems = d.checks?.capacity || [];
+const hasCapacityDecision = capItems.some(i => i.severity === 'needs_user_decision');
+process.stdout.write(hasCapacityDecision ? 'has-evidence' : 'no-evidence');
+" 2>/dev/null || echo "no-evidence")
+  else
+    OVERLOAD_CAPACITY="no-evidence"
+  fi
+fi
+[[ "$OVERLOAD_CAPACITY" == "has-evidence" ]] || { echo "错误: overload-should-split 缺少真实容量证据（capacity needs_user_decision）"; exit 1; }
+
+# --- Regression: inspect_pptx_artifact.js --help must exit 0 ---
+if [[ "$PPTXGENJS_AVAILABLE" == "yes" ]]; then
+  "$NODE_BIN" "$SKILL_DIR/scripts/inspect_pptx_artifact.js" --help > /dev/null 2>&1 || { echo "错误: inspect_pptx_artifact.js --help 应该 exit 0"; exit 1; }
+  "$NODE_BIN" "$SKILL_DIR/scripts/inspect_pptx_artifact.js" -h > /dev/null 2>&1 || { echo "错误: inspect_pptx_artifact.js -h 应该 exit 0"; exit 1; }
+  # No args should exit 1
+  "$NODE_BIN" "$SKILL_DIR/scripts/inspect_pptx_artifact.js" > /dev/null 2>&1 && { echo "错误: inspect_pptx_artifact.js 无参数应该 exit 1"; exit 1; } || true
+  # Non-existent file should exit 1
+  "$NODE_BIN" "$SKILL_DIR/scripts/inspect_pptx_artifact.js" /tmp/nonexistent-file-$$$.pptx > /dev/null 2>&1 && { echo "错误: inspect_pptx_artifact.js 不存在的文件应该 exit 1"; exit 1; } || true
+fi
+
+# --- Regression: release_gate.sh --strict must exit non-zero when missing dependencies ---
+if [[ "$DOCTOR_LEVEL" == "static-only" ]]; then
+  bash "$SKILL_DIR/scripts/release_gate.sh" --strict > /dev/null 2>&1 || STRICT_EXIT_CODE=$?
+  STRICT_EXIT_CODE=${STRICT_EXIT_CODE:-0}
+  [[ $STRICT_EXIT_CODE -ne 0 ]] || { echo "错误: release_gate.sh --strict 在 static-only 环境下应该 exit 非 0，实际为 0"; exit 1; }
+fi
 
 echo "测试通过: feipi-techreport-ppt-skill"

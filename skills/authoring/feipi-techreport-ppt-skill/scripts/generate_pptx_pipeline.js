@@ -73,29 +73,31 @@ if (!jsonFlag) {
   console.log('');
 }
 
-const report = runPipeline(slideIR, outputDir, {
-  maxRounds,
-  allowWarnings: true,
-  render: !noRender,
-  dryRun
-});
+(async () => {
+  const report = await runPipeline(slideIR, outputDir, {
+    maxRounds,
+    allowWarnings: true,
+    render: !noRender,
+    dryRun
+  });
 
-// --- 输出结果 ---
-if (jsonFlag) {
-  console.log(JSON.stringify(report, null, 2));
-} else {
-  printPipelineReport(report);
-}
+  // --- 输出结果 ---
+  if (jsonFlag) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printPipelineReport(report);
+  }
 
-// 退出码
-const finalStatus = report.final_status;
-if (finalStatus === 'pass') {
-  process.exit(0);
-} else if (finalStatus === 'needs_user_decision') {
-  process.exit(100);
-} else {
-  process.exit(1);
-}
+  // 退出码
+  const finalStatus = report.final_status;
+  if (finalStatus === 'pass') {
+    process.exit(0);
+  } else if (finalStatus === 'needs_user_decision') {
+    process.exit(100);
+  } else {
+    process.exit(1);
+  }
+})();
 
 function printPipelineReport(report) {
   const statusMap = {

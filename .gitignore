@@ -8,5 +8,8 @@ logs/
 **/logs/**
 /tools/night-runner/
 
+# Node dependencies (skill-local and repo-level)
+node_modules/
+
 # 本地服务密钥配置
 tools/gateway/litellm/env/.env

@@ -1,0 +1,342 @@
+{
+  "version": "v1",
+  "slide_id": "bench-roadmap-technical-delivery-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "roadmap-timeline",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "text",
+      "description": "未来 4 个季度技术交付路线图，包含基础设施、平台、应用三条交付路线"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "data",
+      "description": "基础设施路线：Q1 K8s 集群扩容、Q2 服务网格迁移、Q3 多 Region 部署、Q4 自动化运维平台；平台路线：Q1 统一认证中心、Q2 数据中台 v2、Q3 AI 能力集成、Q4 低代码平台；应用路线：Q1 核心业务重构、Q2 性能优化、Q3 移动端改版、Q4 国际化"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "风险标注：Q2 平台迁移风险高（需停机窗口），Q3 AI 集成依赖外部供应商交付"
+    }
+  ],
+  "takeaway": "Q1-Q2 重心在基础设施，Q3-Q4 转向业务价值交付，风险集中在 Q2 平台迁移",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 9.0, "h": 4.5 },
+      "capacity": { "max_items": 16, "max_text_chars": 400 },
+      "priority": 2
+    },
+    {
+      "id": "region_side",
+      "role": "side_panel",
+      "bounds": { "x": 9.7, "y": 1.5, "w": 3.13, "h": 4.5 },
+      "capacity": { "max_items": 4, "max_text_chars": 200 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.2, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 6.9, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1, "max_text_chars": 60 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "2026 技术交付路线图",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "三条交付路线 · 4 季度里程碑 · Q2 平台迁移高风险",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "timeline_q1",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Q1", "value": 1 },
+      "layout": { "x": 0.7, "y": 1.7, "w": 2.0, "h": 0.5 },
+      "style": { "font_size_pt": 12, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "timeline_q2",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Q2 ⚠", "value": 2 },
+      "layout": { "x": 2.9, "y": 1.7, "w": 2.0, "h": 0.5 },
+      "style": { "font_size_pt": 12, "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "timeline_q3",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Q3", "value": 3 },
+      "layout": { "x": 5.1, "y": 1.7, "w": 2.0, "h": 0.5 },
+      "style": { "font_size_pt": 12, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "timeline_q4",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "Q4", "value": 4 },
+      "layout": { "x": 7.3, "y": 1.7, "w": 2.0, "h": 0.5 },
+      "style": { "font_size_pt": 12, "bold": true, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "infra_q1",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "K8s 集群扩容", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 2.4, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "infra_q2",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "服务网格迁移 ⚠", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.9, "y": 2.4, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "infra_q3",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "多 Region 部署", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.1, "y": 2.4, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "infra_q4",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "自动化运维", "shape_type": "rounded_rect" },
+      "layout": { "x": 7.3, "y": 2.4, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "platform_q1",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "统一认证中心", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 3.2, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "platform_q2",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "数据中台 v2", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.9, "y": 3.2, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "platform_q3",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "AI 能力集成 ⚠", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.1, "y": 3.2, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "platform_q4",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "低代码平台", "shape_type": "rounded_rect" },
+      "layout": { "x": 7.3, "y": 3.2, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#E6F4EA" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "app_q1",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "核心业务重构", "shape_type": "rounded_rect" },
+      "layout": { "x": 0.7, "y": 4.0, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#FCE4EC" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "app_q2",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "性能优化", "shape_type": "rounded_rect" },
+      "layout": { "x": 2.9, "y": 4.0, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#FCE4EC" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "app_q3",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "移动端改版", "shape_type": "rounded_rect" },
+      "layout": { "x": 5.1, "y": 4.0, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#FCE4EC" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "app_q4",
+      "kind": "component_node",
+      "semantic_role": "system_component",
+      "region_id": "region_main",
+      "content": { "label": "国际化", "shape_type": "rounded_rect" },
+      "layout": { "x": 7.3, "y": 4.0, "w": 2.0, "h": 0.6 },
+      "style": { "font_size_pt": 10, "background_color": "#FCE4EC" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "risk_q2",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "Q2 高风险\n服务网格迁移需停机窗口\n需提前灰度验证",
+      "layout": { "x": 9.9, "y": 1.8, "w": 2.8, "h": 1.2 },
+      "style": { "font_size_pt": 10, "color": "#C5221F", "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 4, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "risk_q3",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "content": "Q3 中风险\nAI 集成依赖外部供应商\n需提前锁定交付排期",
+      "layout": { "x": 9.9, "y": 3.2, "w": 2.8, "h": 1.0 },
+      "style": { "font_size_pt": 10, "color": "#E37400", "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "Q1-Q2 重心在基础设施，Q3-Q4 转向业务价值交付，风险集中在 Q2 平台迁移",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：2026 年度技术规划 · 架构委员会评审",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "4 季度技术交付路线图，三条交付路线：基础设施、平台、应用",
+      "used_by_elements": ["elem_title", "elem_subtitle", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "各季度里程碑：K8s 扩容、服务网格迁移、多 Region、自动化运维、认证中心、数据中台、AI 集成、低代码、核心重构、性能优化、移动端改版、国际化",
+      "used_by_elements": ["timeline_q1", "timeline_q2", "timeline_q3", "timeline_q4", "infra_q1", "infra_q2", "infra_q3", "infra_q4", "platform_q1", "platform_q2", "platform_q3", "platform_q4", "app_q1", "app_q2", "app_q3", "app_q4", "elem_takeaway"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "风险标注：Q2 平台迁移高风险，Q3 AI 集成依赖外部供应商",
+      "used_by_elements": ["elem_subtitle", "infra_q2", "platform_q3", "risk_q2", "risk_q3", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "路线图需要横向时间轴 + 分层里程碑卡片，风险标注用红色"
+  }
+}

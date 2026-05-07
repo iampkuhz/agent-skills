@@ -1,0 +1,291 @@
+{
+  "version": "v1",
+  "slide_id": "bench-flow-api-lifecycle-2026q1",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "flow-diagram",
+  "source_summary": [
+    {
+      "source_id": "src_1",
+      "content_type": "text",
+      "description": "API Gateway 请求处理分为 6 阶段：DNS 解析 → TLS 握手 → 路由匹配 → 鉴权 → 后端转发 → 响应返回。P99 端到端延迟 45ms"
+    },
+    {
+      "source_id": "src_2",
+      "content_type": "data",
+      "description": "各阶段耗时：DNS 2ms、TLS 8ms、路由 1ms、鉴权 5ms、转发 20ms、响应 9ms。转发阶段占总耗时 44%"
+    },
+    {
+      "source_id": "src_3",
+      "content_type": "text",
+      "description": "优化空间：TLS 可启用 0-RTT 会话恢复降至 2ms；鉴权可引入 token 缓存降至 1ms；转发可启用连接池复用降至 12ms"
+    }
+  ],
+  "takeaway": "API 网关生命周期中转发是最大耗时环节，优化空间可达 25ms",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 1
+    },
+    {
+      "id": "region_main",
+      "role": "primary_visual",
+      "bounds": { "x": 0.5, "y": 1.5, "w": 12.33, "h": 4.2 },
+      "capacity": { "max_items": 12, "max_text_chars": 300 },
+      "priority": 2
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.5, "y": 6.0, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 1, "max_text_chars": 80 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 6.7, "w": 12.33, "h": 0.5 },
+      "capacity": { "max_items": 2, "max_text_chars": 120 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "API 网关请求生命周期与优化空间",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 22, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "P99 端到端 45ms · 6 阶段 · 优化后可降至 20ms",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 12, "color": "#666666" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_1", "src_3"]
+    },
+    {
+      "id": "step_dns",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "1. DNS 解析\n2ms", "value": 1 },
+      "layout": { "x": 0.8, "y": 2.5, "w": 1.6, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "step_tls",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "2. TLS 握手\n8ms ⚠", "value": 2 },
+      "layout": { "x": 2.7, "y": 2.5, "w": 1.6, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "step_route",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "3. 路由匹配\n1ms", "value": 3 },
+      "layout": { "x": 4.6, "y": 2.5, "w": 1.6, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "step_auth",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "4. 鉴权\n5ms ⚠", "value": 4 },
+      "layout": { "x": 6.5, "y": 2.5, "w": 1.6, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FEF7E0" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "step_forward",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "5. 后端转发\n20ms ✗", "value": 5 },
+      "layout": { "x": 8.4, "y": 2.5, "w": 1.8, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#FCE8E6" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "step_response",
+      "kind": "step_marker",
+      "semantic_role": "process_step",
+      "region_id": "region_main",
+      "content": { "label": "6. 响应返回\n9ms", "value": 6 },
+      "layout": { "x": 10.5, "y": 2.5, "w": 1.8, "h": 1.0 },
+      "style": { "font_size_pt": 10, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_2"]
+    },
+    {
+      "id": "conn_1",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "step_dns", "to": "step_tls" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "conn_2",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "step_tls", "to": "step_route" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "conn_3",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "step_route", "to": "step_auth" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "conn_4",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "step_auth", "to": "step_forward" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "conn_5",
+      "kind": "connector",
+      "semantic_role": "data_flow",
+      "region_id": "region_main",
+      "content": { "connector_type": "arrow", "from": "step_forward", "to": "step_response" },
+      "layout": { "position_hint": "between-steps" },
+      "style": { "shape_type": "arrow" },
+      "constraints": { "priority": "medium" },
+      "source_refs": ["src_1"]
+    },
+    {
+      "id": "elem_opt_tls",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "TLS 优化：启用 0-RTT 会话恢复\n8ms → 2ms，节省 6ms",
+      "layout": { "x": 2.7, "y": 3.8, "w": 2.0, "h": 0.8 },
+      "style": { "font_size_pt": 9, "color": "#0D652D" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_opt_auth",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "鉴权优化：引入 token 缓存\n5ms → 1ms，节省 4ms",
+      "layout": { "x": 6.5, "y": 3.8, "w": 2.0, "h": 0.8 },
+      "style": { "font_size_pt": 9, "color": "#0D652D" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "high" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_opt_forward",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_main",
+      "content": "转发优化：连接池复用\n20ms → 12ms，节省 8ms",
+      "layout": { "x": 8.4, "y": 3.8, "w": 2.0, "h": 0.8 },
+      "style": { "font_size_pt": 9, "color": "#0D652D" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 3, "priority": "critical" },
+      "source_refs": ["src_3"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "API 网关生命周期中转发是最大耗时环节，优化空间可达 25ms",
+      "layout": { "alignment": "center" },
+      "style": { "font_size_pt": 13, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_2", "src_3"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "数据来源：Gateway APM 监控 2026 Q1 · 优化建议来自架构评审",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "low" },
+      "source_refs": ["src_1"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": { "title": 18, "body": 10, "footnote": 8.5, "table_cell": 8.5 },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_1",
+      "source_type": "user_input",
+      "quote_or_summary": "API Gateway 6 阶段：DNS → TLS → 路由 → 鉴权 → 转发 → 响应，P99 45ms",
+      "used_by_elements": ["elem_title", "conn_1", "conn_2", "conn_3", "conn_4", "conn_5", "elem_footer"]
+    },
+    {
+      "source_id": "src_2",
+      "source_type": "user_input",
+      "quote_or_summary": "各阶段耗时：DNS 2ms, TLS 8ms, 路由 1ms, 鉴权 5ms, 转发 20ms, 响应 9ms",
+      "used_by_elements": ["step_dns", "step_tls", "step_route", "step_auth", "step_forward", "step_response", "elem_takeaway"]
+    },
+    {
+      "source_id": "src_3",
+      "source_type": "user_input",
+      "quote_or_summary": "优化：TLS 0-RTT 降为 2ms、鉴权缓存降为 1ms、连接池降为 12ms",
+      "used_by_elements": ["elem_subtitle", "elem_opt_tls", "elem_opt_auth", "elem_opt_forward", "elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "notes": "流程图需要清晰的步骤标记和连接线方向"
+  }
+}

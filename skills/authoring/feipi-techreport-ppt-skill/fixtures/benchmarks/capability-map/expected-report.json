@@ -1,0 +1,25 @@
+{
+  "benchmark_name": "capability-map",
+  "layout_pattern": "capability-map",
+  "expected_status": "pass",
+  "expected_qa_static": {
+    "hard_fail_max": 0,
+    "warning_max": 2,
+    "checks": {
+      "no_overlap": true,
+      "font_size_minimums": true,
+      "region_containment": true,
+      "connector_endpoints_valid": true
+    }
+  },
+  "expected_provenance": {
+    "all_elements_traced": true,
+    "hard_fail_max": 0
+  },
+  "expected_capacity": {
+    "status": "pass",
+    "capability_domain_count": 6,
+    "has_gap_analysis": true
+  },
+  "expected_score_min": 85
+}

@@ -7,6 +7,7 @@
 
 const geo = require('./geometry');
 const rules = require('./semantic-rules');
+const { estimateTextFit } = require('./layout/text-measure');
 
 /**
  * 计算 canvas safe bounds。
@@ -139,6 +140,37 @@ function runStaticQA(slideIR) {
       message: '页面缺少 takeaway 元素',
       metrics: {},
       suggestion: '添加一行结论元素'
+    });
+  }
+
+  // Region density check: 检查每个区域内的元素数量是否超出容量
+  for (const region of regions) {
+    const regionEls = elements.filter(e => e.region_id === region.id);
+    const maxItems = region.capacity?.max_items;
+    if (maxItems && regionEls.length > maxItems) {
+      issues.push({
+        severity: 'warning',
+        type: 'region_density_exceeded',
+        element_ids: regionEls.map(e => e.id),
+        message: `区域 "${region.id}" 包含 ${regionEls.length} 个元素，超过容量上限 ${maxItems}`,
+        metrics: { count: regionEls.length, max: maxItems },
+        suggestion: '减少元素数量或建议拆页'
+      });
+    }
+  }
+
+  // Layout unsolved check: 检查有多少元素缺少 bounds
+  const unsolvedElements = elements.filter(e =>
+    !e.layout || e.layout.x === undefined || e.layout.w === undefined
+  );
+  if (unsolvedElements.length > 0) {
+    issues.push({
+      severity: 'warning',
+      type: 'layout_unsolved',
+      element_ids: unsolvedElements.map(e => e.id),
+      message: `${unsolvedElements.length} 个元素缺少布局坐标，需要运行 solver`,
+      metrics: { unsolved_count: unsolvedElements.length },
+      suggestion: '运行 solve_slide_layout.js 自动分配坐标'
     });
   }
 

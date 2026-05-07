@@ -99,6 +99,15 @@ Page Contract 确认后，生成阶段必须先形成 Slide IR（中间表示）
 
 详细 Slide IR schema 见 `references/slide-ir.md` 和 `schemas/slide-ir.schema.json`。
 
+## 容量预算（生成 IR 前必须做）
+
+Page Contract 确认后、生成 Slide IR 前，必须先做容量预算：
+
+1. 根据选择的 `layout_pattern`，对照容量上限（详见 `references/slide-ir.md` 的「容量预算」章节）。
+2. 如果预估元素数量超过上限，必须在 Page Contract 阶段就降维——压缩、合并、建议拆页。
+3. **不要**在生成 IR 后再发现过载；容量预算应在生成前完成。
+4. 可使用 `helpers/ir/capacity.js` 做自动容量检查。
+
 ## 何时更新
 
 - 用户对 Page Contract 提出调整要求时。

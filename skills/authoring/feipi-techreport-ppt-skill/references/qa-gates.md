@@ -177,3 +177,19 @@ Static QA 基于几何规则，以下误报场景已通过规则优化处理：
 - 本文档定义 QA 门禁的结构化框架和分级体系。
 - `references/visual-qa.md` 保留详细的视觉检查清单和失败样例，作为 Render QA 的细化参考。
 - 两者互补，不冲突。
+
+## 第二阶段 Release Gate
+
+QA 门禁是 Release Gate 的核心组成部分。完整 Release Gate 包括：
+
+1. Runtime 能力诊断（doctor.js）。
+2. 基础测试通过（test.sh）。
+3. Benchmark dry-run 无 hard_fail。
+4. PPTX build 成功（如果 pptxgenjs 可用）。
+5. Render QA 通过（如果渲染引擎可用）。
+6. 质量评分 >= 85（QUALITY_RUBRIC.md）。
+7. PPTX post-check 通过。
+8. 无 placeholder/lorem/xxxx 残留。
+9. 无绝对路径泄漏。
+
+详见 `scripts/release_gate.sh` 和 `references/release-gate.md`。
