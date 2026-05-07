@@ -918,7 +918,10 @@ def get_trend_data(
 def list_agents(conn: sqlite3.Connection) -> list[dict]:
     """List all agents with session counts.
 
-    Returns list of {agent, session_count, last_active, total_tokens}.
+    Returns list of {agent, session_count, last_active, total_tokens,
+                     total_input_tokens, total_cached_tokens, total_cache_write_tokens,
+                     total_output_tokens, total_tool_calls, total_failed_tools,
+                     total_assistant_messages, project_count}.
     """
     rows = conn.execute(
         """
@@ -927,8 +930,13 @@ def list_agents(conn: sqlite3.Connection) -> list[dict]:
             COUNT(*) as session_count,
             MAX(ended_at) as last_active,
             COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cached_output_tokens), 0) as total_tokens,
+            COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+            COALESCE(SUM(cached_input_tokens), 0) as total_cached_tokens,
+            COALESCE(SUM(cached_output_tokens), 0) as total_cache_write_tokens,
+            COALESCE(SUM(output_tokens), 0) as total_output_tokens,
             COALESCE(SUM(tool_call_count), 0) as total_tool_calls,
             COALESCE(SUM(failed_tool_count), 0) as total_failed_tools,
+            COALESCE(SUM(assistant_message_count), 0) as total_assistant_messages,
             COUNT(DISTINCT project_key) as project_count
         FROM sessions
         GROUP BY agent

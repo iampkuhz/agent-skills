@@ -17,13 +17,13 @@
 <div class="card" style="margin-bottom:12px; padding:10px 14px">
     <div class="filter-bar">
         <input id="project-search" type="text" placeholder="Search by name or path…"
-               class="filter-bar__input" style="flex:1;min-width:150px"
-               oninput="applyProjectFilters()" />
-        <select id="project-sort" class="filter-bar__select" onchange="applyProjectSort()">
+               class="filter-bar__input" />
+        <select id="project-sort" class="filter-bar__select">
             <option value="last_seen">Sort: Last Active</option>
             <option value="total_sessions">Sort: Sessions</option>
             <option value="total_input_tokens">Sort: Input Tokens</option>
             <option value="total_cached_tokens">Sort: Cache Read</option>
+            <option value="total_cache_write">Sort: Cache Write</option>
             <option value="total_output_tokens">Sort: Output Tokens</option>
             <option value="total_tool_calls">Sort: Tool Calls</option>
             <option value="total_failed_tools">Sort: Failed Tools</option>
@@ -47,6 +47,7 @@
                     <th class="numeric" data-sort-key="total_sessions">Sessions</th>
                     <th class="numeric">Claude</th>
                     <th class="numeric">Codex</th>
+                    <th class="numeric">Qoder</th>
                     <th class="numeric" data-sort-key="total_input_tokens">Input</th>
                     <th class="numeric" data-sort-key="total_cached_tokens">Cache R</th>
                     <th class="numeric">Cache W</th>
@@ -79,12 +80,13 @@
                     data-total-sessions="{{ p.total_sessions }}"
                     data-total-input="{{ p.total_input_tokens }}"
                     data-total-cache-r="{{ p.total_cached_tokens }}"
+                    data-total-cache-w="{{ p.total_cache_write_tokens }}"
                     data-total-output="{{ p.total_output_tokens }}"
                     data-total-tools="{{ p.total_tool_calls }}"
                     data-total-failed="{{ p.total_failed_tools }}">
                     <td><a href="/projects/{{ p.project_key | urlencode }}" class="link">{{ p.project_name }}</a></td>
                     <td class="path-cell">
-                        <span class="path-text truncate" style="max-width:200px; display:block" data-tooltip="{{ p.project_key }}">{{ p.project_key | relative_to_repo | truncate_path }}</span>
+                        <span class="path-text truncate" data-tooltip="{{ p.project_key }}">{{ p.project_key | relative_to_repo | truncate_path }}</span>
                         <button class="path-copy-btn" onclick="copyProjectPath(this, '{{ p.project_key }}')" title="Copy full path">⧉</button>
                     </td>
                     <td class="numeric"><strong>{{ p.total_sessions }}</strong></td>
@@ -175,6 +177,7 @@
                 'total_sessions': function(r) { return parseInt(r.dataset.totalSessions) || 0; },
                 'total_input_tokens': function(r) { return parseInt(r.dataset.totalInput) || 0; },
                 'total_cached_tokens': function(r) { return parseInt(r.dataset.totalCacheR) || 0; },
+                'total_cache_write': function(r) { return parseInt(r.dataset.totalCacheW) || 0; },
                 'total_output_tokens': function(r) { return parseInt(r.dataset.totalOutput) || 0; },
                 'total_tool_calls': function(r) { return parseInt(r.dataset.totalTools) || 0; },
                 'total_failed_tools': function(r) { return parseInt(r.dataset.totalFailed) || 0; }

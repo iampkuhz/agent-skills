@@ -9,9 +9,9 @@
 
 {% block content %}
 
-<!-- Metric cards grouped by category -->
+<!-- Metric cards: 3 groups -->
 <div class="metric-section-label">Overview</div>
-<div class="metrics-grid">
+<div class="metrics-grid metrics-grid--dashboard">
     <div class="metric-card metric-card--compact" data-tooltip="Total indexed sessions across all projects">
         <div class="metric-label">Sessions</div>
         <div class="metric-value">{{ stats.total_sessions | format_number }}</div>
@@ -20,17 +20,21 @@
         <div class="metric-label">Projects</div>
         <div class="metric-value">{{ stats.project_count }}</div>
     </div>
+    <div class="metric-card metric-card--compact" data-tooltip="Unique agents / models">
+        <div class="metric-label">Agents/Models</div>
+        <div class="metric-value">{{ agent_dist | length }}<span class="metric-sub" style="width:auto; margin-left:4px">/ {{ model_dist | length }}</span></div>
+    </div>
+</div>
+
+<div class="metric-section-label">Token Load</div>
+<div class="metrics-grid metrics-grid--dashboard">
     <div class="metric-card metric-card--compact" data-tooltip="Total input-side tokens (fresh + cache read + cache write)">
         <div class="metric-label">Input-side</div>
         <div class="metric-value">{{ (aggregate.input_side_total or 0) | format_number }}</div>
         <div class="metric-sub">fresh + cache R/W</div>
     </div>
-</div>
-
-<div class="metric-section-label">Efficiency</div>
-<div class="metrics-grid">
     <div class="metric-card metric-card--compact" data-tooltip="Cache reuse ratio: cache_read / input_side_total">
-        <div class="metric-label">Cache R</div>
+        <div class="metric-label">Cache Reuse</div>
         <div class="metric-value">
             {% if aggregate.cache_reuse_ratio is not none %}
             {{ (aggregate.cache_reuse_ratio * 100) | round(1) }}%
@@ -38,11 +42,22 @@
         </div>
         <div class="metric-sub">reuse ratio</div>
     </div>
+    <div class="metric-card metric-card--compact" data-tooltip="Total output tokens across all sessions">
+        <div class="metric-label">Output</div>
+        <div class="metric-value">{{ (stats.total_output_tokens or 0) | format_number }}</div>
+        <div class="metric-sub">total output</div>
+    </div>
+</div>
+
+<div class="metric-section-label">Tool Health</div>
+<div class="metrics-grid metrics-grid--dashboard">
     <div class="metric-card metric-card--compact" data-tooltip="Total tool invocations across all sessions">
         <div class="metric-label">Tools</div>
         <div class="metric-value">{{ stats.total_tool_calls | format_number }}</div>
         {% if stats.total_failed_tools > 0 %}
         <div class="metric-sub"><span class="badge badge-error">{{ stats.total_failed_tools }} failed</span></div>
+        {% else %}
+        <div class="metric-sub">all ok</div>
         {% endif %}
     </div>
     <div class="metric-card metric-card--compact" data-tooltip="Tools per round: total_tools / total_rounds">
@@ -53,6 +68,11 @@
             {% else %}—{% endif %}
         </div>
         <div class="metric-sub">per round</div>
+    </div>
+    <div class="metric-card metric-card--compact" data-tooltip="Total failed tool calls">
+        <div class="metric-label">Failed</div>
+        <div class="metric-value {% if stats.total_failed_tools > 0 %}highlight-error{% endif %}">{{ stats.total_failed_tools | format_number }}</div>
+        <div class="metric-sub">failed calls</div>
     </div>
 </div>
 
@@ -112,7 +132,7 @@
 <!-- Trend chart -->
 <div class="card">
     <div class="card-title flex justify-between items-center">
-        <span>Trend</span>
+        <span>Session Trend <span class="text-muted" style="font-weight:400; text-transform:none; letter-spacing:0">(sessions per day by agent)</span></span>
         <div class="flex gap-1">
             <button class="tab tab--chart active" data-days="30" onclick="updateChart(30)">30d</button>
             <button class="tab tab--chart" data-days="7" onclick="updateChart(7)">7d</button>
@@ -135,19 +155,19 @@
 
 <!-- Agent + Model distribution -->
 <div class="card">
-    <div class="card-title">Distribution</div>
-    <div class="flex gap-3 items-center mb-2">
+    <div class="card-title">Agent / Model Distribution</div>
+    <div class="dist-agents">
         {% for agent, count in agent_dist.items() %}
-        <div class="flex items-center gap-2">
+        <div class="dist-agent">
             <span class="agent-dot {{ 'claude' if agent == 'claude_code' else 'qoder' if agent == 'qoder' else 'codex' }}"></span>
-            <span class="text-sm">{{ 'Claude Code' if agent == 'claude_code' else 'Qoder' if agent == 'qoder' else 'Codex' }}: {{ count | format_number }}</span>
+            <span>{{ 'Claude Code' if agent == 'claude_code' else 'Qoder' if agent == 'qoder' else 'Codex' }}: <strong>{{ count | format_number }}</strong></span>
         </div>
         {% endfor %}
     </div>
     {% if model_dist %}
-    <div class="text-sm" style="margin-top:8px">
+    <div class="dist-models">
         {% for model, count in model_dist.items() %}
-        <span class="badge badge-muted" style="margin-right:4px; margin-bottom:4px" data-tooltip="{{ count | format_number }} sessions using {{ model }}">{{ model }}: {{ count | format_number }}</span>
+        <span class="badge badge-muted dist-model" data-tooltip="{{ count | format_number }} sessions using {{ model }}" title="{{ model }}">{{ model[:40] }}</span>
         {% endfor %}
     </div>
     {% endif %}

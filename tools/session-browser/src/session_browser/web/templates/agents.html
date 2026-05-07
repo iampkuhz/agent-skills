@@ -69,7 +69,7 @@
                     <th class="numeric">Avg Tools</th>
                     <th class="numeric">Tools/R</th>
                     <th class="numeric">Cache R</th>
-                    <th class="numeric">Failure Rate</th>
+                    <th class="numeric">Failed/Session</th>
                 </tr>
             </thead>
             <tbody>
@@ -93,7 +93,7 @@
                     </td>
                     <td class="numeric mono text-xs">
                         {% if e.failure_rate is not none %}
-                        {{ (e.failure_rate * 100) | round(1) }}%
+                        {{ e.failure_rate | round(1) }}
                         {% else %}—{% endif %}
                     </td>
                 </tr>

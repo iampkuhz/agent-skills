@@ -33,37 +33,43 @@
 {% set main_calls_list = llm_calls | selectattr('scope', 'equalto', 'main') | list %}
 {% set sub_calls_list = llm_calls | selectattr('scope', 'equalto', 'subagent') | list %}
 
+{% set agent_name = 'Claude' if session.agent == 'claude_code' else 'Qoder' if session.agent == 'qoder' else 'Codex' %}
+{% set agent_class = 'overview__agent-badge--claude' if session.agent == 'claude_code' else 'overview__agent-badge--qoder' if session.agent == 'qoder' else 'overview__agent-badge--codex' %}
+
+{% set fresh_pct = (session.input_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
+{% set cr_pct = (session.cached_input_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
+{% set cw_pct = (session.cached_output_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
+{% set out_pct = (session.output_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
+
 <!-- ── Unified Session Overview ──────────────────────────────────────── -->
 <div class="overview">
 
-    <!-- Identity row: agent badge, title, model -->
+    <!-- 1. Identity: agent badge + title + model -->
     <div class="overview__identity">
-        <span class="overview__agent-badge {{ 'overview__agent-badge--claude' if session.agent == 'claude_code' else 'overview__agent-badge--qoder' if session.agent == 'qoder' else 'overview__agent-badge--codex' }}">
-            {{ 'Claude' if session.agent == 'claude_code' else 'Qoder' if session.agent == 'qoder' else 'Codex' }}
-        </span>
-        <h1 class="overview__title" data-tooltip="{{ session.title }}">{{ session.title[:140] or 'Untitled Session' }}</h1>
+        <span class="overview__agent-badge {{ agent_class }}">{{ agent_name }}</span>
+        <h1 class="overview__title" title="{{ session.title }}">{{ session.title[:140] or 'Untitled Session' }}</h1>
         {% if session.model %}
-        <span class="overview__model" data-tooltip="{{ session.model }}">{{ session.model[:60] }}</span>
+        <span class="overview__model" title="{{ session.model }}">{{ session.model[:60] }}</span>
         {% endif %}
     </div>
 
-    <!-- Context chips -->
-    <div class="overview__context">
-        <a href="/projects/{{ session.project_key | urlencode }}" class="ctx-chip" data-tooltip="{{ session.project_key }}">
-            <span class="ctx-chip__icon">◎</span>{{ session.project_name }}
+    <!-- 2. Metadata chips row -->
+    <div class="overview__meta">
+        <a href="/projects/{{ session.project_key | urlencode }}" class="meta-chip meta-chip--link" title="{{ session.project_key }}">
+            <span class="meta-chip__icon">&#x25ce;</span>{{ session.project_name }}
         </a>
         {% if session.git_branch and session.git_branch != 'main' %}
-        <span class="ctx-chip ctx-chip--mono">{{ session.git_branch }}</span>
+        <span class="meta-chip meta-chip--mono" title="Branch: {{ session.git_branch }}">{{ session.git_branch }}</span>
         {% endif %}
         {% if session.started_at %}
-        <span class="ctx-chip ctx-chip--mono ctx-chip--time"
-              data-tooltip="Started: {{ session.started_at[:19].replace('T', ' ') }}&#10;Ended: {{ session.ended_at[:19].replace('T', ' ') }}">
-            {{ session.started_at[:10] }} · {{ session.duration_seconds | format_duration }}
+        <span class="meta-chip meta-chip--mono meta-chip--time"
+              title="Started: {{ session.started_at[:19].replace('T', ' ') }}&#10;Ended: {{ session.ended_at[:19].replace('T', ' ') }}&#10;Duration: {{ session.duration_seconds | format_duration }}">
+            {{ session.started_at[:10] }} &#x00b7; {{ session.duration_seconds | format_duration }}
         </span>
         {% endif %}
     </div>
 
-    <!-- Anomaly banner (inline within overview) -->
+    <!-- 3. Anomaly banner -->
     {% if has_anomalies %}
     <div class="overview__anomaly anomaly-banner anomaly-banner--{{ session_anomalies.max_severity }}">
         <span class="anomaly-banner__icon">!</span>
@@ -78,211 +84,256 @@
     </div>
     {% endif %}
 
-    <!-- Hero stats: 4 most critical numbers -->
-    <div class="overview__hero-stats">
-        <div class="hero-stat">
-            <div class="hero-stat__value">{{ session.duration_seconds | format_duration }}</div>
-            <div class="hero-stat__label">Duration</div>
-        </div>
-        <div class="hero-stat">
-            <div class="hero-stat__value">{{ session_grand_total | format_number }}</div>
-            <div class="hero-stat__label">Total Tokens</div>
-        </div>
-        <div class="hero-stat">
-            <div class="hero-stat__value">{{ rounds | length }}</div>
-            <div class="hero-stat__label">Rounds</div>
-        </div>
-        <div class="hero-stat">
-            <div class="hero-stat__value">{{ session.tool_call_count | format_number }}</div>
-            <div class="hero-stat__label">Tool Calls</div>
-        </div>
-    </div>
+    <!-- 4. Main grid: Run Summary + Token Mix -->
+    <div class="overview__grid">
+        <!-- Left: Run Summary -->
+        <div class="overview__run-summary">
+            <div class="run-summary-tiles">
+                <div class="run-tile">
+                    <div class="run-tile__value">{{ session.duration_seconds | format_duration }}</div>
+                    <div class="run-tile__label">Duration</div>
+                </div>
+                <div class="run-tile">
+                    <div class="run-tile__value">{{ session_grand_total | format_number }}</div>
+                    <div class="run-tile__label">Total Tokens</div>
+                </div>
+                <div class="run-tile">
+                    <div class="run-tile__value">{{ rounds | length }}</div>
+                    <div class="run-tile__label">Rounds</div>
+                </div>
+                <div class="run-tile">
+                    <div class="run-tile__value">{{ session.tool_call_count | format_number }}</div>
+                    <div class="run-tile__label">Tool Calls</div>
+                </div>
+            </div>
 
-    <!-- Token donut + breakdown side-by-side -->
-    <div class="overview__token-panel">
-        <!-- Left: token donut visualization -->
-        <div class="token-donut">
-            <svg viewBox="0 0 120 120" class="token-donut__svg">
-                {% if session_grand_total > 0 %}
-                    {% set fresh_pct = (session.input_tokens / session_grand_total * 100) | round(1) %}
-                    {% set cr_pct = (session.cached_input_tokens / session_grand_total * 100) | round(1) %}
-                    {% set cw_pct = (session.cached_output_tokens / session_grand_total * 100) | round(1) %}
-                    {% set out_pct = (session.output_tokens / session_grand_total * 100) | round(1) %}
-                    {% set r = 42 %}
-                    {% set c = 2 * 3.14159 * r %}
-                    {% set gap = 2 %}
-                    <!-- Fresh input -->
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                        stroke="var(--token-input-fresh)"
-                        stroke-dasharray="{{ ((fresh_pct / 100) * c) | round(1) }} {{ c }}"
-                        stroke-dashoffset="0" />
-                    <!-- Cache read -->
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                        stroke="var(--token-cache-read)"
-                        stroke-dasharray="{{ ((cr_pct / 100) * c) | round(1) }} {{ c }}"
-                        stroke-dashoffset="{{ -(fresh_pct / 100) * c }}" />
-                    <!-- Cache write -->
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                        stroke="var(--token-cache-write)"
-                        stroke-dasharray="{{ ((cw_pct / 100) * c) | round(1) }} {{ c }}"
-                        stroke-dashoffset="{{ -((fresh_pct + cr_pct) / 100) * c }}" />
-                    <!-- Output -->
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                        stroke="var(--token-output-visible)"
-                        stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
-                        stroke-dashoffset="{{ -((fresh_pct + cr_pct + cw_pct) / 100) * c }}" />
-                {% endif %}
-                <!-- Center text -->
-                <text x="60" y="54" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number }}</text>
-                <text x="60" y="70" text-anchor="middle" class="token-donut__center-label">total tokens</text>
-            </svg>
-        </div>
-
-        <!-- Right: token breakdown rows -->
-        <div class="token-detail">
-            <div class="token-detail__header">Token Breakdown</div>
-            <div class="token-detail__row">
-                <span class="token-detail__dot" style="background:var(--token-input-fresh)"></span>
-                <span class="token-detail__name">Fresh Input</span>
-                <span class="token-detail__val">{{ session.input_tokens | format_number }}</span>
-                {% if session_grand_total > 0 %}
-                <span class="token-detail__pct">{{ (session.input_tokens / session_grand_total * 100) | round(1) }}%</span>
-                <div class="token-detail__bar"><div class="token-detail__bar-fill" style="width:{{ (session.input_tokens / session_grand_total * 100) | round(1) }}%;background:var(--token-input-fresh)"></div></div>
-                {% endif %}
-            </div>
-            <div class="token-detail__row">
-                <span class="token-detail__dot" style="background:var(--token-cache-read)"></span>
-                <span class="token-detail__name">Cache Read</span>
-                <span class="token-detail__val">{{ session.cached_input_tokens | format_number }}</span>
-                {% if session_grand_total > 0 %}
-                <span class="token-detail__pct">{{ (session.cached_input_tokens / session_grand_total * 100) | round(1) }}%</span>
-                <div class="token-detail__bar"><div class="token-detail__bar-fill" style="width:{{ (session.cached_input_tokens / session_grand_total * 100) | round(1) }}%;background:var(--token-cache-read)"></div></div>
-                {% endif %}
-            </div>
-            <div class="token-detail__row">
-                <span class="token-detail__dot" style="background:var(--token-cache-write)"></span>
-                <span class="token-detail__name">Cache Write</span>
-                <span class="token-detail__val">{{ session.cached_output_tokens | format_number }}</span>
-                {% if session_grand_total > 0 %}
-                <span class="token-detail__pct">{{ (session.cached_output_tokens / session_grand_total * 100) | round(1) }}%</span>
-                <div class="token-detail__bar"><div class="token-detail__bar-fill" style="width:{{ (session.cached_output_tokens / session_grand_total * 100) | round(1) }}%;background:var(--token-cache-write)"></div></div>
-                {% endif %}
-            </div>
-            <div class="token-detail__row">
-                <span class="token-detail__dot" style="background:var(--token-output-visible)"></span>
-                <span class="token-detail__name">Output</span>
-                <span class="token-detail__val">{{ session.output_tokens | format_number }}</span>
-                {% if session_grand_total > 0 %}
-                <span class="token-detail__pct">{{ (session.output_tokens / session_grand_total * 100) | round(1) }}%</span>
-                <div class="token-detail__bar"><div class="token-detail__bar-fill" style="width:{{ (session.output_tokens / session_grand_total * 100) | round(1) }}%;background:var(--token-output-visible)"></div></div>
-                {% endif %}
-            </div>
-            <div class="token-detail__footer">
-                <span>Cache Reuse: <strong>{{ cache_reuse }}%</strong></span>
-                <span>Output/Input: <strong>{{ output_ratio }}%</strong></span>
-                <span class="token-detail__provider">{{ session.model or 'unknown' }}</span>
+            <!-- Conversation & Efficiency metrics -->
+            <div class="overview__metrics">
+                <div class="metrics-grid metrics-grid--efficiency">
+                    <div class="metric-card metric-card--compact">
+                        <div class="metric-label">Messages</div>
+                        <div class="metric-value">{{ session.user_message_count + session.assistant_message_count }}</div>
+                        <div class="metric-sub">{{ session.user_message_count }}U &#x00b7; {{ session.assistant_message_count }}A</div>
+                    </div>
+                    <div class="metric-card metric-card--compact">
+                        <div class="metric-label">Tools/R</div>
+                        <div class="metric-value">{{ tools_per_round }}</div>
+                        {% if session.failed_tool_count > 0 %}
+                        <div class="metric-sub"><span class="badge badge-error">{{ session.failed_tool_count }} failed</span></div>
+                        {% else %}
+                        <div class="metric-sub">per round</div>
+                        {% endif %}
+                    </div>
+                    <div class="metric-card metric-card--compact">
+                        <div class="metric-label">Tok/R</div>
+                        <div class="metric-value">{{ avg_tok_round | format_number }}</div>
+                        <div class="metric-sub">per round</div>
+                    </div>
+                    <div class="metric-card metric-card--compact">
+                        <div class="metric-label">LLM Calls</div>
+                        <div class="metric-value">{{ total_llm_calls | format_number }}</div>
+                        {% if total_llm_errors > 0 %}
+                        <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
+                        {% else %}
+                        <div class="metric-sub">{{ main_calls_list | length }}m + {{ sub_calls_list | length }}s</div>
+                        {% endif %}
+                    </div>
+                    <div class="metric-card metric-card--compact">
+                        <div class="metric-label">LLM Input</div>
+                        <div class="metric-value">{{ llm_total_input | format_number }}</div>
+                        <div class="metric-sub">{{ llm_total_cr | format_number }} cache read</div>
+                    </div>
+                    <div class="metric-card metric-card--compact">
+                        <div class="metric-label">LLM Output</div>
+                        <div class="metric-value">{{ llm_total_output | format_number }}</div>
+                        <div class="metric-sub">{{ llm_total_cw | format_number }} cache write</div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Derived metrics grid (compact cards, was part of overview + profile) -->
-    <div class="overview__metrics">
-        <div class="metric-section-label">Conversation &amp; Efficiency</div>
-        <div class="metrics-grid">
-            <div class="metric-card metric-card--compact" data-tooltip="User messages + assistant responses">
-                <div class="metric-label">Messages</div>
-                <div class="metric-value">{{ session.user_message_count + session.assistant_message_count }}</div>
-                <div class="metric-sub">{{ session.user_message_count }}U · {{ session.assistant_message_count }}A</div>
+        <!-- Right: Token Mix (donut + breakdown) -->
+        <div class="overview__token-mix">
+            <div class="token-mix__donut">
+                <svg viewBox="0 0 120 120" class="token-donut__svg">
+                    {% if session_grand_total > 0 %}
+                        {% set r = 42 %}
+                        {% set c = 2 * 3.14159 * r %}
+                        <!-- Fresh input -->
+                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                            stroke="var(--token-input-fresh)"
+                            stroke-dasharray="{{ ((fresh_pct / 100) * c) | round(1) }} {{ c }}"
+                            stroke-dashoffset="0" />
+                        <!-- Cache read -->
+                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                            stroke="var(--token-cache-read)"
+                            stroke-dasharray="{{ ((cr_pct / 100) * c) | round(1) }} {{ c }}"
+                            stroke-dashoffset="{{ -(fresh_pct / 100) * c }}" />
+                        <!-- Cache write -->
+                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                            stroke="var(--token-cache-write)"
+                            stroke-dasharray="{{ ((cw_pct / 100) * c) | round(1) }} {{ c }}"
+                            stroke-dashoffset="{{ -((fresh_pct + cr_pct) / 100) * c }}" />
+                        <!-- Output -->
+                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                            stroke="var(--token-output-visible)"
+                            stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
+                            stroke-dashoffset="{{ -((fresh_pct + cr_pct + cw_pct) / 100) * c }}" />
+                    {% endif %}
+                    <text x="60" y="54" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number }}</text>
+                    <text x="60" y="70" text-anchor="middle" class="token-donut__center-label">total tokens</text>
+                </svg>
             </div>
-            <div class="metric-card metric-card--compact" data-tooltip="Tools per round: total_tools / rounds">
-                <div class="metric-label">Tools/R</div>
-                <div class="metric-value">{{ tools_per_round }}</div>
-                {% if session.failed_tool_count > 0 %}
-                <div class="metric-sub"><span class="badge badge-error">{{ session.failed_tool_count }} failed</span></div>
-                {% else %}
-                <div class="metric-sub">per round</div>
-                {% endif %}
-            </div>
-            <div class="metric-card metric-card--compact" data-tooltip="Average tokens per round (input-side + output)">
-                <div class="metric-label">Tok/R</div>
-                <div class="metric-value">{{ avg_tok_round | format_number }}</div>
-                <div class="metric-sub">per round</div>
-            </div>
-            <div class="metric-card metric-card--compact" data-tooltip="Logical LLM calls inferred from Claude message ids">
-                <div class="metric-label">LLM Calls</div>
-                <div class="metric-value">{{ total_llm_calls | format_number }}</div>
-                {% if total_llm_errors > 0 %}
-                <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
-                {% else %}
-                <div class="metric-sub">{{ main_calls_list | length }}m + {{ sub_calls_list | length }}s</div>
-                {% endif %}
-            </div>
-            <div class="metric-card metric-card--compact" data-tooltip="Total LLM input tokens across all calls">
-                <div class="metric-label">LLM Input</div>
-                <div class="metric-value">{{ llm_total_input | format_number }}</div>
-                <div class="metric-sub">{{ llm_total_cr | format_number }} cache read</div>
-            </div>
-            <div class="metric-card metric-card--compact" data-tooltip="Total LLM output tokens across all calls">
-                <div class="metric-label">LLM Output</div>
-                <div class="metric-value">{{ llm_total_output | format_number }}</div>
-                <div class="metric-sub">{{ llm_total_cw | format_number }} cache write</div>
+            <div class="token-mix__breakdown">
+                <div class="token-mix__row">
+                    <span class="token-mix__dot" style="background:var(--token-input-fresh)"></span>
+                    <span class="token-mix__name">Fresh Input</span>
+                    <span class="token-mix__val">{{ session.input_tokens | format_number }}</span>
+                    <span class="token-mix__pct">{{ fresh_pct }}%</span>
+                </div>
+                <div class="token-mix__row">
+                    <span class="token-mix__dot" style="background:var(--token-cache-read)"></span>
+                    <span class="token-mix__name">Cache Read</span>
+                    <span class="token-mix__val">{{ session.cached_input_tokens | format_number }}</span>
+                    <span class="token-mix__pct">{{ cr_pct }}%</span>
+                </div>
+                <div class="token-mix__row">
+                    <span class="token-mix__dot" style="background:var(--token-cache-write)"></span>
+                    <span class="token-mix__name">Cache Write</span>
+                    <span class="token-mix__val">{{ session.cached_output_tokens | format_number }}</span>
+                    <span class="token-mix__pct">{{ cw_pct }}%</span>
+                </div>
+                <div class="token-mix__row">
+                    <span class="token-mix__dot" style="background:var(--token-output-visible)"></span>
+                    <span class="token-mix__name">Output</span>
+                    <span class="token-mix__val">{{ session.output_tokens | format_number }}</span>
+                    <span class="token-mix__pct">{{ out_pct }}%</span>
+                </div>
+                <div class="token-mix__footer">
+                    <span>Cache Reuse: <strong>{{ cache_reuse }}%</strong></span>
+                    <span>Output/Input: <strong>{{ output_ratio }}%</strong></span>
+                    <span class="token-mix__provider">{{ session.model or 'unknown' }}</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Tokens per round sparkline (was in Profile tab) -->
+    <!-- 5. Tokens per Round chart (full width) -->
     {% if rounds and rounds | length > 1 %}
     <div class="overview__round-chart">
-        <div class="metric-section-label">Tokens per Round</div>
-        <div class="sparkline-wrap">
-            <svg class="sparkline" viewBox="0 0 600 50" preserveAspectRatio="none">
-                {% set spark_data = [] %}
-                {% for round in rounds %}
-                    {% set rb = round.token_breakdown() %}
-                    {% set rt = rb.input + rb.cache_read + rb.cache_write + rb.output %}
-                    {% if rt > 0 %}
-                        {% set _ = spark_data.append({'idx': loop.index, 'rt': rt, 'fresh': rb.input, 'cr': rb.cache_read, 'cw': rb.cache_write, 'out': rb.output}) %}
-                    {% endif %}
-                {% endfor %}
-                {% if spark_data | length > 0 %}
-                    {% set max_rt = spark_data | map(attribute='rt') | max %}
-                    {% set min_rt = spark_data | map(attribute='rt') | min %}
-                    {% set range_rt = max_rt - min_rt if max_rt != min_rt else 1 %}
-                    {# Background area fill #}
-                    <polygon class="sparkline__area" points="
-                        {% for d in spark_data %}
-                            {{ ((d.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 }},{{ 45 - ((d.rt - min_rt) / range_rt) * 40 }}
-                        {% endfor %}
-                        600,45 0,45" />
-                    {# Main line #}
-                    <polyline class="sparkline__line" points="
-                        {% for d in spark_data %}
-                            {{ ((d.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 }},{{ 45 - ((d.rt - min_rt) / range_rt) * 40 }}
-                        {% endfor %}" />
-                    {# Peak dot #}
-                    {% set peak = spark_data | selectattr('rt', 'equalto', max_rt) | list | first %}
-                    {% if peak %}
-                        {% set peak_x = ((peak.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 %}
-                        <circle class="sparkline__dot" cx="{{ peak_x }}" cy="{{ 45 - ((peak.rt - min_rt) / range_rt) * 40 }}" r="2.5"
-                              data-tooltip="#{{ peak.idx }}: {{ peak.rt | format_number }} tokens&#10;Fresh: {{ peak.fresh | format_number }}&#10;Cache R: {{ peak.cr | format_number }}&#10;Cache W: {{ peak.cw | format_number }}&#10;Output: {{ peak.out | format_number }}" />
-                    {% endif %}
+        <div class="round-chart__header">Tokens per Round</div>
+        <div class="round-chart-bars" id="roundChartBars">
+            {% set spark_data = [] %}
+            {% for round in rounds %}
+                {% set rb = round.token_breakdown() %}
+                {% set rt = rb.input + rb.cache_read + rb.cache_write + rb.output %}
+                {% if rt > 0 %}
+                    {% set _ = spark_data.append({'idx': loop.index, 'rt': rt, 'fresh': rb.input, 'cr': rb.cache_read, 'cw': rb.cache_write, 'out': rb.output}) %}
                 {% endif %}
-            </svg>
-            <div class="sparkline__labels">
-                <span>Min: {{ spark_data | map(attribute='rt') | min | format_number if spark_data else '—' }}</span>
-                <span>Avg: {{ (spark_data | map(attribute='rt') | sum / spark_data | length) | round(0) | format_number if spark_data else '—' }}</span>
-                <span>Max: {{ spark_data | map(attribute='rt') | max | format_number if spark_data else '—' }}</span>
-            </div>
-        </div>
-        <div class="chart-legend" style="margin-top:4px">
-            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-input-fresh)"></span> Fresh</span>
-            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-read)"></span> Cache R</span>
-            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-write)"></span> Cache W</span>
-            <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-output-visible)"></span> Output</span>
+            {% endfor %}
+            {% if spark_data | length > 0 %}
+                {% set max_rt = spark_data | map(attribute='rt') | max %}
+                {% set bar_h = 90 %}
+                <svg viewBox="-15 -5 630 100" preserveAspectRatio="none" style="width:100%;height:100px;display:block">
+                    {% for pct in [0, 25, 50, 75, 100] %}
+                        {% set y = 90 - (pct / 100) * 90 %}
+                        <line x1="-15" y1="{{ y }}" x2="615" y2="{{ y }}" stroke="var(--border-light)" stroke-width="0.5" />
+                    {% endfor %}
+                    {% for d in spark_data %}
+                        {% set x = ((d.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 %}
+                        {% set bar_w = max(600 / spark_data | length - 1, 2) %}
+                        {% set x_left = x - bar_w / 2 %}
+                        {% set fresh_h = (d.fresh / max_rt * 90) if max_rt > 0 else 0 %}
+                        {% set cr_h = (d.cr / max_rt * 90) if max_rt > 0 else 0 %}
+                        {% set cw_h = (d.cw / max_rt * 90) if max_rt > 0 else 0 %}
+                        {% set out_h = (d.out / max_rt * 90) if max_rt > 0 else 0 %}
+                        <rect class="round-bar__seg round-bar__seg--fresh" x="{{ x_left }}" y="{{ 90 - fresh_h }}" width="{{ bar_w }}" height="{{ fresh_h }}" />
+                        <rect class="round-bar__seg round-bar__seg--cr" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h }}" width="{{ bar_w }}" height="{{ cr_h }}" />
+                        <rect class="round-bar__seg round-bar__seg--cw" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h }}" width="{{ bar_w }}" height="{{ cw_h }}" />
+                        <rect class="round-bar__seg round-bar__seg--out" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h - out_h }}" width="{{ bar_w }}" height="{{ out_h }}" />
+                    {% endfor %}
+                    {% for d in spark_data %}
+                        {% set x = ((d.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 %}
+                        {% set bar_w = max(600 / spark_data | length - 1, 2) %}
+                        <rect class="round-bar__hover" x="{{ x - bar_w / 2 - 3 }}" y="-5" width="{{ bar_w + 6 }}" height="95"
+                            data-round-idx="{{ d.idx }}" data-total="{{ d.rt }}" data-fresh="{{ d.fresh }}" data-cr="{{ d.cr }}" data-cw="{{ d.cw }}" data-out="{{ d.out }}" />
+                    {% endfor %}
+                </svg>
+                <div class="round-chart-labels">
+                    <span>Min: {{ spark_data | map(attribute='rt') | min | format_number }}</span>
+                    <span>Avg: {{ (spark_data | map(attribute='rt') | sum / spark_data | length) | round(0) | format_number }}</span>
+                    <span>Max: {{ spark_data | map(attribute='rt') | max | format_number }}</span>
+                </div>
+                <div class="chart-legend" style="margin-top:4px">
+                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-input-fresh)"></span> Fresh</span>
+                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-read)"></span> Cache R</span>
+                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-write)"></span> Cache W</span>
+                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-output-visible)"></span> Output</span>
+                </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
 
+</div>
+
+
+<!-- Run Profile Summary: compact diagnostic -->
+<div class="run-profile-bar">
+    <div class="run-profile-bar__stat">
+        <span class="run-profile-bar__label">Rounds</span>
+        <span class="run-profile-bar__value">{{ rounds | length }}</span>
+    </div>
+    <div class="run-profile-bar__stat">
+        <span class="run-profile-bar__label">LLM Calls</span>
+        <span class="run-profile-bar__value">{{ main_calls_list | length }}m / {{ sub_calls_list | length }}s</span>
+    </div>
+    <div class="run-profile-bar__stat">
+        <span class="run-profile-bar__label">Failed Tools</span>
+        <span class="run-profile-bar__value {{ 'highlight-error' if session.failed_tool_count > 0 else '' }}">{{ session.failed_tool_count }}</span>
+    </div>
+    <div class="run-profile-bar__stat">
+        <span class="run-profile-bar__label">Top Tool</span>
+        <span class="run-profile-bar__value mono text-xs">
+            {% if tool_calls %}
+                {% set ns2 = namespace(tool_counts={}) %}
+                {% for tc in tool_calls %}
+                    {% if tc.name in ns2.tool_counts %}
+                        {% set _ = ns2.tool_counts.update({tc.name: ns2.tool_counts[tc.name] + 1}) %}
+                    {% else %}
+                        {% set _ = ns2.tool_counts.update({tc.name: 1}) %}
+                    {% endif %}
+                {% endfor %}
+                {% set top_tool = ns2.tool_counts | dictsort(by='value', reverse=true) | first %}
+                {{ top_tool[0] if top_tool else '—' }} <span class="text-muted">({{ top_tool[1] if top_tool else 0 }})</span>
+            {% else %}—{% endif %}
+        </span>
+    </div>
+    <div class="run-profile-bar__stat">
+        <span class="run-profile-bar__label">Peak Round</span>
+        <span class="run-profile-bar__value mono text-xs">
+            {% if rounds %}
+                {% set peak_r = rounds | sort(attribute='total_tokens', reverse=true) | first %}
+                <span class="text-muted">({{ peak_r.total_tokens | format_number }} tok)</span>
+            {% else %}—{% endif %}
+        </span>
+    </div>
+    <div class="run-profile-bar__stat">
+        <span class="run-profile-bar__label">Cache Heavy</span>
+        <span class="run-profile-bar__value mono text-xs">
+            {% if rounds %}
+                {% set cache_heavy_count = [] %}
+                {% for r in rounds %}
+                    {% set rb = r.token_breakdown() %}
+                    {% set total = rb.input + rb.cache_read + rb.cache_write + rb.output %}
+                    {% if total > 0 and rb.cache_read > total * 0.5 %}
+                        {% set _ = cache_heavy_count.append(1) %}
+                    {% endif %}
+                {% endfor %}
+                {{ cache_heavy_count | length }}<span class="text-muted"> / {{ rounds | length }} rounds</span>
+            {% else %}—{% endif %}
+        </span>
+    </div>
 </div>
 
 <!-- Tabs -->
@@ -791,31 +842,111 @@
 
 <!-- Tab: Hotspots -->
 <div id="hotspots" class="tab-content">
-    <!-- Tool usage summary -->
-    {% if tool_calls %}
-    <div class="card">
-        <div class="card-title">Tool Usage by Frequency</div>
-        <div class="tool-hotspots">
-            {% set ns = namespace(tool_counts={}) %}
-            {% for tc in tool_calls %}
-                {% if tc.name in ns.tool_counts %}
-                    {% set _ = ns.tool_counts.update({tc.name: ns.tool_counts[tc.name] + 1}) %}
-                {% else %}
-                    {% set _ = ns.tool_counts.update({tc.name: 1}) %}
-                {% endif %}
-            {% endfor %}
-            {% for tool_name, count in ns.tool_counts | dictsort(by='value', reverse=true) %}
-            <div class="tool-hotspot__item">
-                <span class="tool-hotspot__name">{{ tool_name }}</span>
-                <div class="tool-hotspot__bar-wrap">
-                    <div class="tool-hotspot__bar" style="width:{{ (count / (tool_calls | length) * 100) | round(0) }}%"></div>
+    <div class="hotspots-grid">
+        <!-- Tool usage by frequency -->
+        {% if tool_calls %}
+        <div class="card">
+            <div class="card-title">Tool Usage by Frequency</div>
+            <div class="tool-hotspots">
+                {% set ns = namespace(tool_counts={}) %}
+                {% for tc in tool_calls %}
+                    {% if tc.name in ns.tool_counts %}
+                        {% set _ = ns.tool_counts.update({tc.name: ns.tool_counts[tc.name] + 1}) %}
+                    {% else %}
+                        {% set _ = ns.tool_counts.update({tc.name: 1}) %}
+                    {% endif %}
+                {% endfor %}
+                {% for tool_name, count in ns.tool_counts | dictsort(by='value', reverse=true) %}
+                <div class="tool-hotspot__item">
+                    <span class="tool-hotspot__name">{{ tool_name }}</span>
+                    <div class="tool-hotspot__bar-wrap">
+                        <div class="tool-hotspot__bar" style="width:{{ (count / (tool_calls | length) * 100) | round(0) }}%"></div>
+                    </div>
+                    <span class="tool-hotspot__count">{{ count }}</span>
                 </div>
-                <span class="tool-hotspot__count">{{ count }}</span>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
+
+        <!-- Failed tools distribution -->
+        {% set failed_tools_list = tool_calls | selectattr('is_failed') | list %}
+        {% if failed_tools_list | length > 0 %}
+        <div class="card">
+            <div class="card-title">Failed Tools <span class="badge badge-error">{{ failed_tools_list | length }}</span></div>
+            <div class="tool-hotspots">
+                {% set ns3 = namespace(failed_counts={}) %}
+                {% for tc in failed_tools_list %}
+                    {% if tc.name in ns3.failed_counts %}
+                        {% set _ = ns3.failed_counts.update({tc.name: ns3.failed_counts[tc.name] + 1}) %}
+                    {% else %}
+                        {% set _ = ns3.failed_counts.update({tc.name: 1}) %}
+                    {% endif %}
+                {% endfor %}
+                {% for tool_name, count in ns3.failed_counts | dictsort(by='value', reverse=True) %}
+                <div class="tool-hotspot__item tool-hotpot__item--error">
+                    <span class="tool-hotspot__name" style="color:var(--status-error)">{{ tool_name }}</span>
+                    <div class="tool-hotspot__bar-wrap">
+                        <div class="tool-hotspot__bar tool-hotspot__bar--error" style="width:{{ (count / (failed_tools_list | length) * 100) | round(0) }}%"></div>
+                    </div>
+                    <span class="tool-hotspot__count">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Top token rounds -->
+        {% if rounds and rounds | length > 1 %}
+        <div class="card">
+            <div class="card-title">Top Token Rounds</div>
+            <div class="top-rounds-list">
+                {% set top_rounds = rounds | sort(attribute='total_tokens', reverse=True) | list %}
+                {% for round in top_rounds[:5] %}
+                    {% set rb = round.token_breakdown() %}
+                    {% set rt = rb.input + rb.cache_read + rb.cache_write + rb.output %}
+                    <div class="top-round__row">
+                        <span class="top-round__idx mono text-xs">#{{ loop.index }}</span>
+                        <span class="top-round__val mono">{{ rt | format_number }}</span>
+                        <div class="top-round__bar">
+                            <div class="top-round__bar-fill top-round__bar--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                            <div class="top-round__bar--cr" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                            <div class="top-round__bar--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                            <div class="top-round__bar--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                        </div>
+                        <span class="top-round__tools text-muted text-xs">{{ round.tool_calls | length }}t</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- High cache-write rounds -->
+        {% set high_cw_rounds = [] %}
+        {% for r in rounds %}
+            {% set rb = r.token_breakdown() %}
+            {% if rb.cache_write > 5000 %}
+                {% set _ = high_cw_rounds.append({'idx': loop.index, 'cw': rb.cache_write, 'total': rb.input + rb.cache_read + rb.cache_write + rb.output}) %}
+            {% endif %}
+        {% endfor %}
+        {% if high_cw_rounds | length > 0 %}
+        <div class="card">
+            <div class="card-title">High Cache Write Rounds</div>
+            <div class="top-rounds-list">
+                {% for hr in high_cw_rounds[:5] %}
+                <div class="top-round__row">
+                    <span class="top-round__idx mono text-xs">#{{ hr.idx }}</span>
+                    <span class="top-round__val mono">{{ hr.cw | format_number }}</span>
+                    <div class="top-round__bar">
+                        <div class="top-round__bar--cw" style="width:{{ (hr.cw / hr.total * 100) | round(0) if hr.total > 0 else 0 }}%"></div>
+                    </div>
+                    <span class="text-muted text-xs">{{ (hr.cw / hr.total * 100) | round(0) }}%</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 
 <!-- Tab: Profile (LLM calls table + raw data) -->
@@ -825,7 +956,8 @@
     {% if llm_calls %}
     <div class="card">
         <div class="card-title">LLM Calls Detail ({{ llm_calls | length }} total · {{ main_calls_list | length }} main + {{ sub_calls_list | length }} subagent)</div>
-        <div class="table-wrap">
+        <div class="profile-table-wrap">
+            <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
@@ -899,6 +1031,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -928,6 +1061,83 @@
 
 <script>
 (function() {
+    /* ─── Round chart hover tooltip ────────────────────────────── */
+    (function() {
+        var container = document.getElementById('roundChartBars');
+        if (!container) return;
+        var svg = container.querySelector('svg');
+        if (!svg) return;
+
+        // Create tooltip element
+        var tooltip = document.createElement('div');
+        tooltip.className = 'round-chart-tooltip';
+        tooltip.style.cssText = 'position:fixed;display:none;background:var(--text);color:var(--surface);padding:8px 12px;border-radius:var(--radius-sm);font-size:var(--text-micro);white-space:nowrap;z-index:9999;pointer-events:none;box-shadow:var(--shadow);font-family:var(--font-mono);line-height:1.6;';
+        document.body.appendChild(tooltip);
+
+        function showTooltip(rect) {
+            var fmt = function(v) {
+                if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+                if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+                return v.toString();
+            };
+            var roundIdx = rect.dataset.roundIdx;
+            var total = parseInt(rect.dataset.total) || 0;
+            var fresh = parseInt(rect.dataset.fresh) || 0;
+            var cr = parseInt(rect.dataset.cr) || 0;
+            var cw = parseInt(rect.dataset.cw) || 0;
+            var out = parseInt(rect.dataset.out) || 0;
+
+            tooltip.innerHTML =
+                '<div style="font-weight:bold;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.15)">Round #' + roundIdx + ': ' + fmt(total) + ' tokens</div>' +
+                '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-input-fresh);margin-right:4px"></span>Fresh: <b>' + fmt(fresh) + '</b></div>' +
+                '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-cache-read);margin-right:4px"></span>Cache R: <b>' + fmt(cr) + '</b></div>' +
+                '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-cache-write);margin-right:4px"></span>Cache W: <b>' + fmt(cw) + '</b></div>' +
+                '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-output-visible);margin-right:4px"></span>Output: <b>' + fmt(out) + '</b></div>';
+            tooltip.style.display = 'block';
+        }
+
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+
+        function positionTooltip(rect, e) {
+            var rectX = parseFloat(rect.getAttribute('x'));
+            var rectW = parseFloat(rect.getAttribute('width'));
+            var svgViewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+            var svgW = svgViewBox[2];
+            var svgRect = svg.getBoundingClientRect();
+            var scaleX = svgRect.width / svgW;
+            var barCenter = svgRect.left + (rectX + rectW / 2) * scaleX;
+
+            var ttW = tooltip.offsetWidth;
+            var ttH = tooltip.offsetHeight;
+
+            // Position above the bar, centered on the bar
+            var left = barCenter - ttW / 2;
+            var top = svgRect.top - ttH - 8;
+
+            // Keep tooltip within viewport horizontally
+            if (left < 4) left = 4;
+            if (left + ttW > window.innerWidth - 4) left = window.innerWidth - ttW - 4;
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+
+        var hoverRects = svg.querySelectorAll('.round-bar__hover');
+        hoverRects.forEach(function(rect) {
+            rect.addEventListener('mouseenter', function(e) {
+                showTooltip(rect);
+            });
+            rect.addEventListener('mousemove', function(e) {
+                positionTooltip(rect, e);
+            });
+            rect.addEventListener('mouseleave', function() {
+                hideTooltip();
+            });
+        });
+    })();
+
     /* ─── Toggle round detail row ──────────────────────────────── */
     window.toggleRoundDetail = function(headerRow) {
         var detailRow = headerRow.nextElementSibling;

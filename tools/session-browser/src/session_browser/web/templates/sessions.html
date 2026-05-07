@@ -13,9 +13,9 @@
 
 {% block content %}
 
-<!-- Filters bar -->
-<div class="card" style="margin-bottom:12px; padding:10px 14px">
-    <div class="filter-bar">
+<!-- Filters bar: two rows -->
+<div class="card sessions-filter" style="margin-bottom:12px; padding:10px 14px">
+    <div class="filter-row">
         <input id="session-search" type="text" placeholder="Search title or session ID…"
                class="filter-bar__input" style="flex:1.5;min-width:180px" />
         <select id="filter-agent" class="filter-bar__select">
@@ -36,9 +36,12 @@
             <option value="{{ p }}">{{ p }}</option>
             {% endfor %}
         </select>
+    </div>
+    <div class="filter-row filter-row--secondary">
         <input id="filter-date-start" type="date" class="filter-bar__input" style="width:130px" title="From date" />
         <input id="filter-date-end" type="date" class="filter-bar__input" style="width:130px" title="To date" />
-        <input id="filter-token-min" type="number" placeholder="Min tokens" class="filter-bar__input" style="width:110px" min="0" />
+        <input id="filter-token-min" type="number" placeholder="Min tokens" class="filter-bar__input" style="width:100px" min="0" />
+        <input id="filter-token-max" type="number" placeholder="Max tokens" class="filter-bar__input" style="width:100px" min="0" />
         <label style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);white-space:nowrap;cursor:pointer">
             <input id="filter-failed-only" type="checkbox" /> Failed only
         </label>
@@ -80,6 +83,7 @@
                     <th>Model</th>
                     <th class="numeric">Input</th>
                     <th class="numeric">Cache R</th>
+                    <th class="numeric">Cache W</th>
                     <th class="numeric">Output</th>
                     <th class="numeric">Output%</th>
                     <th class="numeric">Tools</th>
@@ -108,10 +112,11 @@
                     data-duration="{{ s.duration_seconds }}"
                     data-has-anomalies="{{ 'true' if has_anomalies else 'false' }}"
                     data-anomaly-types="{% if has_anomalies %}{% for a in s.anomalies %}{{ a.type }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
+                    data-total-tokens="{{ s.input_tokens + s.cached_input_tokens + s.cached_output_tokens + s.output_tokens }}"
                     class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }} {{ 'row--anomaly' if has_anomalies else '' }}">
                     <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'qoder' if s.agent == 'qoder' else 'codex' }}"></span></td>
-                    <td>
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link truncate" style="max-width:240px; display:block" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
+                    <td class="sessions-title-cell">
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link sessions-title-link" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:80] or 'Untitled' }}
                         </a>
                     </td>
@@ -122,6 +127,7 @@
                     <td class="text-xs text-muted mono truncate" style="max-width:120px" data-tooltip="{{ s.model or 'unknown' }}">{{ s.model or '—' }}</td>
                     <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.cached_output_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ s.output_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ output_ratio_val }}%</td>
                     <td class="numeric mono text-xs {{ 'highlight-warn' if s.tool_call_count > 50 else '' }}">{{ s.tool_call_count }}</td>
@@ -158,7 +164,7 @@
 
 <script>
 (function() {
-    var STORAGE_KEY = 'sessions_filters';
+    var STORAGE_KEY = 'agent-run-profiler:sessions:filters';
 
     /* ─── Apply all filters ──────────────────────────────────────── */
     function applyFilters() {
@@ -202,9 +208,14 @@
             }
             if (dateStart && row.dataset.endedAt < dateStart) show = false;
             if (dateEnd && row.dataset.endedAt > dateEnd + 'T23:59:59') show = false;
+            var tokenMax = parseInt(document.getElementById('filter-token-max').value) || 0;
             if (tokenMin > 0) {
-                var total = (parseInt(row.dataset.inputTokens) || 0) + (parseInt(row.dataset.outputTokens) || 0);
+                var total = parseInt(row.dataset.totalTokens) || 0;
                 if (total < tokenMin) show = false;
+            }
+            if (tokenMax > 0) {
+                var total2 = parseInt(row.dataset.totalTokens) || 0;
+                if (total2 > tokenMax) show = false;
             }
             if (failedOnly && parseInt(row.dataset.failedCount) === 0) show = false;
 
@@ -271,6 +282,7 @@
             dateStart: document.getElementById('filter-date-start').value,
             dateEnd: document.getElementById('filter-date-end').value,
             tokenMin: document.getElementById('filter-token-min').value,
+            tokenMax: document.getElementById('filter-token-max').value,
             failedOnly: document.getElementById('filter-failed-only').checked,
             anomalyFilter: document.getElementById('filter-anomaly').value,
             sortBy: document.getElementById('sort-by').value
@@ -289,6 +301,7 @@
             'filter-date-start': 'dateStart',
             'filter-date-end': 'dateEnd',
             'filter-token-min': 'tokenMin',
+            'filter-token-max': 'tokenMax',
             'sort-by': 'sortBy',
             'filter-anomaly': 'anomalyFilter'
         };
@@ -316,6 +329,7 @@
         document.getElementById('filter-date-start').value = '';
         document.getElementById('filter-date-end').value = '';
         document.getElementById('filter-token-min').value = '';
+        document.getElementById('filter-token-max').value = '';
         document.getElementById('filter-failed-only').checked = false;
         document.getElementById('filter-anomaly').value = '';
         document.getElementById('sort-by').value = 'ended_at';
@@ -326,7 +340,7 @@
     /* ─── Bind events ────────────────────────────────────────────── */
     var filterInputs = [
         'session-search', 'filter-agent', 'filter-model', 'filter-project',
-        'filter-date-start', 'filter-date-end', 'filter-token-min', 'filter-failed-only',
+        'filter-date-start', 'filter-date-end', 'filter-token-min', 'filter-token-max', 'filter-failed-only',
         'filter-anomaly', 'sort-by'
     ];
     filterInputs.forEach(function(id) {

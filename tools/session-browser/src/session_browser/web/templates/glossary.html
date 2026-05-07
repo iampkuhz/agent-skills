@@ -13,102 +13,80 @@
 
 {% block content %}
 
+<!-- Token Overview -->
 <div class="card" style="margin-bottom:12px">
-    <div class="card-title">Field Definitions & Formulas</div>
-    <p class="text-xs text-muted">All derived metrics are computed in Python (index/metrics.py). When a denominator is 0 or data is missing, the UI shows "—" instead of 0.</p>
+    <div class="card-title">Token Overview</div>
+    <div class="glossary__intro">
+        <p>All input-side tokens include three components: <strong>fresh</strong> (new, uncached), <strong>cache read</strong> (served from cache), and <strong>cache write</strong> (written to cache for future use). Both cache read and cache write are <em>input-side</em> concepts — they describe how the prompt/context is handled, not the model's output.</p>
+        <p>Different providers report these fields differently. Anthropic exposes all three; OpenAI does not report cache write; Codex only reports a total. See <a href="#provider-mapping" class="link">Provider Mapping</a> below.</p>
+    </div>
 </div>
 
-<!-- Input tokens -->
+<!-- Token Components -->
 <div class="card" style="margin-bottom:12px">
     <div class="card-title">
-        <span class="token-badge token-badge--input" style="font-size:11px">Input Tokens</span>
+        <span class="token-badge token-badge--input" style="font-size:11px">Token Components</span>
     </div>
-    <p class="text-sm" style="margin-bottom:8px">Tokens sent to the model as input (prompt). Split into fresh, cache read, and cache write categories.</p>
+    <p class="text-xs text-muted">Raw token fields from provider APIs. Input-side = fresh + cache read + cache write.</p>
 
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
                 <th>Metric</th>
                 <th>Definition</th>
                 <th>Formula</th>
-                <th>Anthropic Field</th>
-                <th>OpenAI Field</th>
+                <th>Anthropic</th>
+                <th>OpenAI</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td><span class="token-badge token-badge--input">Input Fresh</span></td>
-                <td class="text-sm">New tokens that were not cached. The actual "new" input cost.</td>
-                <td class="mono text-xs">input_tokens</td>
+                <td class="text-sm">New tokens not cached. Actual "new" input cost.</td>
                 <td class="mono text-xs"><code>input_tokens</code></td>
-                <td class="mono text-xs"><code>input_tokens - cached_tokens</code></td>
+                <td class="mono text-xs"><code>input_tokens</code></td>
+                <td class="mono text-xs"><code>input_tokens − cached_tokens</code></td>
             </tr>
             <tr>
                 <td><span class="token-badge token-badge--cache-read">Cache Read</span></td>
-                <td class="text-sm">Input tokens served from cache (read hit). Cheaper than fresh input.</td>
-                <td class="mono text-xs">cached_input_tokens</td>
+                <td class="text-sm">Input tokens from cache hit. Cheaper than fresh.</td>
+                <td class="mono text-xs"><code>cached_input_tokens</code></td>
                 <td class="mono text-xs"><code>cache_read_input_tokens</code></td>
                 <td class="mono text-xs"><code>cached_tokens</code> (prompt)</td>
             </tr>
             <tr>
                 <td><span class="token-badge token-badge--cache-write">Cache Write</span></td>
-                <td class="text-sm">Input tokens written to cache this turn. One-time cost for future reads.</td>
-                <td class="mono text-xs">cached_output_tokens</td>
+                <td class="text-sm">Input tokens written to cache. One-time cost.</td>
+                <td class="mono text-xs"><code>cached_output_tokens</code></td>
                 <td class="mono text-xs"><code>cache_creation_input_tokens</code></td>
                 <td class="mono text-xs"><span class="badge badge-muted">not reported</span></td>
             </tr>
             <tr style="background:var(--border-light)">
                 <td><strong>Input-side Total</strong></td>
-                <td class="text-sm">Sum of all input-side token categories.</td>
-                <td class="mono text-xs">fresh + cache_read + cache_write</td>
+                <td class="text-sm">Sum of all input-side categories.</td>
+                <td class="mono text-xs"><code>fresh + R + W</code></td>
                 <td class="mono text-xs">Sum of 3 fields</td>
-                <td class="mono text-xs">Sum (cache_write excluded)</td>
+                <td class="mono text-xs">Sum (no cache_W)</td>
             </tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Output tokens -->
-<div class="card" style="margin-bottom:12px">
-    <div class="card-title">
-        <span class="token-badge token-badge--output" style="font-size:11px">Output Tokens</span>
-    </div>
-    <p class="text-sm" style="margin-bottom:8px">Tokens generated by the model as output (completion).</p>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Metric</th>
-                <th>Definition</th>
-                <th>Formula</th>
-                <th>Anthropic Field</th>
-                <th>OpenAI Field</th>
-            </tr>
-        </thead>
-        <tbody>
             <tr>
                 <td><span class="token-badge token-badge--output">Output Visible</span></td>
-                <td class="text-sm">Tokens visible in the chat output (not reasoning/thinking).</td>
-                <td class="mono text-xs">output_tokens</td>
+                <td class="text-sm">Tokens in chat output (not reasoning).</td>
                 <td class="mono text-xs"><code>output_tokens</code></td>
-                <td class="mono text-xs"><code>completion_tokens - reasoning_tokens</code></td>
-            </tr>
-            <tr>
-                <td><span class="token-badge token-badge--reasoning">Reasoning</span></td>
-                <td class="text-sm">Tokens used for internal reasoning/thinking.</td>
-                <td class="mono text-xs">—</td>
-                <td class="mono text-xs">not separated</td>
-                <td class="mono text-xs"><code>reasoning_tokens</code></td>
+                <td class="mono text-xs"><code>output_tokens</code></td>
+                <td class="mono text-xs"><code>completion_tokens − reasoning</code></td>
             </tr>
         </tbody>
     </table>
+    </div>
 </div>
 
-<!-- Derived metrics -->
+<!-- Derived Metrics -->
 <div class="card" style="margin-bottom:12px">
-    <div class="card-title">Derived Metrics & Formulas</div>
-    <p class="text-sm" style="margin-bottom:8px">These metrics are computed from raw token fields. All are defined in <code class="mono">index/metrics.py</code>. Division by zero returns <code>—</code> (None).</p>
+    <div class="card-title">Derived Metrics</div>
+    <p class="text-xs text-muted">Computed from raw fields. All defined in <code>index/metrics.py</code>. Division by zero returns <code>—</code>.</p>
 
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
@@ -119,80 +97,50 @@
         </thead>
         <tbody>
             <tr>
-                <td><span class="badge badge-primary">Cache Reuse Ratio</span></td>
-                <td class="mono text-xs">cache_read / (input_fresh + cache_read + cache_write)</td>
-                <td class="text-sm">How much input is served from cache. Higher = more efficient. 0% means no cache hits.</td>
+                <td><span class="badge badge-primary">Cache Reuse</span></td>
+                <td class="mono text-xs"><code>cache_read / (fresh + R + W)</code></td>
+                <td class="text-sm">How much input is from cache. Higher = efficient.</td>
             </tr>
             <tr>
                 <td><span class="badge badge-primary">Cache Write Ratio</span></td>
-                <td class="mono text-xs">cache_write / (input_fresh + cache_read + cache_write)</td>
-                <td class="text-sm">Fraction of input being written to cache. High values indicate active cache building.</td>
+                <td class="mono text-xs"><code>cache_write / (fresh + R + W)</code></td>
+                <td class="text-sm">Fraction building cache. High = active cache building.</td>
             </tr>
             <tr>
                 <td><span class="badge badge-primary">Output Ratio</span></td>
-                <td class="mono text-xs">output / (input_fresh + cache_read + cache_write)</td>
-                <td class="text-sm">Output-to-input ratio. Very low values (&lt;5%) with large input may indicate context bloat or idle rounds.</td>
+                <td class="mono text-xs"><code>output / (fresh + R + W)</code></td>
+                <td class="text-sm">Output-to-input. Very low (&lt;5%) may mean context bloat.</td>
             </tr>
             <tr>
                 <td><span class="badge badge-primary">Tools/Round</span></td>
-                <td class="mono text-xs">tool_call_count / assistant_message_count</td>
-                <td class="text-sm">Average tool calls per conversation round. High values may indicate complex tasks or tool loops.</td>
+                <td class="mono text-xs"><code>tool_calls / assistant_msgs</code></td>
+                <td class="text-sm">Avg tool calls per round. High may mean complex tasks.</td>
             </tr>
             <tr>
                 <td><span class="badge badge-primary">Tokens/Round</span></td>
-                <td class="mono text-xs">(input_side_total + output) / assistant_message_count</td>
-                <td class="text-sm">Average tokens consumed per round. High values suggest large context windows.</td>
+                <td class="mono text-xs"><code>(input_side + output) / assistant_msgs</code></td>
+                <td class="text-sm">Avg tokens per round. High = large context window.</td>
             </tr>
             <tr>
                 <td><span class="badge badge-primary">Tokens/Minute</span></td>
-                <td class="mono text-xs">(input_side_total + output) / (duration_seconds / 60)</td>
-                <td class="text-sm">Token throughput rate. Very low values with long duration may indicate idle processes.</td>
+                <td class="mono text-xs"><code>(input_side + output) / (duration / 60)</code></td>
+                <td class="text-sm">Token throughput. Low + long duration = possible idle.</td>
             </tr>
             <tr>
-                <td><span class="badge badge-primary">Output/Minute</span></td>
-                <td class="mono text-xs">output / (duration_seconds / 60)</td>
-                <td class="text-sm">Output generation rate. Useful for comparing session efficiency.</td>
+                <td><span class="badge badge-primary">Failed/Session</span></td>
+                <td class="mono text-xs"><code>failed_tools / sessions</code></td>
+                <td class="text-sm">Avg failed tool calls per session. Not a percentage.</td>
             </tr>
         </tbody>
     </table>
+    </div>
 </div>
 
-<!-- Precision -->
-<div class="card" style="margin-bottom:12px">
-    <div class="card-title">Token Precision</div>
-    <p class="text-sm" style="margin-bottom:8px">How accurately the token count is reported.</p>
+<!-- Provider Mapping -->
+<div class="card" style="margin-bottom:12px" id="provider-mapping">
+    <div class="card-title">Provider Mapping</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Precision</th>
-                <th>Meaning</th>
-                <th>When Used</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><span class="badge badge-success">provider-reported</span></td>
-                <td class="text-sm">Exact count from the provider's API. Most accurate.</td>
-                <td class="text-sm">Anthropic, OpenAI, qwen-anthropic-compatible</td>
-            </tr>
-            <tr>
-                <td><span class="badge badge-warning">estimated</span></td>
-                <td class="text-sm">Derived from available fields. May not match provider's internal count.</td>
-                <td class="text-sm">When only total tokens available (Codex)</td>
-            </tr>
-            <tr>
-                <td><span class="badge badge-muted">unknown</span></td>
-                <td class="text-sm">No token data available. Shows as <code>—</code> in UI, never <code>0</code>.</td>
-                <td class="text-sm">Missing or empty usage data</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Provider field mapping -->
-<div class="card" style="margin-bottom:12px">
-    <div class="card-title">Provider Field Mapping</div>
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
@@ -208,13 +156,13 @@
             <tr>
                 <td class="text-sm"><strong>Anthropic</strong></td>
                 <td class="mono text-xs">claude-*</td>
-                <td class="mono text-xs">input_tokens</td>
-                <td class="mono text-xs">cache_read_input_tokens</td>
-                <td class="mono text-xs">cache_creation_input_tokens</td>
-                <td class="mono text-xs">output_tokens</td>
+                <td class="mono text-xs"><code>input_tokens</code></td>
+                <td class="mono text-xs"><code>cache_read_input</code></td>
+                <td class="mono text-xs"><code>cache_creation</code></td>
+                <td class="mono text-xs"><code>output_tokens</code></td>
             </tr>
             <tr>
-                <td class="text-sm"><strong>qwen Anthropic-compatible</strong></td>
+                <td class="text-sm"><strong>qwen (Anthropic-compat)</strong></td>
                 <td class="mono text-xs">qwen*</td>
                 <td class="mono text-xs">Same as Anthropic</td>
                 <td class="mono text-xs">Same as Anthropic</td>
@@ -224,50 +172,21 @@
             <tr>
                 <td class="text-sm"><strong>OpenAI</strong></td>
                 <td class="mono text-xs">gpt-*, o1, o3</td>
-                <td class="mono text-xs">input_tokens - cached_tokens</td>
-                <td class="mono text-xs">cached_tokens (prompt)</td>
+                <td class="mono text-xs"><code>input − cached</code></td>
+                <td class="mono text-xs"><code>cached_tokens</code></td>
                 <td class="mono text-xs"><span class="badge badge-muted">not reported</span></td>
-                <td class="mono text-xs">completion_tokens - reasoning_tokens</td>
+                <td class="mono text-xs"><code>completion − reasoning</code></td>
             </tr>
             <tr>
                 <td class="text-sm"><strong>Codex</strong></td>
                 <td class="mono text-xs">codex-*</td>
-                <td class="mono text-xs">N/A (estimated)</td>
-                <td class="mono text-xs">N/A (estimated)</td>
+                <td class="mono text-xs"><span class="badge badge-muted">estimated</span></td>
+                <td class="mono text-xs"><span class="badge badge-muted">estimated</span></td>
                 <td class="mono text-xs"><span class="badge badge-muted">not reported</span></td>
-                <td class="mono text-xs">tokens_used (total)</td>
+                <td class="mono text-xs"><code>tokens_used</code> (total)</td>
             </tr>
         </tbody>
     </table>
-</div>
-
-<!-- Common pitfalls -->
-<div class="card" style="margin-bottom:12px">
-    <div class="card-title">Common Pitfalls</div>
-
-    <div style="padding:8px 0">
-        <p class="text-sm" style="margin-bottom:4px"><strong>Cache read ≠ output cache</strong></p>
-        <p class="text-xs text-muted"><code>cache_read_input_tokens</code> are input-side cache hits (reading from cache). <code>cache_creation_input_tokens</code> are also input-side (writing to cache). Neither refers to output caching.</p>
-    </div>
-
-    <div style="padding:8px 0">
-        <p class="text-sm" style="margin-bottom:4px"><strong>OpenAI does not report cache write</strong></p>
-        <p class="text-xs text-muted">OpenAI's API does not expose a <code>cache_creation_input_tokens</code>-equivalent field. The "Cache W" column for OpenAI sessions shows <span class="badge badge-muted">not reported</span>, not <code>0</code>. Do not assume zero cache write — the provider simply does not report it.</p>
-    </div>
-
-    <div style="padding:8px 0">
-        <p class="text-sm" style="margin-bottom:4px"><strong>Don't double-count cache tokens</strong></p>
-        <p class="text-xs text-muted"><code>cache_read_input_tokens</code> is NOT part of <code>input_tokens</code>. They are separate fields. Total input = <code>input_tokens + cache_read_input_tokens + cache_creation_input_tokens</code>.</p>
-    </div>
-
-    <div style="padding:8px 0">
-        <p class="text-sm" style="margin-bottom:4px"><strong>— means unknown, not 0</strong></p>
-        <p class="text-xs text-muted">When a token field is missing or the precision is unknown, the UI shows <code>—</code> instead of <code>0</code>. This prevents misleading "zero token" impressions.</p>
-    </div>
-
-    <div style="padding:8px 0">
-        <p class="text-sm" style="margin-bottom:4px"><strong>Estimated ≠ provider-reported</strong></p>
-        <p class="text-xs text-muted">When only total tokens are available (e.g., Codex), we distribute them evenly across rounds. These are estimates, not exact counts from the provider.</p>
     </div>
 </div>
 
@@ -275,6 +194,7 @@
 <div class="card" style="margin-bottom:12px">
     <div class="card-title">Known Limitations</div>
 
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
@@ -286,43 +206,45 @@
         <tbody>
             <tr>
                 <td class="text-muted">1</td>
-                <td class="text-sm"><strong>Provider token口径差异</strong></td>
-                <td class="text-sm">Different providers use different token counting methods. Anthropic uses cl100k-based encoding; OpenAI uses its own tokenizer. Cross-provider comparisons should be approximate.</td>
+                <td class="text-sm"><strong>Token counting varies by provider</strong></td>
+                <td class="text-sm">Anthropic uses cl100k-based encoding; OpenAI uses its own. Cross-provider comparisons should be approximate.</td>
             </tr>
             <tr>
                 <td class="text-muted">2</td>
-                <td class="text-sm"><strong>Missing cache fields</strong></td>
-                <td class="text-sm">Some providers (e.g., OpenAI) do not return cache write fields. Sessions from these providers will show cache reuse ratio based on cache read only, and cache write as "not reported".</td>
+                <td class="text-sm"><strong>OpenAI/Codex missing cache write</strong></td>
+                <td class="text-sm">These providers do not expose cache write fields. Input-side total excludes this component — not zero, just unreported.</td>
             </tr>
             <tr>
                 <td class="text-muted">3</td>
                 <td class="text-sm"><strong>Partial parse sessions</strong></td>
-                <td class="text-sm">Some sessions may be incompletely parsed due to log corruption or format changes. These sessions are flagged with the <code>parse_partial</code> anomaly type. Token counts may be underestimated.</td>
+                <td class="text-sm">Corrupted logs or format changes may cause incomplete parsing. Token counts may be underestimated.</td>
             </tr>
             <tr>
                 <td class="text-muted">4</td>
                 <td class="text-sm"><strong>Duration accuracy</strong></td>
-                <td class="text-sm">Duration is computed from log timestamps and may be affected by: process suspension/resume, laptop sleep/hibernation, log rotation gaps, and timezone inconsistencies. Very long durations (e.g., 17h+) may include idle time rather than active processing.</td>
+                <td class="text-sm">Derived from log timestamps. May include idle time from process suspension, laptop sleep, or rotation gaps.</td>
             </tr>
             <tr>
                 <td class="text-muted">5</td>
                 <td class="text-sm"><strong>Codex token estimation</strong></td>
-                <td class="text-sm">Codex only reports <code>tokens_used</code> (total). Per-round breakdown is estimated by distributing evenly across rounds. This is an approximation and does not reflect actual per-round variation.</td>
+                <td class="text-sm">Only <code>tokens_used</code> (total) available. Per-round breakdown distributes evenly — an approximation.</td>
             </tr>
             <tr>
                 <td class="text-muted">6</td>
                 <td class="text-sm"><strong>Anomaly thresholds are heuristic</strong></td>
-                <td class="text-sm">Anomaly detection uses P90/P95 percentiles with a 20-session minimum. Below that threshold, fixed fallback values are used. Thresholds may not fit all workflows — adjust FALLBACK_THRESHOLDS in <code class="mono">index/percentiles.py</code> if needed.</td>
+                <td class="text-sm">Uses P90/P95 with 20-session minimum. Below that, fallback values apply. May not fit all workflows.</td>
             </tr>
         </tbody>
     </table>
+    </div>
 </div>
 
-<!-- Common pitfalls (legacy) -->
+<!-- Anomaly Reference -->
 <div class="card">
-    <div class="card-title">Anomaly Classification Reference</div>
-    <p class="text-xs text-muted" style="margin-bottom:8px">Types of anomalies detected by the engine (<code class="mono">index/anomalies.py</code>).</p>
+    <div class="card-title">Anomaly Classification</div>
+    <p class="text-xs text-muted" style="margin-bottom:8px">Types detected by <code>index/anomalies.py</code>.</p>
 
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
@@ -334,37 +256,37 @@
         <tbody>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-critical">Long Duration</span></td>
-                <td class="text-sm">Duration &gt; P95 or &gt; 1h (warning) / &gt; 2h (critical)</td>
+                <td class="text-sm">Duration &gt; P95 or &gt; 1h (warn) / &gt; 2h (crit)</td>
                 <td class="text-sm">warning / critical</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-warning">High Tools</span></td>
-                <td class="text-sm">Tools &gt; P95 or &gt; 100 (warning) / &gt; 200 (critical)</td>
+                <td class="text-sm">Tools &gt; P95 or &gt; 100 (warn) / &gt; 200 (crit)</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-warning">Low Cache</span></td>
-                <td class="text-sm">Cache reuse &lt; 10% and input-side &gt; 10K</td>
+                <td class="text-sm">Cache reuse &lt; 10% and input &gt; 10K</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-warning">Low Output</span></td>
-                <td class="text-sm">Output ratio &lt; 5% and input-side &gt; 10K</td>
+                <td class="text-sm">Output ratio &lt; 5% and input &gt; 10K</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-info">Cache Write</span></td>
-                <td class="text-sm">Cache write &gt; 50K (info) / &gt; 100K (warning)</td>
+                <td class="text-sm">Cache write &gt; 50K (info) / &gt; 100K (warn)</td>
                 <td class="text-sm">info / warning</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-info">High Tokens/Round</span></td>
-                <td class="text-sm">Tokens/round &gt; 30K (info) / &gt; 50K (warning)</td>
+                <td class="text-sm">Tokens/round &gt; 30K (info) / &gt; 50K (warn)</td>
                 <td class="text-sm">info</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-warning">Context Bloat</span></td>
-                <td class="text-sm">Input/output ratio &gt; 50x and input-side &gt; 100K</td>
+                <td class="text-sm">Input/output ratio &gt; 50x and input &gt; 100K</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
@@ -374,6 +296,7 @@
             </tr>
         </tbody>
     </table>
+    </div>
 </div>
 
 {% endblock %}
