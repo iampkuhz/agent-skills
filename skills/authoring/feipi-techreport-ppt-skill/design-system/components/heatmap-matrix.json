@@ -1,0 +1,25 @@
+{
+  "id": "component.heatmap-matrix",
+  "version": "1.0.0",
+  "description": "热力矩阵模块，用于方案评分、风险热度、能力成熟度。最多三档色阶，避免彩虹色。",
+  "depends_on": ["colors.core", "typography.core", "spacing.core"],
+  "scale": {
+    "low": { "fill": "surface.panel_green", "text": "semantic.success", "label": "低" },
+    "medium": { "fill": "surface.panel_orange", "text": "semantic.warning", "label": "中" },
+    "high": { "fill": "surface.panel_red", "text": "semantic.danger", "label": "高" }
+  },
+  "base": {
+    "font_size": "table_cell",
+    "header_font_size": "table_header",
+    "border": "border.default",
+    "cell_padding": "table_cell"
+  },
+  "rules": {
+    "max_rows": 6,
+    "max_cols": 5,
+    "max_scale_levels": 3,
+    "avoid_rainbow_heatmap": true,
+    "legend_required": true
+  }
+}
+

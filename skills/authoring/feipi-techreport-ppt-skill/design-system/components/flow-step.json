@@ -1,0 +1,34 @@
+{
+  "id": "component.flow-step",
+  "version": "1.0.0",
+  "description": "流程步骤模块，用于 3-7 步流程、调用链、审批链和数据流。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "step_node": {
+    "shape": "component_node",
+    "fill": "surface.panel_blue",
+    "line": "border.default",
+    "corner_radius": "md",
+    "font_size": "diagram_node",
+    "text_color": "text.primary"
+  },
+  "step_marker": {
+    "shape": "badge",
+    "fill": "surface.page",
+    "line": "brand.secondary",
+    "text": "brand.secondary",
+    "font_size": "diagram_badge"
+  },
+  "connector": {
+    "line": "brand.secondary",
+    "line_width": "connector",
+    "arrow": "triangle"
+  },
+  "rules": {
+    "min_steps": 3,
+    "max_steps": 7,
+    "each_step_label_max_chars": 18,
+    "optional_note_max_chars": 40,
+    "split_if_steps_exceed_limit": true
+  }
+}
+

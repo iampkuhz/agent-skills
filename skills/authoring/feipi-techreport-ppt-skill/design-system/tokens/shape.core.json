@@ -1,0 +1,38 @@
+{
+  "id": "shape.core",
+  "version": "1.0.0",
+  "description": "形状、圆角、线条和阴影 token。默认避免重装饰，强调可读边界。",
+  "corner_radius_in": {
+    "none": 0,
+    "xs": 0.03,
+    "sm": 0.05,
+    "md": 0.08,
+    "lg": 0.12,
+    "pill": 0.25
+  },
+  "line_width_pt": {
+    "hairline": 0.35,
+    "default": 0.5,
+    "strong": 1,
+    "connector": 1.5,
+    "highlight": 2
+  },
+  "shapes": {
+    "rounded_text_box": "ROUNDED_RECTANGLE",
+    "card": "ROUNDED_RECTANGLE",
+    "component_node": "ROUNDED_RECTANGLE",
+    "group_container": "RECTANGLE",
+    "badge": "ROUNDED_RECTANGLE",
+    "port": "OVAL"
+  },
+  "shadow": {
+    "enabled": false,
+    "allowed_for": []
+  },
+  "rules": {
+    "max_corner_radius_in": 0.12,
+    "use_pill_only_for_badges": true,
+    "avoid_nested_cards": true
+  }
+}
+

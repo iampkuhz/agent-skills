@@ -1,0 +1,23 @@
+{
+  "id": "component.legend",
+  "version": "1.0.0",
+  "description": "图例模块，用于解释颜色、线型、状态、风险等级和热力矩阵等级。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "base": {
+    "font_size": "caption",
+    "text_color": "text.secondary",
+    "marker_size_in": 0.08,
+    "gap_in": 0.08
+  },
+  "variants": {
+    "color_dot": { "shape": "OVAL" },
+    "line_sample": { "line_width": "strong" },
+    "badge_sample": { "shape": "badge", "corner_radius": "pill" }
+  },
+  "rules": {
+    "max_items": 6,
+    "legend_required_for_heatmap": true,
+    "do_not_use_legend_to_explain_unclear_design": true
+  }
+}
+

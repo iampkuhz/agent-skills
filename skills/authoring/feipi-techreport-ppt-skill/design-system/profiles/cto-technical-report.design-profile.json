@@ -1,0 +1,50 @@
+{
+  "id": "profile.cto-technical-report",
+  "version": "1.0.0",
+  "description": "CTO 技术汇报默认设计 profile。用于克制、结构化、高密度但可读的技术单页。",
+  "tokens": [
+    "colors.core",
+    "typography.core",
+    "shape.core",
+    "spacing.core"
+  ],
+  "components": [
+    "component.text-hierarchy",
+    "component.rounded-text-box",
+    "component.code-block",
+    "component.source-note",
+    "component.layout-region",
+    "component.section-divider",
+    "component.badge-and-label",
+    "component.legend",
+    "component.kpi-card",
+    "component.native-table",
+    "component.heatmap-matrix",
+    "component.native-chart",
+    "component.progress-indicator",
+    "component.native-component-diagram",
+    "component.flow-step",
+    "component.timeline-milestone",
+    "component.decision-node",
+    "component.capability-group",
+    "component.media-frame"
+  ],
+  "patterns": [
+    "architecture-map",
+    "layered-stack",
+    "flow-diagram",
+    "comparison-matrix",
+    "roadmap-timeline",
+    "metrics-dashboard",
+    "decision-tree",
+    "capability-map"
+  ],
+  "style_lock_target": "cto-technical-report.style-lock.json",
+  "rules": {
+    "one_primary_visual_per_slide": true,
+    "editable_pptx_elements_only": true,
+    "no_full_page_screenshot_delivery": true,
+    "default_audience": "CTO / 技术负责人",
+    "default_language": "zh-CN"
+  }
+}

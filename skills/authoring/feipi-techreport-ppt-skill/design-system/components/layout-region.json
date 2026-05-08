@@ -1,0 +1,41 @@
+{
+  "id": "component.layout-region",
+  "version": "1.0.0",
+  "description": "页面区域和容器边界模块，定义 header、main visual、evidence、side panel、footer 的视觉规则。",
+  "depends_on": ["colors.core", "shape.core", "spacing.core"],
+  "regions": {
+    "header": {
+      "fill": "surface.page",
+      "line_bottom": "border.subtle",
+      "height_range_in": [0.65, 1.05]
+    },
+    "main_visual": {
+      "fill": "surface.panel",
+      "line": "border.subtle",
+      "corner_radius": "sm",
+      "width_pct_range": [50, 65]
+    },
+    "evidence_zone": {
+      "fill": "surface.page",
+      "line": "border.subtle",
+      "corner_radius": "sm",
+      "width_pct_range": [20, 35]
+    },
+    "side_panel": {
+      "fill": "surface.panel",
+      "line": "border.subtle",
+      "corner_radius": "sm"
+    },
+    "footer": {
+      "fill": "surface.page",
+      "line_top": "border.subtle",
+      "height_range_in": [0.32, 0.55]
+    }
+  },
+  "rules": {
+    "one_main_visual_region": true,
+    "footer_must_not_overlap_body": true,
+    "no_card_inside_card": true
+  }
+}
+

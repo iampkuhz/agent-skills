@@ -22,6 +22,7 @@
 | `doctor.js` | Node.js | 运行时环境诊断，输出中文能力矩阵 | ✅ 已实现 |
 | `runtime_capabilities.js` | Node.js | JSON 格式运行时能力探测 | ✅ 已实现 |
 | `validate_style_lock.js` | Node.js | Style lock 校验（必填 token、颜色格式、字号下限） | ✅ 已实现 |
+| `validate_design_system.js` | Node.js | 模块化设计系统校验（token/component/profile 引用一致性） | ✅ 已实现 |
 | `run_benchmarks.js` | Node.js | Benchmark 套件批量运行 | ✅ 已实现 |
 | `score_quality_report.js` | Node.js | 质量评分（基于 rubric） | ✅ 已实现 |
 | `normalize_slide_ir.js` | Node.js | Slide IR 保守规范化 | ✅ 已实现 |
@@ -73,6 +74,9 @@ node scripts/validate_slide_ir.js fixtures/architecture-map.slide-ir.json
 
 # Static QA
 node scripts/inspect_slide_ir_layout.js fixtures/architecture-map.slide-ir.json --json
+
+# Design System 校验
+node scripts/validate_design_system.js
 
 # 编译 PPTX
 node scripts/build_pptx_from_ir.js fixtures/architecture-map.slide-ir.json /tmp/output.pptx

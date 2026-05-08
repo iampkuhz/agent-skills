@@ -1,0 +1,39 @@
+{
+  "id": "component.native-chart",
+  "version": "1.0.0",
+  "description": "原生图表模块，用于简单趋势、柱状对比、占比和小型分布图。复杂图表优先降维。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "chart_types": {
+    "bar": {
+      "max_categories": 8,
+      "max_series": 3,
+      "palette": ["data.series_1", "data.series_2", "data.series_3"]
+    },
+    "line": {
+      "max_points": 12,
+      "max_series": 3,
+      "palette": ["data.series_1", "data.series_2", "data.series_3"]
+    },
+    "donut": {
+      "max_segments": 5,
+      "palette": ["data.series_1", "data.series_2", "data.series_3", "data.series_4"]
+    },
+    "sparkline": {
+      "max_points": 16,
+      "line": "brand.secondary"
+    }
+  },
+  "base": {
+    "axis_text": "text.secondary",
+    "label_font_size": "caption",
+    "title_font_size": "section_title",
+    "grid_line": "border.subtle"
+  },
+  "rules": {
+    "must_have_clear_metric_unit": true,
+    "avoid_3d_chart": true,
+    "avoid_pie_with_many_segments": true,
+    "prefer_kpi_plus_chart_for_cto_report": true
+  }
+}
+

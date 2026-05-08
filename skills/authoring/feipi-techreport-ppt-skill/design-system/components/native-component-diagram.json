@@ -1,0 +1,60 @@
+{
+  "id": "component.native-component-diagram",
+  "version": "1.0.0",
+  "description": "PPTX 原生组件图模块，用于架构图、能力图、流程图中的节点、连接线、分组和徽标。",
+  "depends_on": [
+    "colors.core",
+    "typography.core",
+    "shape.core",
+    "spacing.core"
+  ],
+  "node": {
+    "shape": "component_node",
+    "fill": "surface.panel_blue",
+    "line": "border.default",
+    "line_width": "default",
+    "corner_radius": "md",
+    "font_size": "diagram_node",
+    "text_color": "text.primary",
+    "padding": "diagram_node"
+  },
+  "group_container": {
+    "shape": "group_container",
+    "fill": "surface.panel",
+    "line": "border.subtle",
+    "line_width": "default",
+    "corner_radius": "sm",
+    "label_font_size": "label",
+    "label_color": "text.secondary"
+  },
+  "connector": {
+    "type": "elbow",
+    "line": "brand.secondary",
+    "line_width": "connector",
+    "arrow": "triangle",
+    "label_font_size": "caption",
+    "label_color": "text.secondary"
+  },
+  "badge": {
+    "shape": "badge",
+    "fill": "surface.page",
+    "line": "brand.secondary",
+    "corner_radius": "pill",
+    "font_size": "diagram_badge",
+    "text_color": "brand.secondary"
+  },
+  "port": {
+    "shape": "port",
+    "fill": "surface.page",
+    "line": "brand.secondary",
+    "line_width": "default"
+  },
+  "rules": {
+    "max_nodes_architecture_map": 10,
+    "max_flow_steps": 7,
+    "max_connector_cross_text": 0,
+    "prefer_grouping_over_more_colors": true,
+    "split_if_nodes_exceed_limit": true
+  }
+}
+

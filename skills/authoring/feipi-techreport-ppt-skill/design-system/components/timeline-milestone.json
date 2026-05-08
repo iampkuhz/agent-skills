@@ -1,0 +1,33 @@
+{
+  "id": "component.timeline-milestone",
+  "version": "1.0.0",
+  "description": "时间线和里程碑模块，用于路线图、版本计划和阶段交付。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "milestone": {
+    "shape": "card",
+    "fill": "surface.panel",
+    "line": "border.default",
+    "corner_radius": "sm",
+    "title_font_size": "section_title",
+    "body_font_size": "body_dense"
+  },
+  "timeline": {
+    "line": "brand.secondary",
+    "line_width": "connector",
+    "node_fill": "surface.page",
+    "node_line": "brand.secondary"
+  },
+  "variants": {
+    "done": { "accent": "semantic.success" },
+    "current": { "accent": "brand.secondary" },
+    "risk": { "accent": "semantic.warning" },
+    "future": { "accent": "text.secondary" }
+  },
+  "rules": {
+    "min_stages": 3,
+    "max_stages": 5,
+    "milestone_body_max_bullets": 3,
+    "each_stage_must_have_outcome": true
+  }
+}
+

@@ -1,0 +1,50 @@
+{
+  "id": "component.native-table",
+  "version": "1.0.0",
+  "description": "PPTX 原生表格模块。用于短矩阵和关键数据，不承载全量数据表。",
+  "depends_on": [
+    "colors.core",
+    "typography.core",
+    "spacing.core"
+  ],
+  "base": {
+    "header_fill": "surface.panel",
+    "header_text": "text.primary",
+    "body_text": "text.primary",
+    "border": "border.default",
+    "row_alt_fill": "surface.page",
+    "highlight_fill": "surface.panel_blue",
+    "font_family": "default",
+    "header_font_size": "table_header",
+    "body_font_size": "table_cell",
+    "cell_padding": "table_cell",
+    "align": "center",
+    "vertical_align": "mid"
+  },
+  "variants": {
+    "comparison_matrix": {
+      "max_rows": 5,
+      "max_cols": 4,
+      "highlight_first_col": true,
+      "highlight_target_col": true
+    },
+    "metric_table": {
+      "max_rows": 6,
+      "max_cols": 4,
+      "right_align_numeric": true
+    },
+    "appendix_dense": {
+      "max_rows": 10,
+      "max_cols": 6,
+      "requires_user_confirmation": true
+    }
+  },
+  "rules": {
+    "default_max_rows": 5,
+    "default_max_cols": 4,
+    "cell_max_chars": 60,
+    "split_if_exceeds_budget": true,
+    "avoid_full_page_table": true
+  }
+}
+

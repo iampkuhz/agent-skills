@@ -1,0 +1,30 @@
+{
+  "id": "component.progress-indicator",
+  "version": "1.0.0",
+  "description": "进度指标模块，用于阶段完成率、资源占用、风险暴露程度和目标达成度。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "variants": {
+    "progress_bar": {
+      "track_fill": "surface.panel",
+      "bar_fill": "brand.secondary",
+      "line": "border.subtle",
+      "corner_radius": "pill"
+    },
+    "status_meter": {
+      "low_fill": "semantic.success",
+      "medium_fill": "semantic.warning",
+      "high_fill": "semantic.danger"
+    },
+    "stage_steps": {
+      "done_fill": "semantic.success",
+      "current_fill": "brand.secondary",
+      "todo_fill": "surface.panel"
+    }
+  },
+  "rules": {
+    "must_show_denominator_or_target": true,
+    "max_stage_steps": 5,
+    "do_not_fake_precision": true
+  }
+}
+

@@ -1,0 +1,32 @@
+{
+  "id": "component.decision-node",
+  "version": "1.0.0",
+  "description": "决策节点模块，用于判断树、技术路线选择和方案分支。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "decision": {
+    "shape": "DIAMOND",
+    "fill": "surface.panel_orange",
+    "line": "semantic.warning",
+    "font_size": "label",
+    "text_color": "text.primary"
+  },
+  "outcome": {
+    "shape": "component_node",
+    "fill": "surface.panel_blue",
+    "line": "border.default",
+    "corner_radius": "md",
+    "font_size": "body_dense"
+  },
+  "branch_label": {
+    "font_size": "caption",
+    "text_color": "text.secondary",
+    "fill": "surface.page"
+  },
+  "rules": {
+    "max_depth": 3,
+    "max_leaf_nodes": 6,
+    "decision_question_max_chars": 22,
+    "must_have_recommended_path": true
+  }
+}
+

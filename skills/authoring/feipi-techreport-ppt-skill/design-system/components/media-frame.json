@@ -1,0 +1,27 @@
+{
+  "id": "component.media-frame",
+  "version": "1.0.0",
+  "description": "媒体框模块，用于截图、产品图、参考图、logo 和外部图像。默认保持可读边界和来源说明。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "base": {
+    "fill": "surface.page",
+    "line": "border.default",
+    "line_width": "default",
+    "corner_radius": "sm",
+    "caption_font_size": "caption",
+    "caption_color": "text.secondary"
+  },
+  "variants": {
+    "screenshot": { "requires_caption": true, "allow_crop": false },
+    "logo": { "requires_caption": false, "allow_crop": false },
+    "reference_image": { "requires_caption": true, "allow_crop": false },
+    "thumbnail": { "requires_caption": false, "allow_crop": true }
+  },
+  "rules": {
+    "do_not_use_full_page_image_only": true,
+    "preserve_aspect_ratio": true,
+    "must_have_source_when_external": true,
+    "avoid_blurry_or_dark_crops": true
+  }
+}
+

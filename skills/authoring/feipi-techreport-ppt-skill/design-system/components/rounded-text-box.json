@@ -1,0 +1,59 @@
+{
+  "id": "component.rounded-text-box",
+  "version": "1.0.0",
+  "description": "圆角矩形文本框模块，用于结论、说明、风险、证据卡片等原生 PPTX 文本形状。",
+  "depends_on": [
+    "colors.core",
+    "typography.core",
+    "shape.core",
+    "spacing.core"
+  ],
+  "base": {
+    "shape": "rounded_text_box",
+    "corner_radius": "sm",
+    "fill": "surface.panel",
+    "line": "border.default",
+    "line_width": "default",
+    "font_family": "default",
+    "font_size": "body",
+    "text_color": "text.primary",
+    "padding": "text_box",
+    "vertical_align": "mid",
+    "wrap": true
+  },
+  "variants": {
+    "body": {
+      "fill": "surface.panel",
+      "text_color": "text.primary"
+    },
+    "evidence": {
+      "fill": "surface.panel_blue",
+      "text_color": "text.primary",
+      "line": "brand.secondary"
+    },
+    "risk": {
+      "fill": "surface.panel_red",
+      "text_color": "semantic.danger",
+      "line": "semantic.danger"
+    },
+    "takeaway": {
+      "fill": "surface.page",
+      "text_color": "brand.secondary",
+      "font_size": "section_title",
+      "line": "brand.secondary"
+    },
+    "muted_note": {
+      "fill": "surface.page",
+      "text_color": "text.secondary",
+      "font_size": "caption",
+      "line": "border.subtle"
+    }
+  },
+  "rules": {
+    "max_chars_body": 120,
+    "max_bullets": 5,
+    "prefer_iconless_for_cto_report": true,
+    "hard_fail_if_font_below_token_minimum": true
+  }
+}
+

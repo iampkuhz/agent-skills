@@ -1,0 +1,32 @@
+{
+  "id": "component.kpi-card",
+  "version": "1.0.0",
+  "description": "KPI 卡片模块，用于展示关键指标、目标差距、状态摘要。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "base": {
+    "shape": "card",
+    "corner_radius": "sm",
+    "fill": "surface.panel_blue",
+    "line": "border.default",
+    "label_font_size": "kpi_label",
+    "value_font_size": "kpi_value",
+    "label_color": "text.secondary",
+    "value_color": "text.primary",
+    "padding": "card"
+  },
+  "variants": {
+    "normal": { "fill": "surface.panel_blue", "value_color": "brand.secondary" },
+    "success": { "fill": "surface.panel_green", "value_color": "semantic.success" },
+    "warning": { "fill": "surface.panel_orange", "value_color": "semantic.warning" },
+    "danger": { "fill": "surface.panel_red", "value_color": "semantic.danger" },
+    "neutral": { "fill": "surface.panel", "value_color": "text.primary" }
+  },
+  "rules": {
+    "max_cards_per_row": 5,
+    "max_cards_per_slide": 5,
+    "label_max_chars": 16,
+    "value_max_chars": 18,
+    "must_have_label_and_value": true
+  }
+}
+

@@ -1,0 +1,35 @@
+{
+  "id": "component.capability-group",
+  "version": "1.0.0",
+  "description": "能力分组模块，用于能力地图、模块域、生态事项和建设优先级。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "group": {
+    "shape": "group_container",
+    "fill": "surface.panel",
+    "line": "border.default",
+    "corner_radius": "sm",
+    "title_font_size": "section_title",
+    "title_color": "text.primary"
+  },
+  "item": {
+    "shape": "rounded_text_box",
+    "fill": "surface.page",
+    "line": "border.subtle",
+    "corner_radius": "sm",
+    "font_size": "body_dense",
+    "text_color": "text.primary"
+  },
+  "priority": {
+    "p0": "semantic.danger",
+    "p1": "semantic.warning",
+    "p2": "brand.secondary",
+    "p3": "text.secondary"
+  },
+  "rules": {
+    "max_groups": 5,
+    "max_items_per_group": 6,
+    "must_show_priority_when_planning": true,
+    "prefer_grouping_over_table": true
+  }
+}
+

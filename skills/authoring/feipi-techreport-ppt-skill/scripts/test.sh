@@ -104,6 +104,45 @@ if [[ "$PPTXGENJS_AVAILABLE" == "yes" ]]; then
   INSPECT_SUCCESS=$(echo "$INSPECT_JSON" | "$NODE_BIN" -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.stdout.write(String(d.postcheck?.success ?? false))")
   [[ "$INSPECT_SUCCESS" == "true" ]] || { echo "错误: architecture-map.pptx postcheck 未通过"; exit 1; }
 
+  # --- PPTX Postcheck: verify master residual detection works ---
+  # Test scanMasterResidual with synthetic data containing default template text
+  MASTER_RESIDUAL_TEST=$("$NODE_BIN" -e "
+const pc = require('$SKILL_DIR/helpers/pptx/postcheck.js');
+const syntheticTexts = [
+  'Click to edit Master text styles',
+  'Second level',
+  'Third level',
+  'Some real content'
+];
+// Normal mode: should be warning
+const normalIssues = pc.scanMasterResidual(syntheticTexts, false);
+const normalWarnings = normalIssues.filter(i => i.severity === 'warning');
+const normalHardFails = normalIssues.filter(i => i.severity === 'hard_fail');
+// Release mode: should be hard_fail
+const releaseIssues = pc.scanMasterResidual(syntheticTexts, true);
+const releaseHardFails = releaseIssues.filter(i => i.severity === 'hard_fail');
+// Verify detection counts
+const expectedPatterns = ['Click to edit Master text styles', 'Second level', 'Third level'];
+const detectedPatterns = normalIssues.map(i => i.message);
+const foundCount = expectedPatterns.filter(p => detectedPatterns.some(d => d.includes(p))).length;
+
+if (normalWarnings.length < 3) { console.log('FAIL:normal_warnings=' + normalWarnings.length); process.exit(1); }
+if (normalHardFails.length > 0) { console.log('FAIL:normal_should_not_have_hard_fail'); process.exit(1); }
+if (releaseHardFails.length < 3) { console.log('FAIL:release_hard_fails=' + releaseHardFails.length); process.exit(1); }
+if (foundCount < 3) { console.log('FAIL:only_found_' + foundCount + '_of_3_patterns'); process.exit(1); }
+console.log('OK');
+")
+  [[ "$MASTER_RESIDUAL_TEST" == "OK" ]] || { echo "错误: 母版残留检测异常: $MASTER_RESIDUAL_TEST"; exit 1; }
+
+  # --- PPTX Postcheck: verify generated PPTX has no master residuals ---
+  MASTER_CHECK=$("$NODE_BIN" -e "
+const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+const residuals = d.postcheck.issues.filter(i => i.type === 'template_master_residual');
+if (residuals.length > 0) { console.log('FAIL:' + residuals.length + '_residuals_found'); process.exit(1); }
+console.log('OK');
+" <<< "$INSPECT_JSON")
+  [[ "$MASTER_CHECK" == "OK" ]] || { echo "错误: 生成的 PPTX 包含母版残留: $MASTER_CHECK"; exit 1; }
+
   # --- Render QA: PPTX → PNG → Visual QA Report ---
   TMPDIR_RENDER="$TMPDIR_PPTX/render"
   mkdir -p "$TMPDIR_RENDER"
@@ -144,7 +183,7 @@ if [[ "$PPTXGENJS_AVAILABLE" == "yes" ]]; then
     [[ "$SKIP_STATUS" == "skip" ]] || { echo "错误: skip manifest 状态应为 skip 但实际为 $SKIP_STATUS"; exit 1; }
   fi
 else
-  echo "跳过 PPTX 编译测试: pptxgenjs 未安装 (npm install pptxgenjs)"
+  echo "跳过 PPTX 编译测试: pptxgenjs 未安装 (cd $SKILL_DIR && npm ci)"
 fi
 
 # --- Runtime capability checks ---

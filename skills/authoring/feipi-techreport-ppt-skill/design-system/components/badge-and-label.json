@@ -1,0 +1,26 @@
+{
+  "id": "component.badge-and-label",
+  "version": "1.0.0",
+  "description": "标签和徽标模块，用于状态、版本、风险等级、阶段、优先级。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "base": {
+    "shape": "badge",
+    "corner_radius": "pill",
+    "font_size": "diagram_badge",
+    "padding": "diagram_node",
+    "line_width": "default"
+  },
+  "variants": {
+    "info": { "fill": "surface.panel_blue", "line": "semantic.info", "text": "semantic.info" },
+    "success": { "fill": "surface.panel_green", "line": "semantic.success", "text": "semantic.success" },
+    "warning": { "fill": "surface.panel_orange", "line": "semantic.warning", "text": "semantic.warning" },
+    "danger": { "fill": "surface.panel_red", "line": "semantic.danger", "text": "semantic.danger" },
+    "neutral": { "fill": "surface.panel", "line": "border.default", "text": "text.secondary" }
+  },
+  "rules": {
+    "max_badges_per_slide": 8,
+    "badge_text_max_chars": 10,
+    "do_not_use_badges_as_primary_content": true
+  }
+}
+

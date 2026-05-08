@@ -1,0 +1,49 @@
+{
+  "id": "typography.core",
+  "version": "1.0.0",
+  "description": "中文技术汇报字体风格集合。默认偏正式、清晰、适合高密度技术页。",
+  "font_families": {
+    "default": ["Kaiti SC", "PingFang SC", "Microsoft YaHei", "SimHei", "sans-serif"],
+    "title": ["Kaiti SC", "PingFang SC", "Microsoft YaHei", "SimHei", "sans-serif"],
+    "monospace": ["Menlo", "Consolas", "Monaco", "monospace"]
+  },
+  "sizes_pt": {
+    "title": 28,
+    "subtitle": 14,
+    "section_title": 13,
+    "body": 10,
+    "body_dense": 9,
+    "label": 9,
+    "caption": 8.5,
+    "footer": 8.5,
+    "kpi_value": 14,
+    "kpi_label": 10,
+    "table_header": 10,
+    "table_cell": 9,
+    "diagram_node": 10,
+    "diagram_badge": 8.5
+  },
+  "minimums_pt": {
+    "title": 24,
+    "subtitle": 13,
+    "body": 10,
+    "table_cell": 8.5,
+    "label": 8.5,
+    "caption": 7.5,
+    "footer": 7.5
+  },
+  "weights": {
+    "regular": false,
+    "emphasis": true,
+    "title": true,
+    "table_header": true,
+    "kpi_value": true
+  },
+  "rules": {
+    "max_bullet_lines": 2,
+    "max_bullets_per_text_box": 5,
+    "prefer_short_labels": true,
+    "do_not_scale_font_by_viewport": true
+  }
+}
+

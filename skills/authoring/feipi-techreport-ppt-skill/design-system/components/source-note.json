@@ -1,0 +1,24 @@
+{
+  "id": "component.source-note",
+  "version": "1.0.0",
+  "description": "来源和脚注模块，用于数据口径、来源引用、版本说明。",
+  "depends_on": ["colors.core", "typography.core", "spacing.core"],
+  "base": {
+    "font_family": "default",
+    "font_size": "footer",
+    "text_color": "text.secondary",
+    "max_lines": 2,
+    "prefix_style": "numbered"
+  },
+  "variants": {
+    "single_source": { "max_items": 1 },
+    "numbered_sources": { "max_items": 3 },
+    "methodology_note": { "max_items": 2 }
+  },
+  "rules": {
+    "must_stay_in_footer_region": true,
+    "max_sources_on_slide": 3,
+    "move_long_sources_to_notes": true
+  }
+}
+

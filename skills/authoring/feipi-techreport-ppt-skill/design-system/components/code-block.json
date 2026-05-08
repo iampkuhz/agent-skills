@@ -1,0 +1,28 @@
+{
+  "id": "component.code-block",
+  "version": "1.0.0",
+  "description": "代码和配置片段模块，用于少量伪代码、配置、命令、日志，不用于长代码展示。",
+  "depends_on": ["colors.core", "typography.core", "shape.core", "spacing.core"],
+  "base": {
+    "font_family": "monospace",
+    "font_size": "caption",
+    "text_color": "text.primary",
+    "fill": "surface.panel",
+    "line": "border.default",
+    "corner_radius": "sm",
+    "padding": "text_box"
+  },
+  "variants": {
+    "config": { "accent": "brand.secondary" },
+    "command": { "accent": "semantic.success" },
+    "error_log": { "accent": "semantic.danger" },
+    "pseudo_code": { "accent": "text.secondary" }
+  },
+  "rules": {
+    "max_lines": 8,
+    "max_chars_per_line": 64,
+    "do_not_use_for_full_code_listing": true,
+    "prefer_summary_plus_snippet": true
+  }
+}
+

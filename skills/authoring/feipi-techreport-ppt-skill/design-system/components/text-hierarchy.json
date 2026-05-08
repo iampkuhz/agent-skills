@@ -1,0 +1,56 @@
+{
+  "id": "component.text-hierarchy",
+  "version": "1.0.0",
+  "description": "文本层级模块，定义标题、副标题、正文、标签、脚注、来源说明的视觉规则。",
+  "depends_on": ["colors.core", "typography.core", "spacing.core"],
+  "levels": {
+    "title": {
+      "font_family": "title",
+      "font_size": "title",
+      "font_weight": "title",
+      "color": "text.primary",
+      "max_lines": 2
+    },
+    "subtitle": {
+      "font_family": "default",
+      "font_size": "subtitle",
+      "font_weight": "regular",
+      "color": "text.secondary",
+      "max_lines": 2
+    },
+    "section_title": {
+      "font_family": "default",
+      "font_size": "section_title",
+      "font_weight": "emphasis",
+      "color": "text.primary",
+      "max_lines": 1
+    },
+    "body": {
+      "font_family": "default",
+      "font_size": "body",
+      "font_weight": "regular",
+      "color": "text.primary",
+      "max_lines": 5
+    },
+    "caption": {
+      "font_family": "default",
+      "font_size": "caption",
+      "font_weight": "regular",
+      "color": "text.secondary",
+      "max_lines": 2
+    },
+    "footer": {
+      "font_family": "default",
+      "font_size": "footer",
+      "font_weight": "regular",
+      "color": "text.secondary",
+      "max_lines": 2
+    }
+  },
+  "rules": {
+    "title_must_contain_claim": true,
+    "avoid_empty_generic_title": true,
+    "max_text_hierarchy_levels_per_slide": 4
+  }
+}
+

@@ -1,0 +1,43 @@
+{
+  "id": "component-inventory",
+  "version": "1.0.0",
+  "description": "PPT 技术汇报设计系统组件全集，用于确认模块覆盖范围和归位。",
+  "layers": [
+    {
+      "name": "tokens",
+      "description": "不可再拆的设计原子",
+      "items": ["colors", "typography", "shape", "spacing"]
+    },
+    {
+      "name": "text_and_explanation",
+      "description": "文本、说明、结论、来源",
+      "items": ["text-hierarchy", "rounded-text-box", "code-block", "source-note"]
+    },
+    {
+      "name": "layout_and_container",
+      "description": "页面区域、容器、分隔和标签",
+      "items": ["layout-region", "section-divider", "badge-and-label", "legend"]
+    },
+    {
+      "name": "data_expression",
+      "description": "指标、表格、矩阵、图表和进度",
+      "items": ["kpi-card", "native-table", "heatmap-matrix", "native-chart", "progress-indicator"]
+    },
+    {
+      "name": "diagramming",
+      "description": "架构、流程、时间线、决策和能力图",
+      "items": ["native-component-diagram", "flow-step", "timeline-milestone", "decision-node", "capability-group"]
+    },
+    {
+      "name": "media_and_reference",
+      "description": "截图、图片、logo 和引用材料",
+      "items": ["media-frame"]
+    },
+    {
+      "name": "patterns",
+      "description": "由组件组合而成的复杂页面结构",
+      "items": ["architecture-map", "layered-stack", "flow-diagram", "comparison-matrix", "roadmap-timeline", "metrics-dashboard", "decision-tree", "capability-map"]
+    }
+  ]
+}
+

@@ -1,0 +1,25 @@
+{
+  "id": "component.section-divider",
+  "version": "1.0.0",
+  "description": "区块分隔线模块，用于轻量划分标题、证据区、表格组和页脚。",
+  "depends_on": ["colors.core", "shape.core", "spacing.core"],
+  "variants": {
+    "subtle_rule": {
+      "line": "border.subtle",
+      "line_width": "hairline"
+    },
+    "section_rule": {
+      "line": "border.default",
+      "line_width": "default"
+    },
+    "accent_rule": {
+      "line": "brand.secondary",
+      "line_width": "strong"
+    }
+  },
+  "rules": {
+    "no_decorative_overuse": true,
+    "max_accent_rules_per_slide": 2
+  }
+}
+
