@@ -290,7 +290,7 @@ def compute_agent_efficiency(conn: sqlite3.Connection) -> list[dict]:
 
     Returns list of {agent, model, session_count, avg_duration, p95_duration,
                      avg_input_side, avg_tools, tools_per_round, cache_reuse_ratio,
-                     failure_rate, anomaly_rate}.
+                     failed_per_session, anomaly_rate}.
     """
     rows = conn.execute(
         """
@@ -349,7 +349,7 @@ def compute_agent_efficiency(conn: sqlite3.Connection) -> list[dict]:
 
         cache_reuse = safe_div(total_cache_read, total_input_side)
         tpr = safe_div(total_tools, total_rounds)
-        failure_rate = safe_div(total_failed, session_count)
+        failed_per_session = safe_div(total_failed, session_count)
 
         result.append({
             "agent": r["agent"],
@@ -361,7 +361,7 @@ def compute_agent_efficiency(conn: sqlite3.Connection) -> list[dict]:
             "avg_tools": round(safe_div(total_tools, session_count), 1) if session_count > 0 else 0,
             "tools_per_round": round(tpr, 2) if tpr else None,
             "cache_reuse_ratio": round(cache_reuse, 4) if cache_reuse else None,
-            "failure_rate": round(failure_rate, 4) if failure_rate else None,
+            "failed_per_session": round(failed_per_session, 4) if failed_per_session else None,
         })
 
     return result

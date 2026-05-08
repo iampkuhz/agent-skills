@@ -18,6 +18,7 @@ Environment variables:
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import signal
 import subprocess
@@ -25,7 +26,42 @@ import sys
 import threading
 import time
 
-from session_browser.config import SERVER_HOST, SERVER_PORT
+from session_browser.config import (
+    CLAUDE_DATA_DIR,
+    CODEX_DATA_DIR,
+    INDEX_DIR,
+    QODER_DATA_DIR,
+    SERVER_HOST,
+    SERVER_PORT,
+    SESSION_BROWSER_LOG_LEVEL,
+    SESSION_BROWSER_VERSION,
+)
+
+
+logger = logging.getLogger("session_browser")
+
+
+def configure_logging(level: str | None = None) -> None:
+    """Configure process-wide logging for foreground and container runs."""
+    raw_level = (level or SESSION_BROWSER_LOG_LEVEL or "INFO").upper()
+    log_level = getattr(logging, raw_level, logging.INFO)
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,
+    )
+    logging.captureWarnings(True)
+    for noisy_logger in ("markdown_it", "PIL"):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+    logger.debug("Logging configured at %s", logging.getLevelName(log_level))
+
+
+def _truthy_env(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
 def _run_command(
@@ -111,9 +147,9 @@ def cmd_scan(args: argparse.Namespace) -> None:
     force = getattr(args, "force", False)
     scan_pid = _find_running_scan_pid()
     if scan_pid is not None:
-        print(f"A scan process (PID {scan_pid}) is already running.")
+        logger.warning("A scan process is already running: pid=%s", scan_pid)
         if force:
-            print("--force: killing existing scan automatically.")
+            logger.warning("--force: killing existing scan automatically")
         else:
             try:
                 answer = input("Kill it and restart? [y/N]: ").strip().lower()
@@ -121,10 +157,10 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 answer = "n"
         if force or answer in ("y", "yes"):
             if _kill_process(scan_pid):
-                print(f"Killed PID {scan_pid}. Waiting for process to exit...")
+                logger.warning("Killed scan process pid=%s; waiting for exit", scan_pid)
                 time.sleep(1)
             else:
-                print(f"Failed to kill PID {scan_pid}, proceeding anyway.")
+                logger.error("Failed to kill scan process pid=%s; proceeding anyway", scan_pid)
         else:
             print("Aborted.")
             sys.exit(0)
@@ -246,9 +282,14 @@ def cmd_serve(args: argparse.Namespace) -> None:
     existing_pids = _find_pids_on_port(port)
     if existing_pids:
         pid_list = ", ".join(str(p) for p in existing_pids)
-        print(f"A process is already listening on {host}:{port} (PIDs: {pid_list}).")
+        logger.warning(
+            "A process is already listening: host=%s port=%s pids=%s",
+            host,
+            port,
+            pid_list,
+        )
         if force:
-            print("--force: killing existing server automatically.")
+            logger.warning("--force: killing existing server automatically")
         else:
             try:
                 answer = input("Kill it and restart? [y/N]: ").strip().lower()
@@ -257,24 +298,53 @@ def cmd_serve(args: argparse.Namespace) -> None:
         if force or answer in ("y", "yes"):
             for pid in existing_pids:
                 if _kill_process(pid):
-                    print(f"Killed PID {pid}.")
+                    logger.warning("Killed server process pid=%s", pid)
                 else:
-                    print(f"Failed to kill PID {pid}.")
+                    logger.error("Failed to kill server process pid=%s", pid)
             time.sleep(1)
         else:
             print("Aborted.")
             sys.exit(0)
 
+    logger.info(
+        "Data paths: index=%s claude=%s codex=%s qoder=%s",
+        INDEX_DIR,
+        CLAUDE_DATA_DIR,
+        CODEX_DATA_DIR,
+        QODER_DATA_DIR,
+    )
+
     # Ensure index exists (without dropping existing data)
     conn = _get_connection()
     _ensure_schema_exists(conn)
     count = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+
+    startup_scan = getattr(args, "startup_scan", False) or _truthy_env("SESSION_BROWSER_STARTUP_SCAN")
+    if startup_scan:
+        logger.info("Running startup incremental scan before serving")
+        start = time.time()
+        try:
+            result = incremental_scan(conn, verbose=False)
+            count = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+            logger.info(
+                "Startup scan complete: total_indexed=%s updated=%s new=%s skipped=%s elapsed=%.1fs",
+                count,
+                result.get("total", 0),
+                result.get("new_count", 0),
+                result.get("skipped", 0),
+                time.time() - start,
+            )
+        except Exception:
+            logger.exception("Startup scan failed")
+            if not args.allow_empty:
+                conn.close()
+                raise
     conn.close()
 
     if count == 0:
-        print("Index is empty. Run 'scan' first, or server will show empty data.")
+        logger.warning("Index is empty. Run 'scan' first, or server will show empty data.")
         if not args.allow_empty:
-            print("Use --allow-empty to start anyway.")
+            logger.error("Refusing to start with empty index without --allow-empty")
             sys.exit(1)
 
     # Start tiered background scanner
@@ -286,15 +356,28 @@ def cmd_serve(args: argparse.Namespace) -> None:
             warm_interval=TIER_WARM_INTERVAL,
         )
         scanner.start()
-        print(f"Background scanner started (hot: every {TIER_HOT_INTERVAL}s, warm: every {TIER_WARM_INTERVAL}s)")
+        logger.info(
+            "Background scanner started: hot_interval=%ss warm_interval=%ss",
+            TIER_HOT_INTERVAL,
+            TIER_WARM_INTERVAL,
+        )
 
     server = create_server(host=host, port=port)
-    print(f"Starting session-browser on http://{host}:{port}")
+    logger.info(
+        "Starting session-browser: url=http://%s:%s version=%s log_level=%s",
+        host,
+        port,
+        SESSION_BROWSER_VERSION,
+        logging.getLevelName(logging.getLogger().getEffectiveLevel()),
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down...")
+        logger.info("Shutting down after KeyboardInterrupt")
         server.shutdown()
+    except Exception:
+        logger.exception("Fatal server error")
+        raise
 
 
 class _BackgroundScanner:
@@ -365,9 +448,7 @@ class _BackgroundScanner:
 
                 conn.close()
             except Exception:
-                # Don't crash the background thread on DB errors
-                import traceback
-                traceback.print_exc()
+                logger.exception("Background incremental scan failed")
 
             time.sleep(1)
 
@@ -410,6 +491,7 @@ def main() -> None:
         prog="session-browser",
         description="Local agent session browser and analyzer",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {SESSION_BROWSER_VERSION}")
     sub = parser.add_subparsers(dest="command")
 
     # scan command
@@ -427,14 +509,19 @@ def main() -> None:
     serve_p.add_argument("--port", type=int, default=SERVER_PORT, help=f"Port (default: {SERVER_PORT})")
     serve_p.add_argument("--allow-empty", action="store_true", help="Allow starting with empty index")
     serve_p.add_argument("--no-scan", action="store_true", help="Disable background incremental scanner")
+    serve_p.add_argument("--startup-scan", action="store_true",
+                         help="Run one full-window incremental scan before serving")
     serve_p.add_argument("--force", "-f", action="store_true",
                         help="Kill existing server on port without prompting")
+    serve_p.add_argument("--log-level", default=SESSION_BROWSER_LOG_LEVEL,
+                         help=f"Log level (default: {SESSION_BROWSER_LOG_LEVEL})")
 
     # stop command
     stop_p = sub.add_parser("stop", help="Stop the running web server")
     stop_p.add_argument("--port", type=int, default=SERVER_PORT, help=f"Port to stop (default: {SERVER_PORT})")
 
     args = parser.parse_args()
+    configure_logging(getattr(args, "log_level", None))
 
     if args.command == "scan":
         cmd_scan(args)

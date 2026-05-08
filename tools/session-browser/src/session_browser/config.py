@@ -37,3 +37,18 @@ def ensure_index_dir() -> None:
 
 SERVER_HOST = os.environ.get("SERVER_HOST", "127.0.0.1")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", "8899"))
+
+
+# ─── Logging / release metadata ─────────────────────────────────────────
+
+
+def _default_version() -> str:
+    version_file = Path(__file__).resolve().parents[2] / "VERSION"
+    try:
+        return version_file.read_text(encoding="utf-8").strip() or "0.0.0-dev"
+    except OSError:
+        return "0.0.0-dev"
+
+
+SESSION_BROWSER_VERSION = os.environ.get("SESSION_BROWSER_VERSION", _default_version())
+SESSION_BROWSER_LOG_LEVEL = os.environ.get("SESSION_BROWSER_LOG_LEVEL", "INFO").upper()

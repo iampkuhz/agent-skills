@@ -2,8 +2,10 @@
 
 # Runtime output
 output/
+data/
 
 # Python
+.venv/
 __pycache__/
 *.pyc
 *.pyo

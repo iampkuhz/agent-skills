@@ -7,8 +7,10 @@ No external web framework needed for MVP.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
+import time
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -47,6 +49,8 @@ from session_browser.domain.models import (
     LLMCall,
     ToolCall,
 )
+
+logger = logging.getLogger("session_browser.web")
 
 # Template directory
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -570,6 +574,7 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
     """HTTP request handler for session-browser."""
 
     def do_GET(self) -> None:  # noqa: N802
+        started_at = time.time()
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         params = urllib.parse.parse_qs(parsed.query)
@@ -577,6 +582,8 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         try:
             if path == "/" or path == "/dashboard":
                 self._serve_dashboard()
+            elif path == "/favicon.ico":
+                self._send_empty(204)
             elif path == "/projects":
                 self._serve_projects()
             elif path.startswith("/projects/"):
@@ -598,15 +605,40 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
                 self._serve_agent(agent)
             elif path == "/glossary":
                 self._serve_glossary()
+            elif path == "/search":
+                self._serve_search(params)
             elif path.startswith("/static/"):
                 self._serve_static(path[len("/static/"):])
             else:
                 self._send_404()
+            elapsed_ms = (time.time() - started_at) * 1000
+            logger.debug(
+                "HTTP request handled: method=GET path=%s elapsed_ms=%.1f",
+                path,
+                elapsed_ms,
+            )
         except BrokenPipeError:
             # Client closed the connection before we could respond — normal.
-            pass
-        except Exception as e:
-            self._send_500(str(e))
+            logger.debug("Client disconnected before response: path=%s", path)
+        except Exception as exc:
+            logger.exception("HTTP request failed: method=GET path=%s query=%s", path, parsed.query)
+            self._send_500(str(exc))
+
+    def log_message(self, format: str, *args) -> None:
+        """Route BaseHTTPRequestHandler access logs through configured logging."""
+        logger.info(
+            "HTTP access: client=%s message=%s",
+            self.client_address[0] if self.client_address else "-",
+            format % args,
+        )
+
+    def log_error(self, format: str, *args) -> None:
+        """Route BaseHTTPRequestHandler error logs through configured logging."""
+        logger.error(
+            "HTTP handler error: client=%s message=%s",
+            self.client_address[0] if self.client_address else "-",
+            format % args,
+        )
 
     def _render_template(self, name: str, **context) -> str:
         template = _template_env.get_template(name)
@@ -618,10 +650,15 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html.encode("utf-8"))
 
+    def _send_empty(self, status: int = 204) -> None:
+        self.send_response(status)
+        self.end_headers()
+
     def _send_404(self) -> None:
         self._send_html(self._render_template("404.html"), 404)
 
     def _send_500(self, error: str) -> None:
+        logger.error("Rendering 500 response: %s", error)
         self._send_html(self._render_template("error.html", error=error), 500)
 
     def _serve_dashboard(self) -> None:
@@ -865,6 +902,41 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         )
         self._send_html(html)
 
+    def _serve_search(self, params: dict[str, list[str]]) -> None:
+        """Search sessions by title, id, project, model, or agent."""
+        query = (params.get("q", [""])[0] or "").strip().lower()
+        conn = _get_connection()
+
+        sessions = []
+        if query:
+            all_sessions = list_sessions(conn, limit=5000, order_by="ended_at")
+            terms = [t for t in query.split() if t]
+            for session in all_sessions:
+                haystack = " ".join(
+                    [
+                        session.title or "",
+                        session.session_id or "",
+                        session.project_name or "",
+                        session.project_key or "",
+                        session.model or "",
+                        session.agent or "",
+                    ]
+                ).lower()
+                if all(term in haystack for term in terms):
+                    sessions.append(session)
+                if len(sessions) >= 200:
+                    break
+
+        conn.close()
+
+        html = self._render_template(
+            "search.html",
+            query=query,
+            sessions=sessions,
+            active_page="search",
+        )
+        self._send_html(html)
+
     def _serve_glossary(self) -> None:
         """Token glossary page."""
         html = self._render_template(
@@ -872,10 +944,6 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             active_page="glossary",
         )
         self._send_html(html)
-
-    def log_message(self, format: str, *args) -> None:  # noqa: A002
-        """Suppress default request logging."""
-        pass
 
 
 def create_server(

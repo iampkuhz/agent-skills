@@ -2,11 +2,36 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Agent Run Profiler{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+
+    <!-- arpStorage bootstrap: defined early so page scripts can use it before shared JS loads -->
+    <script>
+    (function() {
+        'use strict';
+        var STORAGE_PREFIX = 'arp_';
+        window.arpStorage = {
+            get: function(key) {
+                try {
+                    var raw = localStorage.getItem(STORAGE_PREFIX + key);
+                    return raw ? JSON.parse(raw) : null;
+                } catch (e) { return null; }
+            },
+            set: function(key, value) {
+                try {
+                    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+                } catch (e) { /* storage full or disabled */ }
+            },
+            remove: function(key) {
+                try {
+                    localStorage.removeItem(STORAGE_PREFIX + key);
+                } catch (e) {}
+            }
+        };
+    })();
+    </script>
 
     {% block head_extra %}{% endblock %}
 </head>
@@ -31,6 +56,9 @@
             </a>
             <a href="/sessions" {% if active_page == 'sessions' %}class="active"{% endif %}>
                 <span class="nav-icon">●</span> Sessions
+            </a>
+            <a href="/search" {% if active_page == 'search' %}class="active"{% endif %}>
+                <span class="nav-icon">⌕</span> Search
             </a>
             <a href="/agents" {% if active_page == 'agents' %}class="active"{% endif %}>
                 <span class="nav-icon">⚡</span> Agents
@@ -62,34 +90,10 @@
         </footer>
     </div>
 
-    <!-- Shared JS: localStorage helpers, tooltips, interactions -->
+    <!-- Shared JS: tab switching, round toggle, show-more, restore state -->
     <script>
     (function() {
         'use strict';
-
-        /* ─── localStorage helpers with safe try/catch ─────────────── */
-        var STORAGE_PREFIX = 'arp_';
-
-        window.arpStorage = {
-            get: function(key) {
-                try {
-                    var raw = localStorage.getItem(STORAGE_PREFIX + key);
-                    return raw ? JSON.parse(raw) : null;
-                } catch (e) {
-                    return null;
-                }
-            },
-            set: function(key, value) {
-                try {
-                    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
-                } catch (e) { /* storage full or disabled */ }
-            },
-            remove: function(key) {
-                try {
-                    localStorage.removeItem(STORAGE_PREFIX + key);
-                } catch (e) {}
-            }
-        };
 
         /* ─── Tab switching (session detail) ───────────────────────── */
         window.switchTab = function(tabId) {
@@ -100,7 +104,20 @@
             var target = document.querySelector('[data-tab="' + tabId + '"]');
             if (target) { target.classList.add('active'); }
             var content = document.getElementById(tabId);
-            if (content) { content.classList.add('active'); }
+            if (content) {
+                // Lazy-load profile tab from <template> on first access
+                if (tabId === 'profile' && !content.dataset.loaded) {
+                    var tpl = document.getElementById('profile-template');
+                    if (tpl) {
+                        content.innerHTML = '';
+                        while (tpl.content.firstChild) {
+                            content.appendChild(tpl.content.firstChild);
+                        }
+                        content.dataset.loaded = '1';
+                    }
+                }
+                content.classList.add('active');
+            }
             // Persist active tab
             if (window._sessionId) {
                 arpStorage.set('session_tab_' + window._sessionId, tabId);
@@ -153,6 +170,19 @@
                 return;
             }
         });
+
+
+        /* ─── Wide table scroll hints ────────────────────────────── */
+        document.addEventListener('scroll', function(e) {
+            var wrap = e.target.closest('.table-wrap');
+            if (!wrap) return;
+            var isAtRight = wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth - 2;
+            if (isAtRight) {
+                wrap.classList.add('scrolled-right');
+            } else {
+                wrap.classList.remove('scrolled-right');
+            }
+        }, true);
 
 
         /* ─── Restore session tab on load ──────────────────────────── */

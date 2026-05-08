@@ -1,6 +1,8 @@
 # Agent Run Profiler
 
-> 面向本地 Claude Code / Codex 的会话索引与 Token 分析工具
+> 面向本地 Claude Code / Codex 的桌面端会话索引与 Token 分析工具
+
+该工具默认面向电脑浏览器使用，不做 mobile 适配。页面保持固定侧栏、宽表格和桌面最小宽度，窄窗口下通过浏览器横向滚动查看完整内容。
 
 ## 快速开始
 
@@ -8,30 +10,62 @@
 
 ```bash
 # 安装依赖
-pip install jinja2 markdown-it
+./scripts/session-browser.sh deps
 
 # 扫描并索引（首次约 8 秒）
 ./scripts/session-browser.sh scan
 
-# 启动 Web 服务，浏览器打开 http://127.0.0.1:8899
+# 前台调试启动（DEBUG 日志，适合大模型修改 tool 后验证）
+./scripts/session-browser.sh dev --port 8899 --force
+
+# 普通前台启动，浏览器打开 http://127.0.0.1:8899
 ./scripts/session-browser.sh serve
 ```
 
-### Docker 容器
+### Podman 本地部署
 
 ```bash
-# 构建
-docker compose -f compose/docker-compose.yml build
+# 查看当前版本
+./scripts/session-browser.sh version
 
-# 首次扫描索引
-docker compose -f compose/docker-compose.yml run --rm session-browser ./scripts/session-browser.sh scan
+# 修改版本号（可选）
+./scripts/session-browser.sh set-version 0.2.0
 
-# 启动服务
-docker compose -f compose/docker-compose.yml up -d
-# 浏览器打开 http://localhost:8899
+# 测试后构建本地镜像：localhost/feipi/session-browser:0.2.0 和 :latest
+./scripts/session-browser.sh release 0.2.0
+
+# 用本地镜像启动 Podman 容器
+./scripts/session-browser.sh podman-up 0.2.0
+
+# 或者一步完成：构建镜像并部署到本地
+./scripts/session-browser.sh deploy 0.2.0
+
+# 查看日志 / 状态 / 停止
+./scripts/session-browser.sh podman-logs
+./scripts/session-browser.sh podman-status
+./scripts/session-browser.sh podman-down
 ```
 
-容器将 `~/.claude` 和 `~/.codex` 以只读方式挂载，index 持久化在 `./data/index/`。
+容器将 `~/.claude`、`~/.codex`、`~/.qoder` 以只读方式挂载，index 默认持久化在 `~/.local/share/feipi/session-browser/index/`。升级镜像或重建容器时，只要该目录不删除，索引会继续复用。本地镜像默认使用：
+
+```text
+localhost/feipi/session-browser:<VERSION>
+localhost/feipi/session-browser:latest
+```
+
+### 发布流
+
+版本管理以 `VERSION` 文件为真源，推荐流程：
+
+1. 修改代码后执行 `./scripts/session-browser.sh dev --port 8899 --force`，在前台观察访问日志和错误堆栈。
+2. 执行 `./scripts/session-browser.sh test`，通过单元测试。
+3. 确认版本号：`./scripts/session-browser.sh set-version <x.y.z>`。
+4. 执行 `./scripts/session-browser.sh release <x.y.z>`，测试通过后构建本地 Podman 镜像。
+5. 执行 `./scripts/session-browser.sh podman-up <x.y.z>`，用指定版本镜像部署到本地。
+
+如需单条命令完成打包和部署，可使用 `./scripts/session-browser.sh deploy <x.y.z>`。
+
+容器启动命令默认会传入 `--startup-scan`：服务监听前先做一次全窗口增量扫描，避免首次启动空白；随后后台扫描器会持续定时刷新，hot 会话每 30 秒扫描，warm 会话每 5 分钟扫描。数据源只读挂载，SQLite index 单独持久化。
 
 ## 环境变量
 
@@ -39,9 +73,17 @@ docker compose -f compose/docker-compose.yml up -d
 |------|--------|------|
 | `CLAUDE_DATA_DIR` | `~/.claude` | Claude Code 数据目录 |
 | `CODEX_DATA_DIR` | `~/.codex` | Codex 数据目录 |
+| `QODER_DATA_DIR` | `~/.qoder` | Qoder 数据目录 |
 | `INDEX_DIR` | `~/.cache/agent-session-browser` | 索引存储目录 |
 | `SERVER_HOST` | `0.0.0.0` | 服务绑定地址 |
 | `SERVER_PORT` | `8899` | 服务端口 |
+| `SESSION_BROWSER_LOG_LEVEL` | `INFO` | 日志级别；`dev` 默认 `DEBUG` |
+| `SESSION_BROWSER_VENV_DIR` | `./.venv` | 本地依赖虚拟环境目录 |
+| `SESSION_BROWSER_IMAGE_REPO` | `localhost/feipi/session-browser` | Podman 本地镜像仓库 |
+| `SESSION_BROWSER_CONTAINER_NAME` | `session-browser` | Podman 容器名 |
+| `SESSION_BROWSER_HOST_PORT` | `8899` | 宿主机映射端口 |
+| `SESSION_BROWSER_DATA_DIR` | `~/.local/share/feipi/session-browser/index` | Podman index 持久化目录 |
+| `SESSION_BROWSER_STARTUP_SCAN` | `1` | 容器启动时先扫描一次再监听 |
 
 ## 页面
 
@@ -99,10 +141,13 @@ LLM 调用数基于 Claude Code JSONL 中唯一 `assistant.message.id` 推断。
 ```
 tools/session-browser/
 ├── Dockerfile                      # 容器镜像
+├── VERSION                         # 本地发布版本真源
+├── requirements.txt                # 运行依赖
+├── requirements-dev.txt            # 本地测试依赖
 ├── .dockerignore
 ├── .gitignore
 ├── compose/
-│   └── docker-compose.yml          # 容器编排
+│   └── docker-compose.yml          # 可选 compose 兼容入口
 ├── env/
 │   └── .env.example                # 环境变量模板
 ├── scripts/

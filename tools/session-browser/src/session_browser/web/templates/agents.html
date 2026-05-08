@@ -93,8 +93,8 @@
                         {% else %}—{% endif %}
                     </td>
                     <td class="numeric mono text-xs">
-                        {% if e.failure_rate is not none %}
-                        {{ e.failure_rate | round(1) }}
+                        {% if e.failed_per_session is not none %}
+                        {{ e.failed_per_session | round(1) }}
                         {% else %}—{% endif %}
                     </td>
                     <td class="text-xs text-muted">{{ e.last_active | relative_time }}</td>
