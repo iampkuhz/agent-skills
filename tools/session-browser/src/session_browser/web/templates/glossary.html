@@ -14,7 +14,7 @@
 {% block content %}
 
 <!-- Token Overview -->
-<div class="card" style="margin-bottom:12px">
+<div class="card mb-3">
     <div class="card-title">Token Overview</div>
     <div class="glossary__intro">
         <p>All input-side tokens include three components: <strong>fresh</strong> (new, uncached), <strong>cache read</strong> (served from cache), and <strong>cache write</strong> (written to cache for future use). Both cache read and cache write are <em>input-side</em> concepts — they describe how the prompt/context is handled, not the model's output.</p>
@@ -23,9 +23,9 @@
 </div>
 
 <!-- Token Components -->
-<div class="card" style="margin-bottom:12px">
+<div class="card mb-3">
     <div class="card-title">
-        <span class="token-badge token-badge--input" style="font-size:11px">Token Components</span>
+        <span class="token-badge token-badge--input text-xs">Token Components</span>
     </div>
     <p class="text-xs text-muted">Raw token fields from provider APIs. Input-side = fresh + cache read + cache write.</p>
 
@@ -82,7 +82,7 @@
 </div>
 
 <!-- Derived Metrics -->
-<div class="card" style="margin-bottom:12px">
+<div class="card mb-3">
     <div class="card-title">Derived Metrics</div>
     <p class="text-xs text-muted">Computed from raw fields. All defined in <code>index/metrics.py</code>. Division by zero returns <code>—</code>.</p>
 
@@ -191,7 +191,7 @@
 </div>
 
 <!-- Known Limitations -->
-<div class="card" style="margin-bottom:12px">
+<div class="card mb-3">
     <div class="card-title">Known Limitations</div>
 
     <div class="table-scroll">
@@ -242,7 +242,7 @@
 <!-- Anomaly Reference -->
 <div class="card">
     <div class="card-title">Anomaly Classification</div>
-    <p class="text-xs text-muted" style="margin-bottom:8px">Types detected by <code>index/anomalies.py</code>.</p>
+    <p class="text-xs text-muted mb-2">Types detected by <code>index/anomalies.py</code>.</p>
 
     <div class="table-scroll">
     <table>

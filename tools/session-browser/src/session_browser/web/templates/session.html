@@ -49,7 +49,7 @@
         <span class="overview__agent-badge {{ agent_class }}">{{ agent_name }}</span>
         <h1 class="overview__title" title="{{ session.title }}">{{ session.title[:140] or 'Untitled Session' }}</h1>
         {% if session.model %}
-        <span class="overview__model" title="{{ session.model }}">{{ session.model[:60] }}</span>
+        <span class="overview__model" data-tooltip="{{ session.model }}">{{ session.model[:60] }}</span>
         {% endif %}
     </div>
 
@@ -59,7 +59,7 @@
             <span class="meta-chip__icon">&#x25ce;</span>{{ session.project_name }}
         </a>
         {% if session.git_branch and session.git_branch != 'main' %}
-        <span class="meta-chip meta-chip--mono" title="Branch: {{ session.git_branch }}">{{ session.git_branch }}</span>
+        <span class="meta-chip meta-chip--mono" data-tooltip="Branch: {{ session.git_branch }}">{{ session.git_branch }}</span>
         {% endif %}
         {% if session.started_at %}
         <span class="meta-chip meta-chip--mono meta-chip--time"
@@ -186,25 +186,25 @@
             </div>
             <div class="token-mix__breakdown">
                 <div class="token-mix__row">
-                    <span class="token-mix__dot" style="background:var(--token-input-fresh)"></span>
+                    <span class="token-mix__dot token-mix__dot--fresh"></span>
                     <span class="token-mix__name">Fresh Input</span>
                     <span class="token-mix__val">{{ session.input_tokens | format_number }}</span>
                     <span class="token-mix__pct">{{ fresh_pct }}%</span>
                 </div>
                 <div class="token-mix__row">
-                    <span class="token-mix__dot" style="background:var(--token-cache-read)"></span>
+                    <span class="token-mix__dot token-mix__dot--cr"></span>
                     <span class="token-mix__name">Cache Read</span>
                     <span class="token-mix__val">{{ session.cached_input_tokens | format_number }}</span>
                     <span class="token-mix__pct">{{ cr_pct }}%</span>
                 </div>
                 <div class="token-mix__row">
-                    <span class="token-mix__dot" style="background:var(--token-cache-write)"></span>
+                    <span class="token-mix__dot token-mix__dot--cw"></span>
                     <span class="token-mix__name">Cache Write</span>
                     <span class="token-mix__val">{{ session.cached_output_tokens | format_number }}</span>
                     <span class="token-mix__pct">{{ cw_pct }}%</span>
                 </div>
                 <div class="token-mix__row">
-                    <span class="token-mix__dot" style="background:var(--token-output-visible)"></span>
+                    <span class="token-mix__dot token-mix__dot--out"></span>
                     <span class="token-mix__name">Output</span>
                     <span class="token-mix__val">{{ session.output_tokens | format_number }}</span>
                     <span class="token-mix__pct">{{ out_pct }}%</span>
@@ -264,11 +264,11 @@
                     <span>Avg: {{ (spark_data | map(attribute='rt') | sum / spark_data | length) | round(0) | format_number }}</span>
                     <span>Max: {{ spark_data | map(attribute='rt') | max | format_number }}</span>
                 </div>
-                <div class="chart-legend" style="margin-top:4px">
-                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-input-fresh)"></span> Fresh</span>
-                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-read)"></span> Cache R</span>
-                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-cache-write)"></span> Cache W</span>
-                    <span class="chart-legend__item"><span class="chart-legend__dot" style="background:var(--token-output-visible)"></span> Output</span>
+                <div class="chart-legend">
+                    <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--fresh"></span> Fresh</span>
+                    <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--cr"></span> Cache R</span>
+                    <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--cw"></span> Cache W</span>
+                    <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--out"></span> Output</span>
                 </div>
             {% endif %}
         </div>
@@ -351,7 +351,7 @@
         <div class="msg-flow">
         {% for round in rounds %}
         {% if round.user_msg.content_html %}
-        <div class="msg msg--user" style="margin-bottom:12px">
+        <div class="msg msg--user mb-3">
             <div class="msg__meta">Round #{{ loop.index }} · User</div>
             <div class="msg__body" data-expandable>{{ round.user_msg.content_html | safe }}</div>
             {% if round.user_msg.content_html | length > 800 %}
@@ -360,7 +360,7 @@
         </div>
         {% endif %}
         {% if round.assistant_msg.content_html %}
-        <div class="msg msg--assistant" style="margin-bottom:12px">
+        <div class="msg msg--assistant mb-3">
             <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
             <div class="msg__body" data-expandable>{{ round.assistant_msg.content_html | safe }}</div>
             {% if round.assistant_msg.content_html | length > 800 %}
@@ -377,7 +377,7 @@
 <div id="timeline" class="tab-content">
     <div class="card">
         <div class="card-title">Conversation Flow ({{ rounds | length }})
-            <span style="margin-left:auto; display:flex; gap:6px;">
+            <span class="ml-auto flex gap-2">
                 <button class="expand-all-btn" onclick="expandAllRounds()">Expand All</button>
                 <button class="expand-all-btn" onclick="collapseAllRounds()">Collapse All</button>
             </span>
@@ -432,7 +432,6 @@
 
                     <tr class="round-header-row {{ 'row--failed' if has_failed_tools else '' }}"
                         data-round-idx="{{ loop.index }}"
-                        style="cursor:pointer"
                         onmouseenter="this.style.background='var(--surface-hover)'"
                         onmouseleave="this.style.background=''"
                         onclick="toggleRoundDetail(this)">
@@ -488,32 +487,32 @@
                                 <div class="token-bar-tooltip">
                                     <div class="token-bar-tooltip__title">Total: {{ rt | format_number }} tokens</div>
                                     <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot" style="background:var(--token-input-fresh)"></span>
+                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--fresh"></span>
                                         <span class="token-bar-tooltip__name">Fresh</span>
                                         <span class="token-bar-tooltip__value">{{ rb.input | format_number }}</span>
                                         <span class="token-bar-tooltip__pct">{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-input-fresh)"></span></span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
                                     </div>
                                     <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot" style="background:var(--token-cache-read)"></span>
+                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--cr"></span>
                                         <span class="token-bar-tooltip__name">Cache Read</span>
                                         <span class="token-bar-tooltip__value">{{ rb.cache_read | format_number }}</span>
                                         <span class="token-bar-tooltip__pct">{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-cache-read)"></span></span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--cr" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
                                     </div>
                                     <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot" style="background:var(--token-cache-write)"></span>
+                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--cw"></span>
                                         <span class="token-bar-tooltip__name">Cache Write</span>
                                         <span class="token-bar-tooltip__value">{{ rb.cache_write | format_number }}</span>
                                         <span class="token-bar-tooltip__pct">{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-cache-write)"></span></span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
                                     </div>
                                     <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot" style="background:var(--token-output-visible)"></span>
+                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--out"></span>
                                         <span class="token-bar-tooltip__name">Output</span>
                                         <span class="token-bar-tooltip__value">{{ rb.output | format_number }}</span>
                                         <span class="token-bar-tooltip__pct">{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%;background:var(--token-output-visible)"></span></span>
+                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
                                     </div>
                                 </div>
                             </div>
@@ -538,7 +537,7 @@
                         </td>
                         <td class="text-xs text-muted mono">{{ round.user_msg.timestamp[:19].replace('T', ' ') if round.user_msg.timestamp else '' }}</td>
                     </tr>
-                    <tr class="round-detail-row" data-round-idx="{{ loop.index }}" style="display:none">
+                    <tr class="round-detail-row display-none" data-round-idx="{{ loop.index }}">
                         <td colspan="7" class="round-detail-cell">
                             <div class="round {{ 'has-failed' if has_failed_tools else '' }}">
                                 <div class="round-content">
@@ -654,19 +653,19 @@
                                                                 {% endif %}
                                                             </div>
                                                             <div class="tool-detail-card__body">
-                                                                <div style="margin-bottom:8px">
+                                                                <div class="tool-param-block">
                                                                     <strong class="text-xs">Parameters:</strong>
-                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
+                                                                    <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                                 </div>
                                                                 {% if tc.result %}
                                                                 <div>
-                                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                                                    <div class="tool-result-header">
                                                                         <strong class="text-xs">Result:</strong>
                                                                         <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
                                                                     </div>
                                                                     <div class="tool-result-wrapper" data-raw="{{ tc.result[:2000] }}">
-                                                                        <pre class="tool-result-raw mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
-                                                                        <div class="tool-result-md" style="display:none; max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); line-height:1.5;">{{ tc.result[:2000] | markdown | safe }}</div>
+                                                                        <pre class="tool-result-raw mono text-xs">{{ tc.result[:2000] }}</pre>
+                                                                        <div class="tool-result-md">{{ tc.result[:2000] | markdown | safe }}</div>
                                                                     </div>
                                                                 </div>
                                                                 {% endif %}
@@ -695,7 +694,7 @@
                                                 </div>
                                                 <div class="subagent-card__body">
                                                     {% if interaction.response_preview %}
-                                                    <div class="llm-card__response" style="margin-top:6px">
+                                                    <div class="llm-card__response mt-2">
                                                         <div class="llm-card__response-label">Subagent Result</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
@@ -704,7 +703,7 @@
                                                     </div>
                                                     {% endif %}
                                                     {% if interaction.tool_calls %}
-                                                    <div class="tool-tree" style="margin-top:8px">
+                                                    <div class="tool-tree mt-3">
                                                         {% for tc in interaction.tool_calls %}
                                                         <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
                                                             <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
@@ -732,19 +731,19 @@
                                                                 {% endif %}
                                                             </div>
                                                             <div class="tool-detail-card__body">
-                                                                <div style="margin-bottom:8px">
+                                                                <div class="tool-param-block">
                                                                     <strong class="text-xs">Parameters:</strong>
-                                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
+                                                                    <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                                 </div>
                                                                 {% if tc.result %}
                                                                 <div>
-                                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                                                    <div class="tool-result-header">
                                                                         <strong class="text-xs">Result:</strong>
                                                                         <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
                                                                     </div>
                                                                     <div class="tool-result-wrapper" data-raw="{{ tc.result[:2000] }}">
-                                                                        <pre class="tool-result-raw mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
-                                                                        <div class="tool-result-md" style="display:none; max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); line-height:1.5;">{{ tc.result[:2000] | markdown | safe }}</div>
+                                                                        <pre class="tool-result-raw mono text-xs">{{ tc.result[:2000] }}</pre>
+                                                                        <div class="tool-result-md">{{ tc.result[:2000] | markdown | safe }}</div>
                                                                     </div>
                                                                 </div>
                                                                 {% endif %}
@@ -804,19 +803,19 @@
                                                 {% endif %}
                                             </div>
                                             <div class="tool-detail-card__body">
-                                                <div style="margin-bottom:8px">
+                                                <div class="tool-param-block">
                                                     <strong class="text-xs">Parameters:</strong>
-                                                    <pre class="mono text-xs" style="max-height:200px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
+                                                    <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                 </div>
                                                 {% if tc.result %}
                                                 <div>
-                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                                    <div class="tool-result-header">
                                                         <strong class="text-xs">Result:</strong>
                                                         <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
                                                     </div>
                                                     <div class="tool-result-wrapper" data-raw="{{ tc.result[:2000] }}">
-                                                        <pre class="tool-result-raw mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ tc.result[:2000] }}</pre>
-                                                        <div class="tool-result-md" style="display:none; max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); line-height:1.5;">{{ tc.result[:2000] | markdown | safe }}</div>
+                                                        <pre class="tool-result-raw mono text-xs">{{ tc.result[:2000] }}</pre>
+                                                        <div class="tool-result-md">{{ tc.result[:2000] | markdown | safe }}</div>
                                                     </div>
                                                 </div>
                                                 {% endif %}
@@ -884,7 +883,7 @@
                 {% endfor %}
                 {% for tool_name, count in ns3.failed_counts | dictsort(by='value', reverse=True) %}
                 <div class="tool-hotspot__item tool-hotpot__item--error">
-                    <span class="tool-hotspot__name" style="color:var(--status-error)">{{ tool_name }}</span>
+                    <span class="tool-hotspot__name tool-hotspot__name--error">{{ tool_name }}</span>
                     <div class="tool-hotspot__bar-wrap">
                         <div class="tool-hotspot__bar tool-hotspot__bar--error" style="width:{{ (count / (failed_tools_list | length) * 100) | round(0) }}%"></div>
                     </div>
@@ -976,7 +975,7 @@
                 </thead>
                 <tbody>
                     {% for call in llm_calls|sort(attribute='round_index') %}
-                    <tr class="llm-call-row {{ 'row--failed' if call.status == 'error' else '' }}" style="cursor:pointer" onclick="toggleLLMCallDetail(this)">
+                    <tr class="llm-call-row {{ 'row--failed' if call.status == 'error' else '' }}" onclick="toggleLLMCallDetail(this)">
                         <td class="numeric mono text-xs">{{ loop.index }}</td>
                         <td class="numeric mono text-xs">R{{ call.round_index + 1 }}</td>
                         <td>
@@ -1002,7 +1001,7 @@
                         </td>
                         <td class="text-xs text-muted mono">{{ call.timestamp[:19].replace('T', ' ') if call.timestamp else '' }}</td>
                     </tr>
-                    <tr class="llm-call-detail" style="display:none">
+                    <tr class="llm-call-detail display-none">
                         <td colspan="11" style="padding:0; background:var(--bg);">
                             <div style="padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                                 <div>

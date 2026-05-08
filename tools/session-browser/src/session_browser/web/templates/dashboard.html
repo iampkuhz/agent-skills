@@ -82,7 +82,7 @@
     <div class="card-title flex justify-between items-center">
         <span>
             <span class="attention-icon">!</span> Needs Attention
-            <span class="text-muted" style="font-weight:400; text-transform:none; letter-spacing:0">({{ needs_attention | length }} sessions)</span>
+            <span class="text-muted fw-400 normal-case no-tracking">({{ needs_attention | length }} sessions)</span>
         </span>
         <div class="flex gap-1">
             <button class="filter-chip filter-chip--active" data-filter="all" onclick="filterNeedsAttention('all', this)">All</button>
@@ -132,7 +132,7 @@
 <!-- Trend chart -->
 <div class="card">
     <div class="card-title flex justify-between items-center">
-        <span>Session Trend <span class="text-muted" style="font-weight:400; text-transform:none; letter-spacing:0">(sessions per day by agent)</span></span>
+        <span>Session Trend <span class="text-muted fw-400 normal-case no-tracking">(sessions per day by agent)</span></span>
         <div class="flex gap-1">
             <button class="tab tab--chart active" data-days="30" onclick="updateChart(30)">30d</button>
             <button class="tab tab--chart" data-days="7" onclick="updateChart(7)">7d</button>
@@ -141,10 +141,10 @@
     {% if trend %}
     <div class="chart-legend">
         <div class="chart-legend__item">
-            <span class="chart-legend__dot" style="background:var(--agent-claude)"></span> Claude Code
+            <span class="chart-legend__dot chart-legend__dot--claude"></span> Claude Code
         </div>
         <div class="chart-legend__item">
-            <span class="chart-legend__dot" style="background:var(--agent-codex)"></span> Codex
+            <span class="chart-legend__dot chart-legend__dot--codex"></span> Codex
         </div>
     </div>
     <div id="trend-chart" class="chart-container" style="height:140px;"></div>
@@ -182,7 +182,7 @@
     {% if projects %}
     <div style="margin-bottom:8px">
         <input id="project-search" type="text" placeholder="Search projects…"
-               class="filter-bar__input" style="width:100%;max-width:300px"
+               class="filter-bar__input dashboard-search"
                oninput="filterDashboardProjects()" />
     </div>
     <div class="table-wrap">
@@ -198,6 +198,7 @@
                     <th class="numeric" data-tooltip="Input-side cache write">Cache W</th>
                     <th class="numeric">Tools</th>
                     <th class="numeric" data-tooltip="Tools per round">Tools/R</th>
+                    <th class="numeric">Failed</th>
                     <th>Last Active</th>
                 </tr>
             </thead>
@@ -216,6 +217,13 @@
                     <td class="numeric mono text-xs">{{ p.total_cache_write_tokens | format_number }}</td>
                     <td class="numeric mono text-xs {{ 'highlight-warn' if p.total_tool_calls > 1000 else '' }}">{{ p.total_tool_calls | format_number }}</td>
                     <td class="numeric mono text-xs">{{ p_tools_per_round }}</td>
+                    <td class="numeric mono text-xs">
+                        {% if p.total_failed_tools > 0 %}
+                        <span class="badge badge-error">{{ p.total_failed_tools }}</span>
+                        {% else %}
+                        <span class="muted-zero">0</span>
+                        {% endif %}
+                    </td>
                     <td class="text-xs text-muted">{{ p.last_seen | relative_time }}</td>
                 </tr>
                 {% endfor %}
@@ -236,7 +244,7 @@
     {% if recent %}
     <div style="margin-bottom:8px">
         <input id="session-search" type="text" placeholder="Search sessions…"
-               class="filter-bar__input" style="width:100%;max-width:300px"
+               class="filter-bar__input dashboard-search"
                oninput="filterDashboardSessions()" />
     </div>
     <div class="table-wrap">
@@ -249,6 +257,7 @@
                     <th>Model</th>
                     <th class="numeric">Input</th>
                     <th class="numeric">Cache R</th>
+                    <th class="numeric">Cache W</th>
                     <th class="numeric">Output</th>
                     <th class="numeric">Tools</th>
                     <th>Duration</th>
@@ -273,6 +282,7 @@
                     <td class="text-xs text-muted mono truncate" style="max-width:120px" data-tooltip="{{ s.model }}">{{ (s.model or '—')[:40] }}</td>
                     <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ s.cached_output_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ s.output_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">
                         {{ s.tool_call_count | format_number }}

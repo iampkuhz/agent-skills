@@ -70,6 +70,7 @@
                     <th class="numeric">Tools/R</th>
                     <th class="numeric">Cache R</th>
                     <th class="numeric">Failed/Session</th>
+                    <th>Last Active</th>
                 </tr>
             </thead>
             <tbody>
@@ -96,6 +97,7 @@
                         {{ e.failure_rate | round(1) }}
                         {% else %}—{% endif %}
                     </td>
+                    <td class="text-xs text-muted">{{ e.last_active | relative_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

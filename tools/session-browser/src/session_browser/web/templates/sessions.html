@@ -17,7 +17,7 @@
 <div class="card sessions-filter" style="margin-bottom:12px; padding:10px 14px">
     <div class="filter-row">
         <input id="session-search" type="text" placeholder="Search title or session ID…"
-               class="filter-bar__input" style="flex:1.5;min-width:180px" />
+               class="filter-bar__input filter-bar__input--search" />
         <select id="filter-agent" class="filter-bar__select">
             <option value="">All Agents</option>
             <option value="claude_code">Claude Code</option>
@@ -30,7 +30,7 @@
             <option value="{{ m }}">{{ m }}</option>
             {% endfor %}
         </select>
-        <select id="filter-project" class="filter-bar__select" style="max-width:180px">
+        <select id="filter-project" class="filter-bar__select filter-bar__select--project">
             <option value="">All Projects</option>
             {% for p in project_list %}
             <option value="{{ p }}">{{ p }}</option>
@@ -38,16 +38,16 @@
         </select>
     </div>
     <div class="filter-row filter-row--secondary">
-        <input id="filter-date-start" type="date" class="filter-bar__input" style="width:130px" title="From date" />
-        <input id="filter-date-end" type="date" class="filter-bar__input" style="width:130px" title="To date" />
-        <input id="filter-token-min" type="number" placeholder="Min tokens" class="filter-bar__input" style="width:100px" min="0" />
-        <input id="filter-token-max" type="number" placeholder="Max tokens" class="filter-bar__input" style="width:100px" min="0" />
+        <input id="filter-date-start" type="date" class="filter-bar__input filter-bar__input--date" title="From date" />
+        <input id="filter-date-end" type="date" class="filter-bar__input filter-bar__input--date" title="To date" />
+        <input id="filter-token-min" type="number" placeholder="Min tokens" class="filter-bar__input filter-bar__input--token" min="0" />
+        <input id="filter-token-max" type="number" placeholder="Max tokens" class="filter-bar__input filter-bar__input--token" min="0" />
         <label style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);white-space:nowrap;cursor:pointer">
             <input id="filter-failed-only" type="checkbox" /> Failed only
         </label>
 
         <!-- Diagnostic filter -->
-        <select id="filter-anomaly" class="filter-bar__select" style="border-color:var(--status-warning)">
+        <select id="filter-anomaly" class="filter-bar__select filter-bar__select--warn">
             <option value="">All Sessions</option>
             <option value="has_anomalies">Has Anomalies</option>
             <option value="high_tools">High Tools Only</option>
