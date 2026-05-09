@@ -1,0 +1,41 @@
+{
+  "id": "workflow-modes",
+  "description": "双流程模式配置：draft（快速样例）和 production（生产版本），差异仅体现在确认策略、布局复杂度、QA 门槛、修复轮次和输出声明上",
+  "modes": {
+    "draft": {
+      "label": "快速样例",
+      "requires_page_contract_confirmation": false,
+      "requires_source_provenance": true,
+      "max_repair_rounds": 1,
+      "qa_gate": "draft",
+      "layout_complexity": "low_to_medium",
+      "allowed_components": [
+        "text-hierarchy",
+        "rounded-text-box",
+        "kpi-card",
+        "native-table",
+        "native-component-diagram",
+        "flow-step",
+        "source-note",
+        "layout-region",
+        "section-divider",
+        "badge-and-label",
+        "code-block",
+        "media-frame"
+      ],
+      "output_badge": "DRAFT",
+      "release_gate_strictness": "relaxed"
+    },
+    "production": {
+      "label": "生产版本",
+      "requires_page_contract_confirmation": true,
+      "requires_source_provenance": true,
+      "max_repair_rounds": 3,
+      "qa_gate": "production",
+      "layout_complexity": "full",
+      "allowed_components": "*",
+      "output_badge": null,
+      "release_gate_strictness": "strict"
+    }
+  }
+}

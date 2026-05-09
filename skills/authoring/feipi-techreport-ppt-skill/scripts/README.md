@@ -35,6 +35,7 @@
 | `clean_pipeline_cache.js` | Node.js | Pipeline 缓存清理 | ✅ 已实现 |
 | `release_gate.sh` | Bash | 端到端发布门禁 | ✅ 已实现 |
 | `generate_demo_deck.js` | Node.js | Demo deck 生成 | ✅ 已实现 |
+| `validate_workflow_modes.js` | Node.js | 双流程模式配置校验（draft/production 字段、组件引用、约束一致性） | ✅ 已实现 |
 
 ## 依赖管理
 

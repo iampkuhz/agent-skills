@@ -193,3 +193,72 @@ QA 门禁是 Release Gate 的核心组成部分。完整 Release Gate 包括：
 9. 无绝对路径泄漏。
 
 详见 `scripts/release_gate.sh` 和 `references/release-gate.md`。
+
+## 双模式门禁（Draft Gate / Production Gate）
+
+本 skill 提供两种工作流模式，各自对应不同的 QA 门禁严格度。完整模式定义见 `references/workflow-modes.md`。
+
+### Draft Gate
+
+适用于快速样例/草稿模式。目标是在保证基本质量的前提下快速出图。
+
+**必过检查项**：
+
+| # | 检查项 | 严重性 | 说明 |
+|---|--------|--------|------|
+| 1 | 有标题 | hard_fail | 页面必须有 title 元素 |
+| 2 | 有结论/takeaway | hard_fail | 必须有 takeaway 或一句话结论 |
+| 3 | 无明显越界 | hard_fail | 元素不得大幅超出 canvas safe bounds |
+| 4 | 无硬重叠 | hard_fail | 不得有 hard overlap（两个元素大面积互相覆盖） |
+| 5 | 无 placeholder | hard_fail | 不得残留 xxxx、lorem 等占位符 |
+| 6 | 有来源追溯 | hard_fail | 必须有 source provenance，每个内容元素可追溯到原始输入 |
+| 7 | 内容不过载 | warning | 内容明显过载时输出拆页建议或 production 提示 |
+
+**允许**：
+
+- Draft Gate 允许 warning 存在（如间距偏小、颜色对比度偏低）。
+- 不强制要求 layout solver / capacity check 通过。
+- 不强制 Render QA 通过（渲染引擎可用时可 skip）。
+- 不强制 PPTX postcheck 全部通过（仅检查 placeholder 和路径泄漏）。
+
+**禁止**：
+
+- 即使是 draft，也不允许事实编造、来源缺失、明显重叠、无结论。
+- draft 的 PPTX 不得直接当 production 交付。
+
+### Production Gate
+
+适用于正式交付模式。必须走完完整管线。
+
+**必过检查项**：
+
+| # | 检查项 | 严重性 | 说明 |
+|---|--------|--------|------|
+| 1 | 完整 Page Contract | hard_fail | 必须经过用户确认 |
+| 2 | 完整 Slide IR | hard_fail | 必须通过 validate_slide_ir.js |
+| 3 | Static QA 无 hard_fail | hard_fail | inspect_slide_ir_layout.js 无 hard_fail |
+| 4 | PPTX postcheck 通过 | hard_fail | inspect_pptx_artifact.js 通过 |
+| 5 | Render QA 可用时通过 | hard_fail | 渲染引擎可用时必须执行并通过 |
+| 6 | Design system 无漂移 | hard_fail | validate_design_system.js 通过 |
+| 7 | Release gate 可验证 | hard_fail | release_gate.sh 通过 |
+
+**不允许**：
+
+- 任何 hard_fail 存在时不得交付。
+- 不得跳过 Page Contract。
+- 不得跳过自动修复阶段（最多 3 轮）。
+- 不得用整页截图作为默认交付。
+
+### 两种门禁的差异
+
+| 维度 | Draft Gate | Production Gate |
+|------|-----------|----------------|
+| 页面合同 | 简化 Draft Contract | 完整 Page Contract 确认 |
+| Static QA | 仅检查 7 项必过项 | 全部 Static QA 检查项 |
+| Layout Solver | 简化预算 | 完整求解 + 容量检查 |
+| 自动修复 | 最多 1 轮 | 最多 3 轮 |
+| Render QA | 可 skip | 必须执行（环境可用时） |
+| PPTX postcheck | 仅核心项 | 全部检查 |
+| 输出标记 | "DRAFT" 标记 | 无标记 |
+| 交付状态 | 不可交付，仅讨论 | 可交付、可发布 |
+

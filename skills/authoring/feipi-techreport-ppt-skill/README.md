@@ -246,6 +246,38 @@ node scripts/validate_design_system.js
 
 详细规则见 `references/design-system.md`。
 
+## 双流程模式
+
+本 skill 提供 `draft`（快速样例）和 `production`（生产版本）两套统一维护的 PPT 生成流程。它们共享同一套 design system、Slide IR schema、layout pattern、component registry、QA 分级和 benchmark 体系，差异仅在确认程度、布局复杂度、QA 严格度和输出声明上。
+
+| 维度 | draft | production |
+|------|-------|------------|
+| 目标 | 快速看方向，讨论内容和版式 | 正式可交付，可编辑可发布 |
+| 用户确认 | 简化确认 / 可先出样 | 标准 Page Contract 确认 |
+| 版式复杂度 | 低到中 | 中到高 |
+| 组件范围 | 简化组件子集 | 完整组件全集 |
+| QA 门禁 | draft gate（避免明显重叠、越界、无结论；允许部分 warning） | production gate（Static QA 无 hard_fail，PPTX postcheck 通过，Render QA 可用时通过） |
+| 输出标记 | 明确标 "DRAFT" 草稿 | 无标记，正式交付 |
+| 来源追溯 | 必须保留 | 必须保留 |
+
+### 触发方式
+
+- **Draft 模式**：用户说"先出个样例""先看看效果""快速出图""草稿""不用太精细"时进入。
+- **Production 模式**：用户说"正式版""生产版""最终交付""可发布""按确认版生成"时进入。
+- **默认**：用户未明确说 draft 时，保持当前标准 Page Contract 优先流程（等价于 production）。
+
+### 配置与规则
+
+- 模式配置：`config/workflow-modes.json`。
+- 模式规则：`references/workflow-modes.md`。
+- QA 门禁差异：`references/qa-gates.md` 中"双模式门禁"章节。
+
+### Draft → Production 升级
+
+Draft 产出的 PPTX 不能直接当 production 交付。升级需经过：用户确认内容范围 → 确认主版式 → 确认风格 profile → 处理内容过载 → 生成标准 Page Contract → 生成完整 Slide IR → 运行 production pipeline。
+
+详见 `references/workflow-modes.md`。
+
 ## 执行步骤总览
 
 ```mermaid

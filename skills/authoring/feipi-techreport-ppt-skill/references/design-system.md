@@ -71,3 +71,14 @@
 - 修改基础 token 后，应检查所有 style lock 是否需要同步。
 - 修改组件结构后，应检查对应 builder 是否仍能消费。
 - 不提交 `design-system/samples/` 中的大体积临时样例，除非明确作为 fixture。
+
+## 与双流程模式的关系
+
+本 skill 的 `draft` 和 `production` 两种工作流模式共享同一套设计系统：
+
+- 两种模式消费相同的 `tokens/`、`components/`、`patterns/`、`profiles/`。
+- draft 模式的 `allowed_components` 是 production 组件全集的一个子集，通过 `config/workflow-modes.json` 配置控制。
+- 不允许复制一套 "draft 组件" 或 "production 组件"。如果某个组件在 draft 下显得过于复杂，应选择更简单的组件类型（如用 `kpi-card` 代替复杂 pattern），而不是创建变体。
+- 用户提供样例 PPTX / 图片时，提取的设计特征进入 design system 上游，不直接分裂 workflow 模式。
+
+详见 `references/workflow-modes.md` 和 `../config/workflow-modes.json`。

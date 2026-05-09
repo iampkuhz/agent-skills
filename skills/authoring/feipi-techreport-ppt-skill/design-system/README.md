@@ -75,3 +75,14 @@ node scripts/validate_design_system.js
 | 默认 profile | `profiles/cto-technical-report.design-profile.json` | CTO 技术汇报默认组合 |
 
 更完整的分类说明见 `components/README.md`。
+
+## 与双流程模式的关系
+
+本 skill 提供 `draft`（快速样例）和 `production`（生产版本）两种工作流模式。两种模式**共享同一套设计系统**，不得复制分裂：
+
+- `design-system/tokens/`、`components/`、`patterns/`、`profiles/` 是两种模式的共同真源。
+- draft 模式只使用 production 组件的低复杂度变体（如标题、KPI 卡、短表、简单流程），而不是复制一套 draft 专属组件。
+- 风格 profile 的差异通过 `config/workflow-modes.json` 中的 `allowed_components` 字段控制，不通过复制组件实现。
+- 如果未来用户提供样例，样例只影响 design system/profile/style lock，不直接分裂 workflow。
+
+模式配置详见 `../config/workflow-modes.json`，模式规则详见 `references/workflow-modes.md`。
