@@ -115,7 +115,7 @@
                 {% if total_llm_errors > 0 %}
                 <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
                 {% else %}
-                <div class="metric-sub">{{ main_calls_list | length }}m + {{ sub_calls_list | length }}s</div>
+                <div class="metric-sub">{{ main_calls_list | length }} main + {{ sub_calls_list | length }} sub</div>
                 {% endif %}
             </div>
             <div class="metric-card metric-card--compact">
