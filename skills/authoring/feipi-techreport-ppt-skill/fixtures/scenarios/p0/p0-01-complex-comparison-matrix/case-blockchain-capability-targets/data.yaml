@@ -1,0 +1,84 @@
+template_id: p0-01-complex-comparison-matrix
+case_id: case-blockchain-capability-targets
+title: Whale 公链能力目标与外部对标
+subtitle: 对标 Tempo / Arc / Solana，明确从联盟链向支付专用链演进的性能与架构目标
+audience:
+  - CTO
+  - 技术负责人
+  - 区块链基础设施团队
+comparison_objects:
+  - Whale目标
+  - Whale现状
+  - Tempo
+  - Arc测试网
+  - Solana
+dimensions:
+  - 定位
+  - TPS
+  - 出块/确认
+  - 手续费
+  - 节点数量
+  - 节点配置
+  - 共识算法
+  - 节点架构
+matrix:
+  定位:
+    Whale目标: 支付专用链
+    Whale现状: TD联盟链
+    Tempo: 支付专用链
+    Arc测试网: 稳定币结算链
+    Solana: 高性能通用L1
+  TPS:
+    Whale目标: 单链10K+；网络100K+
+    Whale现状: 理论1K；实际<0.1
+    Tempo: 理论20K+；实际2.4
+    Arc测试网: 理论3K；实际29
+    Solana: 目标100K；理论65K；实际3.2K
+  出块/确认:
+    Whale目标: ~500ms；确认待定
+    Whale现状: 4s
+    Tempo: ~600ms
+    Arc测试网: ~500ms
+    Solana: 400ms；确认12.8s
+  手续费:
+    Whale目标: 机器成本<0.01 cents
+    Whale现状: "-"
+    Tempo: 0.08 cents
+    Arc测试网: 1 cents
+    Solana: 0.05 cents
+  节点数量:
+    Whale目标: "20"
+    Whale现状: "10"
+    Tempo: 10+
+    Arc测试网: 10+
+    Solana: 1K+
+  节点配置:
+    Whale目标: 32C / 64G / 1T / 1Gbps
+    Whale现状: 4C / 8G / 1T / 100bps
+    Tempo: 16C / 32G / 1T / 1Gbps
+    Arc测试网: CPU? / 64G / 1T / 24Mbps
+    Solana: 12C / 256G / 4T / 10Gbps
+  共识算法:
+    Whale目标: 自研并行BFT
+    Whale现状: QBFT
+    Tempo: Simplex 并行BFT
+    Arc测试网: Malachite 串行BFT
+    Solana: Tower BFT + PoH
+  节点架构:
+    Whale目标: Reth深改 + 自研CL
+    Whale现状: Besu 内置共识层
+    Tempo: Reth深改；EL+CL融合
+    Arc测试网: Reth EL + Malachite CL
+    Solana: Agave 一体化客户端
+side_notes:
+  data_assumptions:
+    - Tempo 未公开测试链配置，生产链可能不如测试链理想
+    - Arc benchmark 使用20节点/4地域
+    - 手续费按公开样本和gas price估计，需持续校准
+  solana_hotspot:
+    - Rust执行
+    - 非EVM并行模型
+    - 交易传播优化
+    - 共识与排序优化
+    - 状态库读写差异
+  conclusion: Whale 的目标不是复制 Solana，而是在支付专用链场景下，用 Reth 深改 + 自研并行BFT，把单链TPS推到10K+，网络能力推到100K+。

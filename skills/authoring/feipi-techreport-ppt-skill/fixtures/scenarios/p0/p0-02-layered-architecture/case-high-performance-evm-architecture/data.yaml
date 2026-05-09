@@ -1,0 +1,68 @@
+template_id: p0-02-layered-architecture
+case_id: case-high-performance-evm-architecture
+title: 高性能 EVM 链部署架构与改造点图
+architecture:
+  validators:
+    count: 4
+    expanded_validator: Validator 1
+  layers:
+    consensus_layer:
+      label: 共识层
+      components:
+        - 共识引擎
+        - 排序/出块
+        - 投票/QC
+        - 结果确认
+      tags:
+        - B1 共识算法优化
+    execution_layer:
+      label: 执行层（EVM Client）
+      components:
+        - 交易池
+        - 组块器
+        - EVM
+        - 并行执行
+        - Gas
+        - 状态库
+      tags:
+        - C1 客户端语言
+        - C2 交易池/组块
+        - C3 EVM执行
+        - C4 存储优化
+        - C5 费用优化
+        - C6 交易受理改善
+    infrastructure_layer:
+      label: OS / 硬件 / ECS 资源
+      components:
+        - CPU
+        - 内存
+        - 存储
+        - 网络
+        - 内核
+      tags:
+        - D2 硬件与OS
+  offchain_nodes:
+    - RPC节点
+    - 索引节点
+    - 监控/日志
+  network_tags:
+    - B2 网络传播优化
+  rpc_tags:
+    - D1 RPC受理与处理
+improvement_taxonomy:
+  A_生态演进方向:
+    A1: 共识、执行解耦：客户端模块化设计，可插拔替换，PBS
+    A2: 扩容能力支持：支持子网、Rollup等扩容方向
+  B_共识层优化:
+    B1: 共识算法优化：低延迟BFT、投票聚合、阶段压缩
+    B2: 网络传播优化：交易压缩、消息中继
+  C_执行层优化:
+    C1: 客户端语言优化：Rust
+    C2: 交易池和组块优化：冲突感知、预执行、交易去重
+    C3: EVM执行优化：JIT/AOT、并行执行、热点路径优化
+    C4: 存储优化：状态DB访问优化、缓存、异步IO
+    C5: 费用优化：定价优化、费率市场、热点限流
+    C6: 交易受理改善：批量交易、专用lane
+  D_基础设施优化:
+    D1: RPC受理与处理：读写分离、索引、监控管线
+    D2: 硬件与OS优化：CPU、内存、网络、内核优化

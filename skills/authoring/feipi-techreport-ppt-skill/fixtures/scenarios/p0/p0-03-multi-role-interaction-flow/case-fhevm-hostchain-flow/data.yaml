@@ -1,0 +1,72 @@
+template_id: p0-03-multi-role-interaction-flow
+case_id: case-fhevm-hostchain-flow
+title: Zama FHEVM 架构与交互流程
+subtitle: 用户直接与 HostChain 合约交互
+actors:
+  - 用户/DApp
+  - HostChain
+  - Coprocessor网络
+  - ZamaGateway
+  - KMS网络
+  - Oracle/Relayer
+flows:
+  - id: 1
+    from: 用户/DApp
+    to: 用户/DApp
+    type: local
+    label: 本地选择明文业务数据并生成加密输入
+  - id: 2
+    from: 用户/DApp
+    to: 用户/DApp
+    type: local
+    label: SDK输出encrypted handles与inputProof
+  - id: 3
+    from: 用户/DApp
+    to: HostChain
+    type: main_transaction
+    label: 用户钱包直接调用HostChain业务合约
+  - id: 4
+    from: HostChain
+    to: Coprocessor网络
+    type: encrypted_compute
+    label: 合约/Executor发出符号化FHE计算事件
+  - id: 5
+    from: Coprocessor网络
+    to: Coprocessor网络
+    type: encrypted_compute
+    label: Coprocessor在密文上执行FHE计算
+  - id: 6
+    from: Coprocessor网络
+    to: ZamaGateway
+    type: state_sync
+    label: 结果承诺与签名提交Gateway聚合
+  - id: 7
+    from: 用户/DApp
+    to: ZamaGateway
+    type: decrypt_request
+    label: 用户发起解密请求
+  - id: 8
+    from: ZamaGateway
+    to: KMS网络
+    type: decrypt_request
+    label: Gateway检查ACL并调用KMS
+  - id: 9
+    from: KMS网络
+    to: Oracle/Relayer
+    type: decrypt_response
+    label: KMS阈值解密并输出签名结果
+  - id: 10
+    from: Oracle/Relayer
+    to: HostChain
+    type: decrypt_response
+    label: Oracle/Relayer回写链上或返回用户
+legend:
+  main_transaction: 主交易线
+  encrypted_compute: 输入/密文计算线
+  decrypt_response: 解密返回线
+  state_sync: 内部/状态同步
+key_explanations:
+  - 第3步是业务交易：用户直接打到HostChain合约
+  - 第4-6步是异步密文计算与结果承诺，不产生明文
+  - 第6步把结果承诺交给Gateway，用于多数共识、审计和slashing
+  - 第7-10步仅在需要reveal/read明文时触发

@@ -1,0 +1,79 @@
+template_id: p0-05-e2e-closed-loop
+case_id: case-public-chain-integration-lifecycle
+title: 主流公链对接
+subtitle: 不是接通 RPC，而是完成资产、安全、数据与高 TPS 生产闭环
+system_chain:
+  - name: 链下业务系统
+    items:
+      - 资产系统
+      - 风控系统
+      - 订单/支付/清结算
+      - 后台运营系统
+  - name: 链适配层 Chain Adapter
+    items:
+      - 账户/地址适配
+      - 交易构造/签名/广播
+      - 合约调用
+      - 事件解析
+      - 余额/授权/资产映射
+  - name: 链访问层
+    items:
+      - RPC Provider
+      - WebSocket订阅
+      - 自建Full/Archive Node
+      - 多数据源交叉校验
+  - name: 公链网络
+    items:
+      - EVM/Solana/Move/UTXO
+      - Finality/Reorg/Fee/Nonce/Blockhash
+  - name: 链上资产与合约
+    items:
+      - Token合约
+      - 业务合约
+      - Bridge/Oracle
+      - 资产余额/授权/链上事件
+technical_focus:
+  - name: 数据可信
+    checks:
+      - 多源交叉校验
+      - 关键数据抽检与对账
+      - 必要时自建节点
+    risk: 不能只信单一RPC
+  - name: 密钥安全
+    checks:
+      - MPC/HSM
+      - 冷热钱包分层
+      - 权限审批与签名策略
+    risk: 资产系统最高风险点
+  - name: 资产/应用操作安全
+    checks:
+      - 合约校验与白名单
+      - 异常转账拦截
+      - 余额/事件回放与审计
+    risk: 避免误操作与合约风险
+high_tps_focus:
+  - name: 链访问容量
+    checks:
+      - 多RPC/限流降级
+      - 缓存批处理
+      - 必要时自建节点
+    risk: RPC限流、延迟、成本高、单点依赖
+  - name: 高吞吐Indexer
+    checks:
+      - 实时订阅
+      - 断点续扫
+      - 历史回放
+    risk: 事件延迟、漏记账、余额不一致
+  - name: 交易落地率
+    checks:
+      - 交易队列
+      - 费用估算
+      - 重试补偿
+    risk: 已提交但资产系统无法确认完成
+lifecycle:
+  - 链评估
+  - 基础连通
+  - 交易与数据闭环
+  - 安全闭环
+  - 生产验收
+completion_standard: 接完一条链 = 读写可达 + 数据可信 + 交易可控 + 资产安全 + 高TPS可承载 + 生产可运维

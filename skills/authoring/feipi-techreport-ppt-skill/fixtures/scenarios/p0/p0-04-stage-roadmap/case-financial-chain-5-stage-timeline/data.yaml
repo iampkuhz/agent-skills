@@ -1,0 +1,96 @@
+template_id: p0-04-stage-roadmap
+case_id: case-financial-chain-5-stage-timeline
+title: 高性能金融公链五阶段演进 Timeline
+conclusion: 先完成高性能主网，再补齐金融增强，最终走向生态规模化与长期可信网络。
+stages:
+  - id: 1
+    name: 阶段1
+    positioning: 测试网闭环
+    time: 0-6M
+    kpi: 3K+ TPS
+    value: 支付闭环可验证
+    performance:
+      - EVM + BFT跑通
+      - RPC/indexer基线
+      - 支付压测
+    financial:
+      - 稳定币gas
+      - 美元计价费用
+      - memo/对账
+    ecosystem:
+      - 稳定币支付
+      - 支付demo
+      - 批付
+      - RPC/faucet/explorer
+  - id: 2
+    name: 阶段2
+    positioning: 主网可用
+    time: 7-10M
+    kpi: 5K-10K TPS
+    value: 生产接入可用
+    performance:
+      - 多地域主网
+      - mempool/组块优化
+      - 状态访问优化
+    financial:
+      - 多稳定币fee
+      - Fee AMM
+      - sponsorship/Passkey
+    ecosystem:
+      - 生产级支付
+      - 免gas
+      - wallet/archive
+  - id: 3
+    name: 阶段3
+    positioning: 金融增强
+    time: 11-18M
+    kpi: 20K+ TPS
+    value: 形成差异化能力
+    performance:
+      - 并行执行
+      - flat state
+      - pipeline优化
+    financial:
+      - payment lanes
+      - 并发nonce/定时交易
+      - StableFX/DEX
+    ecosystem:
+      - 高频小额
+      - 跨币种FX
+      - mandate/账单/A2A
+  - id: 4
+    name: 阶段4
+    positioning: 生态规模化
+    time: 19-30M
+    kpi: 50K+ TPS
+    value: 承载真实流量
+    performance:
+      - multi-proposer
+      - 全链路扩容
+      - 高频交易承载
+    financial:
+      - 隐私/view keys
+      - Zones
+      - 机构金融接口
+    ecosystem:
+      - 支付/钱包/托管接入
+      - AI服务市场结算
+      - RWA托管/审计/风控
+  - id: 5
+    name: 阶段5
+    positioning: 长期可信
+    time: 31-48M
+    kpi: 100K+ 容量
+    value: 多子网金融网络
+    performance:
+      - 多子网执行
+      - 跨子网消息
+      - 主网统一结算
+    financial:
+      - 后量子签名
+      - 后量子隐私
+      - 跨子网权限/长期审计
+    ecosystem:
+      - 区域子网/隐私支付
+      - 企业授权/跨子网
+      - 多机构信用网络

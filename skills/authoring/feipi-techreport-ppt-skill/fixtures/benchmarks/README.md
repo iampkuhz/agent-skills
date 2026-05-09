@@ -46,3 +46,7 @@ node scripts/run_benchmarks.js --full --dry-run --no-render
 # 单个 benchmark
 node scripts/run_benchmarks.js --filter architecture-high-density --dry-run
 ```
+
+## 与 P0 场景的关系
+
+本目录存放稳定回归用例（固定 `slide-ir.json` + `expected-report.json`）。P0 场景测试用例位于 `../scenarios/p0/`，仅包含输入需求与准出检查项。当某个 P0 case 生成稳定的 `slide-ir.json` 并通过人工视觉评审后，会 promotion 到本目录。详见 `../../references/p0-scenario-system.md`。
