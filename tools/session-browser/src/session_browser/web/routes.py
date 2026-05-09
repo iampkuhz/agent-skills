@@ -555,6 +555,18 @@ def _build_subagent_interactions(
     return interactions
 
 
+def compute_bar_scale(round_tokens: int, max_round_tokens: int) -> float:
+    """Compute the proportional width for a round's token bar.
+
+    Returns a percentage (0-100) representing how wide this round's
+    bar should be relative to the maximum round in the timeline.
+    The max round gets 100%, others are scaled proportionally.
+    """
+    if max_round_tokens <= 0:
+        return 0
+    return round_tokens / max_round_tokens * 100
+
+
 def compute_round_signals(
     round,  # ConversationRound
     round_index: int,  # 1-based

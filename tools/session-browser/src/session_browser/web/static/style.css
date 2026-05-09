@@ -2616,6 +2616,12 @@ tr.row--anomaly {
 .round-token-bar__cache-write { background: var(--token-cache-write); }
 .round-token-bar__output { background: var(--token-output-visible); }
 
+/* Scale wrapper: proportional width based on max round tokens */
+.round-token-bar-scale {
+    min-width: 2px;
+    max-width: 100%;
+}
+
 /* Rich tooltip for token bar */
 .token-bar-wrapper {
     position: relative;

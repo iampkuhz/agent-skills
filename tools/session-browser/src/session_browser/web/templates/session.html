@@ -373,6 +373,15 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {# Compute global max round tokens for bar normalization #}
+                    {% set max_round_tokens = namespace(value=0) %}
+                    {% for _r in rounds %}
+                        {% set _rb = _r.token_breakdown() %}
+                        {% set _rt = _rb.input + _rb.cache_read + _rb.cache_write + _rb.output %}
+                        {% if _rt > max_round_tokens.value %}
+                            {% set max_round_tokens.value = _rt %}
+                        {% endif %}
+                    {% endfor %}
                     {% for round in rounds %}
                     {% set rb = round.token_breakdown() %}
                     {% set round_input_total = rb.input + rb.cache_read + rb.cache_write %}
@@ -400,38 +409,19 @@
                         <td class="numeric mono text-xs">
                             {{ round.total_tokens | format_number }}
                             <div class="token-bar-wrapper">
-                                <div class="round-token-bar">
-                                    {% set rt = round_input_total + rb.output %}
-                                    {% if rt > 0 %}
-                                    {% set p_f = rb.input | round(0) %}
-                                    {% set p_cr = rb.cache_read | round(0) %}
-                                    {% set p_cw = rb.cache_write | round(0) %}
-                                    {% set p_o = rb.output | round(0) %}
-                                    {% set total = p_f + p_cr + p_cw + p_o %}
-                                    {# Squashed widths: min 8% for visible, rest proportional, sum=100 #}
-                                    {% set mn = 8 %}
-                                    {% set v_f = 1 if p_f > 0 else 0 %}
-                                    {% set v_cr = 1 if p_cr > 0 else 0 %}
-                                    {% set v_cw = 1 if p_cw > 0 else 0 %}
-                                    {% set v_o = 1 if p_o > 0 else 0 %}
-                                    {% set cnt = v_f + v_cr + v_cw + v_o %}
-                                    {% if total > 0 and cnt > 0 %}
-                                    {% set rest = 100 - mn * cnt %}
-                                    {% set w_f = mn + (p_f / total * rest) %}
-                                    {% set w_cr = mn * v_cr + (p_cr / total * rest) %}
-                                    {% set w_cw = mn * v_cw + (p_cw / total * rest) %}
-                                    {% set w_o = mn * v_o + (p_o / total * rest) %}
-                                    {% else %}
-                                    {% set w_f = 100 if v_f else 0 %}
-                                    {% set w_cr = 100 if v_cr else 0 %}
-                                    {% set w_cw = 100 if v_cw else 0 %}
-                                    {% set w_o = 100 if v_o else 0 %}
-                                    {% endif %}
-                                    <div class="round-token-bar__fresh" style="width:{{ w_f | round(0) }}%"></div>
-                                    <div class="round-token-bar__cache-read" style="width:{{ w_cr | round(0) }}%"></div>
-                                    <div class="round-token-bar__cache-write" style="width:{{ w_cw | round(0) }}%"></div>
-                                    <div class="round-token-bar__output" style="width:{{ w_o | round(0) }}%"></div>
-                                    {% endif %}
+                                {# Scale wrapper: width proportional to max round tokens #}
+                                {% set rt = round_input_total + rb.output %}
+                                {% set bar_scale = (rt / max_round_tokens.value * 100) if max_round_tokens.value > 0 else 0 %}
+                                <div class="round-token-bar-scale" style="width:{{ bar_scale | round(1) }}%">
+                                    <div class="round-token-bar">
+                                        {% if rt > 0 %}
+                                        {# Proportional widths based on this round's breakdown #}
+                                        <div class="round-token-bar__fresh" style="width:{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
+                                        <div class="round-token-bar__cache-read" style="width:{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
+                                        <div class="round-token-bar__cache-write" style="width:{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
+                                        <div class="round-token-bar__output" style="width:{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 <div class="token-bar-tooltip">
                                     <div class="token-bar-tooltip__title">Total: {{ rt | format_number }} tokens</div>
