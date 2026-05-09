@@ -4,7 +4,7 @@
 
 ## 合法 fixtures（用于验证通过路径）
 
-- `architecture-map.slide-ir.json` — 架构图示例（Whale 共识架构，16 元素，5 区域）
+- `architecture-map.slide-ir.json` — 架构图示例（自建链 共识架构，16 元素，5 区域）
 - `comparison-matrix.slide-ir.json` — 对比矩阵示例（4 链对比，9 元素，6 区域，含 KPI cards）
 - `flow-diagram.slide-ir.json` — 流程图示例（API Gateway 生命周期，17 元素，5 区域）
 

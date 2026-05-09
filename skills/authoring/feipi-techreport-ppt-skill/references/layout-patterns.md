@@ -76,13 +76,13 @@ Bottom Bar: 取舍结论 + 编号脚注
 
 **反例处理**：
 
-当输入类似“Whale vs Whale 现状 vs Tempo vs Arc vs Solana，10 个维度全量对比”时，必须先压缩为：
+当输入类似“自建链 vs 自建链 现状 vs Tempo vs Arc vs Solana，10 个维度全量对比”时，必须先压缩为：
 
 ```
 Header: 主题 + 一句话结论
 KPI Cards: TPS / 出块间隔 / 节点配置 / 共识路径
 Main Matrix: 4 个对象 × 5 个维度
-Insight Panel: Whale 目标与当前缺口
+Insight Panel: 自建链 目标与当前缺口
 Footer: 脚注编号 + 数据口径说明
 ```
 
