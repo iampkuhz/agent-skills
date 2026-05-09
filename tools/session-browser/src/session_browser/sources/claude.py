@@ -583,10 +583,11 @@ def _stringify_tool_result(result_content) -> str:
 def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
     """Heuristic for failed tool/model results in Claude logs.
 
-    Uses strict word-boundary matching to avoid false positives from:
+    Uses strict anchoring to avoid false positives from:
     - CSS class/variable names (text-error, --status-error)
-    - HTML template diffs (">failed</span>", "badge-error")
-    - Grep/diff output containing error keywords as data
+    - HTML/template diffs (">failed</span>", "badge-error")
+    - Grep/diff/cat output containing error keywords as data
+    - Source code that references error strings
     """
     text = _stringify_tool_result(result_content).lower()
     if not text:
@@ -614,63 +615,60 @@ def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
             return True
         return False
 
-    # For Bash/Agent and others, use broader heuristics but with
-    # strict anchoring to avoid matching error keywords in code/diffs.
+    # For Bash/Agent and others: all markers require line-start anchoring.
+    # Bash output often contains error keywords as DATA (diff context,
+    # grep hits, cat output, source code) — substring matching causes
+    # rampant false positives. Only match when the keyword IS the error
+    # message, not when it's embedded in other content.
 
-    # ── Structured markers: only match at line start ──────────────
-    # These are real API/framework error prefixes.  In Bash output
-    # they commonly appear as data (grep hits, diff context, log
-    # lines) rather than as the actual failure reason.  Anchoring
-    # to line start ensures we only catch them when they ARE the
-    # error message, not when they're embedded in other content.
-    line_start_markers = [
+    # ── All markers: line-start or CLI error prefix ──────────────
+    # Match only when the marker appears at the start of the text or
+    # at the start of a line (after optional whitespace/CLI prefixes).
+    # This covers real CLI errors like:
+    #   "Exit code 1" / "fatal: ..." / "API Error: 401"
+    # while skipping diff/grep output where these appear as data.
+    # Also checks after shell prefixes like "bash: " / "sh: ".
+    line_markers = [
+        "exit code",
         "api error",
         "tool_use_error",
         "key_model_access_denied",
         "rate limit exceeded",
+        "user rejected",
+        "request cancelled",
+        "cancelled",
+        "overloaded",
+        "fatal:",
+        "command not found",
     ]
-    for marker in line_start_markers:
+    for marker in line_markers:
         if text.startswith(marker):
             return True
-        # Also check after common CLI prefixes (e.g. "$ ", "# ")
         for line in text.split("\n"):
             stripped = line.strip().lstrip("$# ").strip()
             if stripped.startswith(marker):
                 return True
+            # Also match after shell error prefix: "bash: cmd: ..."
+            # e.g. "bash: kubectl: command not found"
+            parts = stripped.split(": ")
+            if len(parts) > 1:
+                last_part = parts[-1].strip()
+                if last_part.startswith(marker):
+                    return True
 
-    # ── Unconditional markers ─────────────────────────────────────
-    unconditional_markers = [
-        "user rejected",
-        "cancelled",
-        "exit code",
-        "overloaded",
-    ]
-    if any(marker in text for marker in unconditional_markers):
+    # ── "failed" as standalone word at line start ─────────────────
+    # Real test runner output: "FAILED tests/test_x.py"
+    # Skip when preceded by HTML boundaries, quotes, spaces, code.
+    if re.search(r"(?:^|\n)\s*failed(?![a-z0-9_\-])", text, re.MULTILINE):
         return True
 
-    # ── "failed" as standalone word ───────────────────────────────
-    # Exclude boundaries that appear in HTML/CSS diffs, code, and
-    # natural-language text where "failed" is descriptive:
-    #   ">failed" (after HTML close tag)
-    #   '"failed' (inside JSON/attribute value)
-    #   text-failed (CSS class), _failed (variable name)
-    #    failed (natural text: "commit failed", "test failed")
-    #   ;failed (HTML entities: &#39;failed)
-    # \w = [a-zA-Z0-9_]
-    # Use \x22 for " and \x27 for ' to avoid string literal issues
-    if re.search(r'''(?<![\w><\x22\x27=:.@#%&!?\-\s;])failed(?![a-z0-9_\-])''', text):
-        return True
-
-    # ── "error:" as error message prefix ─────────────────────────
-    # Only match at text/line start to avoid false positives from
-    # HTML attributes (data-tooltip="API Error: ...") and code
-    # (text-error">Error:").  Real CLI errors (pytest, cargo, etc.)
-    # emit "error:" at the start of an output line.
+    # ── "error:" as error message prefix at line start ────────────
+    # Real CLI errors: "error: file not found", "ERROR: test failed"
     if re.search(r"(?:^|\n)\s*[A-Za-z]*error:", text, re.MULTILINE):
         return True
 
-    # ── "timeout" as standalone word ─────────────────────────────
-    if re.search(r"(?<![\w\-])timeout(?![a-z0-9\-])", text):
+    # ── "timeout" as standalone word at line start ────────────────
+    if re.search(r"(?:^|\n)\s*timeout(?![a-z0-9\-])", text, re.MULTILINE):
         return True
 
     return False
