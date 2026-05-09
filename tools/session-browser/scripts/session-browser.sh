@@ -262,16 +262,16 @@ run_local_serve() {
     export SERVER_PORT="$port"
     export INDEX_DIR="$index_dir"
 
-    local -a serve_args
-    serve_args=("$@")
+    local -a serve_args=()
+    serve_args+=("$@")
     if ! arg_has_option "--host" "$@"; then
-        serve_args=(--host "$host" "${serve_args[@]}")
+        serve_args=(--host "$host" "${serve_args[@]+"${serve_args[@]}"}")
     fi
     if ! arg_has_option "--port" "$@"; then
-        serve_args=(--port "$port" "${serve_args[@]}")
+        serve_args=(--port "$port" "${serve_args[@]+"${serve_args[@]}"}")
     fi
     if ! arg_has_option "--startup-scan" "$@"; then
-        serve_args=(--startup-scan "${serve_args[@]}")
+        serve_args=(--startup-scan "${serve_args[@]+"${serve_args[@]}"}")
     fi
 
     warn_if_podman_running
