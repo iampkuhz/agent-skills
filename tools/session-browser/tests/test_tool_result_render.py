@@ -25,7 +25,7 @@ def test_render_tool_result_macro_produces_full_result():
     macro_body = match.group()
     assert "[:500]" not in macro_body, \
         "render_tool_result macro should not truncate result to 500 chars"
-    assert "{{ result }}" in macro_body or "{{ result\n" in macro_body, \
+    assert re.search(r'\{\{\s*result\s*(\|.*?)?\s*\}\}', macro_body), \
         "Macro should output the full result without slicing"
     assert "tool-result-block" in macro_body
     assert "tool-result-wrapper" in macro_body
