@@ -3331,6 +3331,30 @@ tr.row--anomaly {
     margin-bottom: 4px;
 }
 
+/* ─── Tool result block (scrollable + MD toggle) ─── */
+.tool-result-block {
+    margin-top: 8px;
+}
+.tool-result-wrapper {
+    max-height: 420px;
+    overflow: auto;
+    position: relative;
+}
+.tool-result-raw {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.tool-result-md {
+    display: none;
+}
+.tool-result-wrapper.is-md .tool-result-raw {
+    display: none;
+}
+.tool-result-wrapper.is-md .tool-result-md {
+    display: block;
+}
+
 /* ─── Profile lazy-load placeholder ─── */
 .profile-lazy-placeholder {
     display: flex;
