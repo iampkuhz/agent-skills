@@ -317,7 +317,7 @@
             <div class="msg__meta">Round #{{ loop.index }} · User</div>
             <div class="msg__body" data-expandable>{{ round.user_msg.content_html | safe }}</div>
             {% if round.user_msg.content_html | length > 800 %}
-            <button class="show-more" onclick="toggleShowMoreBtn(this)">Show more</button>
+            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>View full</button>
             {% endif %}
         </div>
         {% endif %}
@@ -326,7 +326,7 @@
             <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
             <div class="msg__body" data-expandable>{{ round.assistant_msg.content_html | safe }}</div>
             {% if round.assistant_msg.content_html | length > 800 %}
-            <button class="show-more" onclick="toggleShowMoreBtn(this)">Show more</button>
+            <button class="show-more" data-content-modal="Round #{{ loop.index }} · Assistant"><template>{{ round.assistant_msg.content }}</template><template>{{ round.assistant_msg.content_html | safe }}</template>View full</button>
             {% endif %}
         </div>
         {% endif %}
@@ -515,7 +515,7 @@
                                             </div>
                                             <div class="msg-body">{{ round.user_msg.content_html | safe }}</div>
                                             {% if round.user_msg.content_html | length > 600 %}
-                                            <button class="show-more" onclick="toggleShowMoreBtn(this)">Show more</button>
+                                            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>View full</button>
                                             {% endif %}
                                         </div>
                                         {% endif %}
@@ -578,7 +578,7 @@
                                                         <div class="llm-card__response-label">Response</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" onclick="toggleShowMoreBtn(this)">Show full</button>
+                                                        <button class="show-more" data-content-modal="Round #{{ loop.parent.loop.index }} · Main Response"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
                                                         {% endif %}
                                                     </div>
                                                     {% endif %}
@@ -660,7 +660,7 @@
                                                         <div class="llm-card__response-label">Subagent Result</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" onclick="toggleShowMoreBtn(this)">Show full</button>
+                                                        <button class="show-more" data-content-modal="Round #{{ loop.parent.loop.index }} · Subagent Result"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
                                                         {% endif %}
                                                     </div>
                                                     {% endif %}
@@ -914,6 +914,22 @@
 <div id="profile" class="tab-content">
     <div class="profile-lazy-placeholder">
         <p>Click to load LLM calls and raw session data.</p>
+    </div>
+</div>
+
+<!-- Content Modal (shared for "View full" buttons) -->
+<div id="content-modal" class="content-modal" onclick="if(event.target===this)closeContentModal()">
+    <div class="content-modal__panel">
+        <div class="content-modal__header">
+            <span class="content-modal__title"></span>
+            <div class="content-modal__tabs">
+                <button class="content-modal__tab-btn active" data-view="markdown" onclick="switchContentView('markdown')">Markdown</button>
+                <button class="content-modal__tab-btn" data-view="raw" onclick="switchContentView('raw')">Raw</button>
+            </div>
+            <button class="content-modal__close" onclick="closeContentModal()" title="Close">&times;</button>
+        </div>
+        <div class="content-modal__markdown"></div>
+        <div class="content-modal__raw"><pre></pre></div>
     </div>
 </div>
 
@@ -1233,11 +1249,87 @@
 
     /* ─── Show More / Less button ──────────────────────────── */
     window.toggleShowMoreBtn = function(btn) {
-        var target = btn.previousElementSibling;
-        if (!target) return;
-        target.classList.toggle('expanded');
-        btn.textContent = target.classList.contains('expanded') ? 'Show less' : 'Show more';
+        if (window.openContentModal) {
+            window.openContentModal(btn);
+        }
     };
+
+    /* ─── Content modal ──────────────────────────────────── */
+    window.openContentModal = function(btn) {
+        var modal = document.getElementById('content-modal');
+        if (!modal) return;
+        var titleEl = modal.querySelector('.content-modal__title');
+        if (titleEl) titleEl.textContent = btn.getAttribute('data-content-modal') || 'Content';
+
+        // Find sibling <template> elements: [0]=raw text, [1]=markdown HTML
+        var templates = btn.querySelectorAll('template');
+        var rawTpl = templates[0];
+        var mdTpl = templates[1];
+
+        var rawContent = modal.querySelector('.content-modal__raw');
+        var mdContent = modal.querySelector('.content-modal__markdown');
+        if (rawTpl && rawContent) {
+            // Use textContent to safely store raw text (browser auto-escapes HTML)
+            var clone = rawTpl.content.cloneNode(true);
+            rawContent.innerHTML = '';
+            rawContent.appendChild(clone);
+        }
+        if (mdTpl && mdContent) {
+            mdContent.innerHTML = mdTpl.innerHTML;
+        }
+
+        // Reset to Markdown tab
+        var tabs = modal.querySelectorAll('.content-modal__tab-btn');
+        var rawSection = modal.querySelector('.content-modal__raw');
+        var mdSection = modal.querySelector('.content-modal__markdown');
+        if (tabs.length >= 2) {
+            tabs[0].classList.add('active');
+            tabs[1].classList.remove('active');
+        }
+        if (mdSection) mdSection.style.display = '';
+        if (rawSection) rawSection.style.display = 'none';
+
+        modal.classList.add('visible');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeContentModal = function() {
+        var modal = document.getElementById('content-modal');
+        if (modal) {
+            modal.classList.remove('visible');
+            document.body.style.overflow = '';
+        }
+    };
+
+    window.switchContentView = function(view) {
+        var modal = document.getElementById('content-modal');
+        if (!modal) return;
+        var rawSection = modal.querySelector('.content-modal__raw');
+        var mdSection = modal.querySelector('.content-modal__markdown');
+        var mdBtn = modal.querySelector('[data-view="markdown"]');
+        var rawBtn = modal.querySelector('[data-view="raw"]');
+        if (view === 'markdown') {
+            if (mdSection) mdSection.style.display = '';
+            if (rawSection) rawSection.style.display = 'none';
+            if (mdBtn) mdBtn.classList.add('active');
+            if (rawBtn) rawBtn.classList.remove('active');
+        } else {
+            if (rawSection) rawSection.style.display = '';
+            if (mdSection) mdSection.style.display = 'none';
+            if (rawBtn) rawBtn.classList.add('active');
+            if (mdBtn) mdBtn.classList.remove('active');
+        }
+    };
+
+    /* ─── Escape key closes modal ────────────────────────── */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('content-modal');
+            if (modal && modal.classList.contains('visible')) {
+                closeContentModal();
+            }
+        }
+    });
 
     /* ─── Subagent card toggle ─────────────────────────────── */
     window.toggleSubagentCard = function(headerEl) {

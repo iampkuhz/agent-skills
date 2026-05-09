@@ -149,6 +149,11 @@
 
         /* ─── Show more / less ─────────────────────────────────────── */
         function toggleShowMore(btn) {
+            // Prefer modal if available (session detail page overrides this)
+            if (window.openContentModal && btn.getAttribute('data-content-modal')) {
+                window.openContentModal(btn);
+                return;
+            }
             var body = btn.previousElementSibling;
             if (body) {
                 body.classList.toggle('expanded');

@@ -3412,3 +3412,181 @@ details.raw-session pre {
 #projects-table thead th:first-child {
     z-index: 3;
 }
+
+/* ─── Content modal (View full) ─────────────────────────── */
+.content-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 200ms ease, visibility 200ms ease;
+}
+.content-modal.visible {
+    opacity: 1;
+    visibility: visible;
+}
+.content-modal__panel {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    width: min(960px, calc(100vw - 48px));
+    max-height: min(80vh, 800px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+.content-modal__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.content-modal__title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+}
+.content-modal__tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+}
+.content-modal__tab-btn {
+    padding: 3px 12px;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 150ms ease;
+}
+.content-modal__tab-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+}
+.content-modal__tab-btn:hover:not(.active) {
+    color: var(--text);
+}
+.content-modal__close {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    transition: all 150ms ease;
+    flex-shrink: 0;
+}
+.content-modal__close:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+.content-modal__markdown,
+.content-modal__raw {
+    overflow-y: auto;
+    max-height: min(70vh, 700px);
+    padding: 16px;
+    flex: 1;
+    min-height: 0;
+    display: none;
+}
+.content-modal__markdown {
+    line-height: 1.6;
+    font-size: var(--text-sm);
+}
+.content-modal__markdown h1 { margin: 16px 0 8px; font-size: 17px; font-weight: 600; }
+.content-modal__markdown h2 { margin: 14px 0 6px; font-size: 15px; font-weight: 600; }
+.content-modal__markdown h3 { margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
+.content-modal__markdown p { margin: 6px 0; }
+.content-modal__markdown pre {
+    margin: 10px 0;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-size: var(--text-micro);
+    line-height: 1.4;
+    max-height: 300px;
+}
+.content-modal__markdown code {
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    background: var(--border-light);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+.content-modal__markdown pre code { background: none; padding: 0; }
+.content-modal__markdown table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: var(--text-xs);
+}
+.content-modal__markdown th {
+    padding: 6px 10px;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+    text-align: left;
+}
+.content-modal__markdown td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+}
+.content-modal__markdown ul, .content-modal__markdown ol {
+    margin: 6px 0 6px 24px;
+}
+.content-modal__markdown blockquote {
+    margin: 8px 0;
+    padding: 6px 12px;
+    border-left: 3px solid var(--border);
+    color: var(--text-secondary);
+}
+.content-modal__markdown a {
+    color: var(--accent);
+    text-decoration: none;
+}
+.content-modal__markdown a:hover {
+    text-decoration: underline;
+}
+.content-modal__markdown img {
+    max-width: 100%;
+    height: auto;
+}
+.content-modal__raw {
+    display: none;
+}
+.content-modal__raw pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    font-family: var(--font-mono);
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+}
