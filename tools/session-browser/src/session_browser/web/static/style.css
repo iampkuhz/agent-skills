@@ -2147,54 +2147,98 @@ tr.row--anomaly {
 .round-summary-table {
     font-size: var(--text-xs);
 }
-.round-summary-table td {
-    padding: 4px 10px;
-}
 /* Column width constraints for timeline table */
 .round-summary-table {
     table-layout: auto;
     width: 100%;
 }
-.round-summary-table th:nth-child(1),
-.round-summary-table td:nth-child(1) {
+
+/* Column width constraints — scoped to header rows only (direct td children).
+   Previously td:nth-child(n) leaked into colspan detail cells and nested tables. */
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(1),
+.round-summary-table > thead > tr > th:nth-child(1) {
     width: 50px;
     min-width: 50px;
     max-width: 50px;
 }
-.round-summary-table th:nth-child(2),
-.round-summary-table td:nth-child(2) {
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(2),
+.round-summary-table > thead > tr > th:nth-child(2) {
     min-width: 160px;
 }
-.round-summary-table th:nth-child(3),
-.round-summary-table td:nth-child(3) {
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(3),
+.round-summary-table > thead > tr > th:nth-child(3) {
     width: 180px;
     min-width: 120px;
 }
-.round-summary-table th:nth-child(4),
-.round-summary-table td:nth-child(4) {
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(4),
+.round-summary-table > thead > tr > th:nth-child(4) {
     width: 200px;
     min-width: 140px;
 }
-.round-summary-table th:nth-child(5),
-.round-summary-table td:nth-child(5) {
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(5),
+.round-summary-table > thead > tr > th:nth-child(5) {
     width: 100px;
     min-width: 80px;
 }
-.round-summary-table th:nth-child(6),
-.round-summary-table td:nth-child(6) {
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(6),
+.round-summary-table > thead > tr > th:nth-child(6) {
     width: 80px;
     min-width: 60px;
 }
-.round-summary-table th:nth-child(7),
-.round-summary-table td:nth-child(7) {
+.round-summary-table > tbody > tr.round-header-row > td:nth-child(7),
+.round-summary-table > thead > tr > th:nth-child(7) {
     width: 160px;
     min-width: 130px;
 }
+
+/* Padding scoped to header rows only */
+.round-summary-table > tbody > tr.round-header-row > td {
+    padding: 4px 10px;
+}
+
 /* Override global td white-space: nowrap for cells that need wrapping */
-.round-summary-table .preview-cell {
+.round-summary-table > tbody > tr.round-header-row > td.preview-cell {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: none;
+}
+
+/* Detail row reset: colspan=7 cell must NOT inherit summary column widths */
+.round-summary-table > tbody > tr.round-detail-row > td.round-detail-cell {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    padding: 0 8px 8px 8px;
+    background: var(--surface);
+}
+
+/* Nested cards inside detail cell: full width, never inherit table column constraints */
+.round-detail-cell .timeline,
+.round-detail-cell .llm-card,
+.round-detail-cell .subagent-card,
+.round-detail-cell .tool-detail-card {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Prevent summary column widths leaking into nested markdown tables */
+.round-detail-cell .llm-card__response-text table,
+.round-detail-cell .llm-card__response-text th,
+.round-detail-cell .llm-card__response-text td,
+.round-detail-cell .tool-result-md table,
+.round-detail-cell .tool-result-md th,
+.round-detail-cell .tool-result-md td,
+.round-detail-cell .timeline__user-msg table,
+.round-detail-cell .timeline__user-msg th,
+.round-detail-cell .timeline__user-msg td,
+.round-detail-cell .msg__body table,
+.round-detail-cell .msg__body th,
+.round-detail-cell .msg__body td {
+    width: auto;
+    min-width: 0;
     max-width: none;
 }
 .round-header-row {
