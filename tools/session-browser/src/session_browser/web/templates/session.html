@@ -86,22 +86,22 @@
 
     <!-- 4. Run Summary (full width within overview) -->
     <div class="overview__run-summary">
-        <div class="run-summary-tiles">
-            <div class="run-tile">
-                <div class="run-tile__value">{{ session.duration_seconds | format_duration }}</div>
-                <div class="run-tile__label">Duration</div>
+        <div class="run-summary-tiles metrics-grid metrics-grid--run-summary">
+            <div class="metric-card metric-card--compact">
+                <div class="metric-value">{{ session.duration_seconds | format_duration }}</div>
+                <div class="metric-label">Duration</div>
             </div>
-            <div class="run-tile">
-                <div class="run-tile__value">{{ session_grand_total | format_number }}</div>
-                <div class="run-tile__label">Total Tokens</div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-value">{{ session_grand_total | format_number }}</div>
+                <div class="metric-label">Total Tokens</div>
             </div>
-            <div class="run-tile">
-                <div class="run-tile__value">{{ rounds | length }}</div>
-                <div class="run-tile__label">Rounds</div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-value">{{ rounds | length }}</div>
+                <div class="metric-label">Rounds</div>
             </div>
-            <div class="run-tile">
-                <div class="run-tile__value">{{ session.tool_call_count | format_number }}</div>
-                <div class="run-tile__label">Tool Calls</div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-value">{{ session.tool_call_count | format_number }}</div>
+                <div class="metric-label">Tool Calls</div>
             </div>
         </div>
 
@@ -152,21 +152,22 @@
             </div>
             <div class="metric-card metric-card--compact">
                 <div class="metric-label">Top Tool</div>
-                <div class="metric-value mono text-xs">
-                    {% if tool_calls %}
-                        {% set ns_tools = namespace(tool_counts={}) %}
-                        {% for tc in tool_calls %}
-                            {% if tc.name in ns_tools.tool_counts %}
-                                {% set _ = ns_tools.tool_counts.update({tc.name: ns_tools.tool_counts[tc.name] + 1}) %}
-                            {% else %}
-                                {% set _ = ns_tools.tool_counts.update({tc.name: 1}) %}
-                            {% endif %}
-                        {% endfor %}
-                        {% set top_tool = ns_tools.tool_counts | dictsort(by='value', reverse=true) | first %}
-                        {{ top_tool[0] if top_tool else '—' }} <span class="text-muted">({{ top_tool[1] if top_tool else 0 }})</span>
-                    {% else %}—{% endif %}
-                </div>
-                <div class="metric-sub">most used</div>
+                {% if tool_calls %}
+                    {% set ns_tools = namespace(tool_counts={}) %}
+                    {% for tc in tool_calls %}
+                        {% if tc.name in ns_tools.tool_counts %}
+                            {% set _ = ns_tools.tool_counts.update({tc.name: ns_tools.tool_counts[tc.name] + 1}) %}
+                        {% else %}
+                            {% set _ = ns_tools.tool_counts.update({tc.name: 1}) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% set top_tool = ns_tools.tool_counts | dictsort(by='value', reverse=true) | first %}
+                    <div class="metric-value mono text-sm">{{ top_tool[0] if top_tool else '—' }}</div>
+                    <div class="metric-sub">{{ top_tool[1] if top_tool else 0 }} calls / most used</div>
+                {% else %}
+                    <div class="metric-value">—</div>
+                    <div class="metric-sub">no tool calls</div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -180,29 +181,29 @@
     <!-- Left: Token Mix donut -->
     <div class="token-charts-card__token-mix">
         <div class="token-mix__donut">
-            <svg viewBox="0 0 120 120" class="token-donut__svg">
+            <svg viewBox="0 0 140 140" class="token-donut__svg">
                 {% if session_grand_total > 0 %}
-                    {% set r = 42 %}
+                    {% set r = 52 %}
                     {% set c = 2 * 3.14159 * r %}
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                    <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
                         stroke="var(--token-input-fresh)"
                         stroke-dasharray="{{ ((fresh_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="0" />
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                    <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
                         stroke="var(--token-cache-read)"
                         stroke-dasharray="{{ ((cr_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="{{ -(fresh_pct / 100) * c }}" />
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                    <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
                         stroke="var(--token-cache-write)"
                         stroke-dasharray="{{ ((cw_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="{{ -((fresh_pct + cr_pct) / 100) * c }}" />
-                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                    <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
                         stroke="var(--token-output-visible)"
                         stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="{{ -((fresh_pct + cr_pct + cw_pct) / 100) * c }}" />
                 {% endif %}
-                <text x="60" y="54" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number }}</text>
-                <text x="60" y="70" text-anchor="middle" class="token-donut__center-label">total tokens</text>
+                <text x="70" y="65" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number_short }}</text>
+                <text x="70" y="82" text-anchor="middle" class="token-donut__center-label">total tokens</text>
             </svg>
         </div>
         <div class="token-mix__breakdown">
@@ -230,58 +231,57 @@
                 <span class="token-mix__val">{{ session.output_tokens | format_number }}</span>
                 <span class="token-mix__pct">{{ out_pct }}%</span>
             </div>
-            <div class="token-mix__footer">
-                <span>Cache Reuse: <strong>{{ cache_reuse }}%</strong></span>
-                <span>Output/Input: <strong>{{ output_ratio }}%</strong></span>
-                <span class="token-mix__provider">{{ session.model or 'unknown' }}</span>
-            </div>
         </div>
     </div>
 
     <!-- Right: Tokens per Round chart -->
     <div class="token-charts-card__round-chart">
-        <div class="round-chart__header">Tokens per Round</div>
-        <div class="round-chart-bars" id="roundChartBars">
-            {% set spark_data = [] %}
+        <div class="round-chart__header">
+            <span>Tokens per Round</span>
+            {% set spark_data2 = [] %}
             {% for round in rounds %}
                 {% set rb = round.token_breakdown() %}
                 {% set rt = rb.input + rb.cache_read + rb.cache_write + rb.output %}
                 {% if rt > 0 %}
-                    {% set _ = spark_data.append({'idx': loop.index, 'rt': rt, 'fresh': rb.input, 'cr': rb.cache_read, 'cw': rb.cache_write, 'out': rb.output}) %}
+                    {% set _ = spark_data2.append({'idx': loop.index, 'rt': rt, 'fresh': rb.input, 'cr': rb.cache_read, 'cw': rb.cache_write, 'out': rb.output}) %}
                 {% endif %}
             {% endfor %}
-            {% if spark_data | length > 0 %}
-                {% set max_rt = spark_data | map(attribute='rt') | max %}
-                <svg viewBox="-15 -5 630 100" preserveAspectRatio="none" style="width:100%;height:100px;display:block">
+            {% if spark_data2 | length > 0 %}
+            <span class="round-chart__stats">
+                Min: {{ spark_data2 | map(attribute='rt') | min | format_number }}
+                · Avg: {{ (spark_data2 | map(attribute='rt') | sum / spark_data2 | length) | round(0) | format_number }}
+                · Max: {{ spark_data2 | map(attribute='rt') | max | format_number }}
+            </span>
+            {% endif %}
+        </div>
+        <div class="round-chart-bars" id="roundChartBars">
+            {% if spark_data2 | length > 0 %}
+                {% set max_rt2 = spark_data2 | map(attribute='rt') | max %}
+                <svg viewBox="-15 -5 630 100" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
                     {% for pct in [0, 25, 50, 75, 100] %}
                         {% set y = 90 - (pct / 100) * 90 %}
                         <line x1="-15" y1="{{ y }}" x2="615" y2="{{ y }}" stroke="var(--border-light)" stroke-width="0.5" />
                     {% endfor %}
-                    {% for d in spark_data %}
-                        {% set x = ((d.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 %}
-                        {% set bar_w = max(600 / spark_data | length - 1, 2) %}
+                    {% for d in spark_data2 %}
+                        {% set x = ((d.idx - 1) / (spark_data2 | length - 1 if spark_data2 | length > 1 else 1)) * 600 %}
+                        {% set bar_w = max(600 / spark_data2 | length - 1, 2) %}
                         {% set x_left = x - bar_w / 2 %}
-                        {% set fresh_h = (d.fresh / max_rt * 90) if max_rt > 0 else 0 %}
-                        {% set cr_h = (d.cr / max_rt * 90) if max_rt > 0 else 0 %}
-                        {% set cw_h = (d.cw / max_rt * 90) if max_rt > 0 else 0 %}
-                        {% set out_h = (d.out / max_rt * 90) if max_rt > 0 else 0 %}
+                        {% set fresh_h = (d.fresh / max_rt2 * 90) if max_rt2 > 0 else 0 %}
+                        {% set cr_h = (d.cr / max_rt2 * 90) if max_rt2 > 0 else 0 %}
+                        {% set cw_h = (d.cw / max_rt2 * 90) if max_rt2 > 0 else 0 %}
+                        {% set out_h = (d.out / max_rt2 * 90) if max_rt2 > 0 else 0 %}
                         <rect class="round-bar__seg round-bar__seg--fresh" x="{{ x_left }}" y="{{ 90 - fresh_h }}" width="{{ bar_w }}" height="{{ fresh_h }}" />
                         <rect class="round-bar__seg round-bar__seg--cr" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h }}" width="{{ bar_w }}" height="{{ cr_h }}" />
                         <rect class="round-bar__seg round-bar__seg--cw" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h }}" width="{{ bar_w }}" height="{{ cw_h }}" />
                         <rect class="round-bar__seg round-bar__seg--out" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h - out_h }}" width="{{ bar_w }}" height="{{ out_h }}" />
                     {% endfor %}
-                    {% for d in spark_data %}
-                        {% set x = ((d.idx - 1) / (spark_data | length - 1 if spark_data | length > 1 else 1)) * 600 %}
-                        {% set bar_w = max(600 / spark_data | length - 1, 2) %}
+                    {% for d in spark_data2 %}
+                        {% set x = ((d.idx - 1) / (spark_data2 | length - 1 if spark_data2 | length > 1 else 1)) * 600 %}
+                        {% set bar_w = max(600 / spark_data2 | length - 1, 2) %}
                         <rect class="round-bar__hover" x="{{ x - bar_w / 2 - 3 }}" y="-5" width="{{ bar_w + 6 }}" height="95"
                             data-round-idx="{{ d.idx }}" data-total="{{ d.rt }}" data-fresh="{{ d.fresh }}" data-cr="{{ d.cr }}" data-cw="{{ d.cw }}" data-out="{{ d.out }}" />
                     {% endfor %}
                 </svg>
-                <div class="round-chart-labels">
-                    <span>Min: {{ spark_data | map(attribute='rt') | min | format_number }}</span>
-                    <span>Avg: {{ (spark_data | map(attribute='rt') | sum / spark_data | length) | round(0) | format_number }}</span>
-                    <span>Max: {{ spark_data | map(attribute='rt') | max | format_number }}</span>
-                </div>
                 <div class="chart-legend">
                     <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--fresh"></span> Fresh</span>
                     <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--cr"></span> Cache R</span>
