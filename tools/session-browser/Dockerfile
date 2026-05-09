@@ -24,6 +24,7 @@ ENV SERVER_HOST=0.0.0.0
 ENV SERVER_PORT=8899
 ENV SESSION_BROWSER_VERSION=${SESSION_BROWSER_VERSION}
 ENV SESSION_BROWSER_LOG_LEVEL=INFO
+ENV SESSION_BROWSER_RUN_MODE=podman
 
 # Data directories will be mounted at runtime
 ENV CLAUDE_DATA_DIR=/data/claude
@@ -33,5 +34,5 @@ ENV INDEX_DIR=/data/index
 
 EXPOSE 8899
 
-# Default: start web server (requires data volumes mounted)
-CMD ["./scripts/session-browser.sh", "serve"]
+# Default: start web server with a startup scan (requires data volumes mounted)
+CMD ["./scripts/session-browser.sh", "serve", "--allow-empty", "--startup-scan"]

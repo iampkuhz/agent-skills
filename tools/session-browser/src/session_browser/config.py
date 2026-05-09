@@ -24,8 +24,12 @@ QODER_DATA_DIR = Path(os.environ.get("QODER_DATA_DIR", str(_home() / ".qoder")))
 
 # ─── Index storage ───────────────────────────────────────────────────────
 
-# SQLite index file location
-INDEX_DIR = Path(os.environ.get("INDEX_DIR", str(_home() / ".cache" / "agent-session-browser")))
+# SQLite index file location.
+# Local foreground testing intentionally uses a different default from Podman.
+INDEX_DIR = Path(os.environ.get(
+    "INDEX_DIR",
+    str(_home() / ".local" / "share" / "feipi" / "session-browser" / "local-test-index"),
+))
 INDEX_PATH = INDEX_DIR / "index.sqlite"
 
 
@@ -36,7 +40,7 @@ def ensure_index_dir() -> None:
 # ─── Server ──────────────────────────────────────────────────────────────
 
 SERVER_HOST = os.environ.get("SERVER_HOST", "127.0.0.1")
-SERVER_PORT = int(os.environ.get("SERVER_PORT", "8899"))
+SERVER_PORT = int(os.environ.get("SERVER_PORT", "18999"))
 
 
 # ─── Logging / release metadata ─────────────────────────────────────────

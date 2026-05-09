@@ -12,15 +12,21 @@
 # 安装依赖
 ./scripts/session-browser.sh deps
 
-# 扫描并索引（首次约 8 秒）
+# 扫描到本地测试索引（首次约 8 秒）
 ./scripts/session-browser.sh scan
 
-# 前台调试启动（DEBUG 日志，适合大模型修改 tool 后验证）
-./scripts/session-browser.sh dev --port 8899 --force
-
-# 普通前台启动，浏览器打开 http://127.0.0.1:8899
+# 前台启动本地服务（DEBUG 日志，适合大模型修改 tool 后验证）
 ./scripts/session-browser.sh serve
+
+# 浏览器打开 http://127.0.0.1:18999
 ```
+
+本地测试启动只走前台进程，不提供后台静默启动命令。关闭终端进程或按 `Ctrl-C` 后，本地测试服务会立即退出。默认端口和索引目录与 Podman 隔离：
+
+| 场景 | 地址 | SQLite index |
+|------|------|--------------|
+| 本地测试 `serve` / `scan` | `http://127.0.0.1:18999` | `~/.local/share/feipi/session-browser/local-test-index/` |
+| Podman 部署 | `http://127.0.0.1:8899` | `~/.local/share/feipi/session-browser/index/` |
 
 ### Podman 本地部署
 
@@ -46,7 +52,7 @@
 ./scripts/session-browser.sh podman-down
 ```
 
-容器将 `~/.claude`、`~/.codex`、`~/.qoder` 以只读方式挂载，index 默认持久化在 `~/.local/share/feipi/session-browser/index/`。升级镜像或重建容器时，只要该目录不删除，索引会继续复用。本地镜像默认使用：
+容器将 `~/.claude`、`~/.codex`、`~/.qoder` 以只读方式挂载，index 默认持久化在 `~/.local/share/feipi/session-browser/index/`。该目录只给 Podman 使用，本地测试默认不会读写它。升级镜像或重建容器时，只要该目录不删除，索引会继续复用。本地镜像默认使用：
 
 ```text
 localhost/feipi/session-browser:<VERSION>
@@ -57,7 +63,7 @@ localhost/feipi/session-browser:latest
 
 版本管理以 `VERSION` 文件为真源，推荐流程：
 
-1. 修改代码后执行 `./scripts/session-browser.sh dev --port 8899 --force`，在前台观察访问日志和错误堆栈。
+1. 修改代码后执行 `./scripts/session-browser.sh serve`，在 `http://127.0.0.1:18999` 前台观察访问日志和错误堆栈。
 2. 执行 `./scripts/session-browser.sh test`，通过单元测试。
 3. 确认版本号：`./scripts/session-browser.sh set-version <x.y.z>`。
 4. 执行 `./scripts/session-browser.sh release <x.y.z>`，测试通过后构建本地 Podman 镜像。
@@ -74,14 +80,17 @@ localhost/feipi/session-browser:latest
 | `CLAUDE_DATA_DIR` | `~/.claude` | Claude Code 数据目录 |
 | `CODEX_DATA_DIR` | `~/.codex` | Codex 数据目录 |
 | `QODER_DATA_DIR` | `~/.qoder` | Qoder 数据目录 |
-| `INDEX_DIR` | `~/.cache/agent-session-browser` | 索引存储目录 |
-| `SERVER_HOST` | `0.0.0.0` | 服务绑定地址 |
-| `SERVER_PORT` | `8899` | 服务端口 |
-| `SESSION_BROWSER_LOG_LEVEL` | `INFO` | 日志级别；`dev` 默认 `DEBUG` |
+| `INDEX_DIR` | `~/.local/share/feipi/session-browser/local-test-index` | 本地前台测试索引目录 |
+| `SERVER_HOST` | `127.0.0.1` | 本地前台测试服务绑定地址 |
+| `SERVER_PORT` | `18999` | 本地前台测试服务端口 |
+| `SESSION_BROWSER_LOG_LEVEL` | `INFO` | 日志级别；本地 `serve` 默认 `DEBUG` |
 | `SESSION_BROWSER_VENV_DIR` | `./.venv` | 本地依赖虚拟环境目录 |
+| `SESSION_BROWSER_LOCAL_HOST` | `127.0.0.1` | 本地 `serve` 默认绑定地址 |
+| `SESSION_BROWSER_LOCAL_PORT` | `18999` | 本地 `serve` 默认端口 |
+| `SESSION_BROWSER_LOCAL_DATA_DIR` | `~/.local/share/feipi/session-browser/local-test-index` | 本地 `serve` / `scan` 默认索引目录 |
 | `SESSION_BROWSER_IMAGE_REPO` | `localhost/feipi/session-browser` | Podman 本地镜像仓库 |
 | `SESSION_BROWSER_CONTAINER_NAME` | `session-browser` | Podman 容器名 |
-| `SESSION_BROWSER_HOST_PORT` | `8899` | 宿主机映射端口 |
+| `SESSION_BROWSER_HOST_PORT` | `8899` | Podman 宿主机映射端口 |
 | `SESSION_BROWSER_DATA_DIR` | `~/.local/share/feipi/session-browser/index` | Podman index 持久化目录 |
 | `SESSION_BROWSER_STARTUP_SCAN` | `1` | 容器启动时先扫描一次再监听 |
 

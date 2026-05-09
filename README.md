@@ -28,6 +28,12 @@ make litellm-up
 
 # 启动 SearXNG MCP 服务（Claude Code 使用）
 make searxng-mcp-run
+
+# 本地前台启动 session-browser
+make session-browser-serve
+
+# 测试后构建本地 Podman 镜像并部署
+make session-browser-deploy VERSION=0.2.0
 ```
 
 ---
@@ -125,6 +131,26 @@ make searxng-mcp-run
 
 **详情**：[tools/crawl/crawl4ai/README.md](tools/crawl/crawl4ai/README.md)
 
+### Session Browser
+
+**定位**：本地 Claude Code / Codex / Qoder 会话浏览器与 Token 分析工具
+
+**位置**：`tools/session-browser/`
+
+**本地验证**：
+```bash
+make session-browser-serve
+```
+默认前台运行在 `http://127.0.0.1:18999`，使用独立本地测试索引目录，不读写 Podman 持久化 index。
+
+**本地发布与部署**：
+```bash
+make session-browser-release VERSION=0.2.0
+make session-browser-up VERSION=0.2.0
+```
+
+**详情**：[tools/session-browser/README.md](tools/session-browser/README.md)
+
 ---
 
 ## Skills 列表
@@ -168,6 +194,7 @@ bash skills/integration/feipi-video-read-url/scripts/setup_youtube_cookies.sh
 
 - `tools/gateway/litellm/env/.env.example`
 - `tools/search/searxng/env/.env.example`
+- `tools/session-browser/env/.env.example`
 
 ---
 
@@ -184,6 +211,8 @@ make searxng-down            # 停止 SearXNG
 make litellm-up              # 启动 LiteLLM
 make litellm-down            # 停止 LiteLLM
 make searxng-mcp-run         # 运行 SearXNG MCP
+make session-browser-serve   # 前台启动 session-browser，127.0.0.1:18999，独立测试索引
+make session-browser-deploy VERSION=0.2.0 # 构建本地镜像并 Podman 部署
 
 # ===== Scripts =====
 ./scripts/bootstrap/setup.sh # 初始化设置

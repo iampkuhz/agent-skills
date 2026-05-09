@@ -25,7 +25,7 @@ SESSION_BROWSER_DIR := tools/session-browser
 .PHONY: searxng-up searxng-down searxng-restart searxng-logs
 .PHONY: litellm-up litellm-down litellm-restart litellm-logs
 .PHONY: searxng-mcp-run searxng-mcp-http searxng-mcp-test
-.PHONY: session-browser-deps session-browser-dev session-browser-test session-browser-build session-browser-release
+.PHONY: session-browser-deps session-browser-serve session-browser-dev session-browser-test session-browser-build session-browser-release
 .PHONY: session-browser-up session-browser-deploy session-browser-down session-browser-logs session-browser-status
 .PHONY: doctor setup
 .PHONY: model-download
@@ -56,7 +56,7 @@ help:
 	@echo "  make searxng-mcp-test    # 测试 SearXNG MCP 服务"
 	@echo ""
 	@echo "  make session-browser-deps    # 安装 session-browser 本地依赖"
-	@echo "  make session-browser-dev     # 本地前台启动，适合调试验证"
+	@echo "  make session-browser-serve   # 本地前台启动 127.0.0.1:18999，独立测试索引"
 	@echo "  make session-browser-test    # 执行 session-browser 单元测试"
 	@echo "  make session-browser-release [VERSION=x.y.z]"
 	@echo "                              # 测试后构建本地 Podman 镜像"
@@ -153,8 +153,10 @@ searxng-mcp-test:
 session-browser-deps:
 	@cd $(SESSION_BROWSER_DIR) && ./scripts/session-browser.sh deps
 
-session-browser-dev:
-	@cd $(SESSION_BROWSER_DIR) && ./scripts/session-browser.sh dev
+session-browser-serve:
+	@cd $(SESSION_BROWSER_DIR) && ./scripts/session-browser.sh serve
+
+session-browser-dev: session-browser-serve
 
 session-browser-test:
 	@cd $(SESSION_BROWSER_DIR) && ./scripts/session-browser.sh test

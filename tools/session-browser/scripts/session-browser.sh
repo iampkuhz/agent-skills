@@ -10,7 +10,10 @@ CALLER_DIR="$(pwd)"
 SRC_DIR="$(cd "$SCRIPT_DIR/../src" && pwd)"
 VERSION_FILE="$TOOL_DIR/VERSION"
 VENV_DIR="${SESSION_BROWSER_VENV_DIR:-$TOOL_DIR/.venv}"
-DEFAULT_DATA_DIR="$HOME/.local/share/feipi/session-browser/index"
+DEFAULT_LOCAL_PORT=18999
+DEFAULT_PODMAN_HOST_PORT=8899
+DEFAULT_LOCAL_DATA_DIR="$HOME/.local/share/feipi/session-browser/local-test-index"
+DEFAULT_PODMAN_DATA_DIR="$HOME/.local/share/feipi/session-browser/index"
 
 export PYTHONPATH="$SRC_DIR:${PYTHONPATH:-}"
 
@@ -53,7 +56,31 @@ container_name() {
 }
 
 host_port() {
-    printf '%s\n' "${SESSION_BROWSER_HOST_PORT:-${SERVER_PORT:-8899}}"
+    printf '%s\n' "${SESSION_BROWSER_HOST_PORT:-$DEFAULT_PODMAN_HOST_PORT}"
+}
+
+local_test_port() {
+    printf '%s\n' "${SESSION_BROWSER_LOCAL_PORT:-${SESSION_BROWSER_DEV_PORT:-$DEFAULT_LOCAL_PORT}}"
+}
+
+local_test_index_dir() {
+    expand_path "${SESSION_BROWSER_LOCAL_DATA_DIR:-${SESSION_BROWSER_DEV_DATA_DIR:-$DEFAULT_LOCAL_DATA_DIR}}"
+}
+
+local_test_host() {
+    printf '%s\n' "${SESSION_BROWSER_LOCAL_HOST:-${SESSION_BROWSER_DEV_HOST:-127.0.0.1}}"
+}
+
+arg_has_option() {
+    local opt="$1"
+    shift || true
+    local arg
+    for arg in "$@"; do
+        if [[ "$arg" == "$opt" || "$arg" == "$opt="* ]]; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 expand_path() {
@@ -76,6 +103,20 @@ require_podman() {
     if ! command -v "${PODMAN_BIN:-podman}" >/dev/null 2>&1; then
         echo "未找到 podman。请安装 Podman，或设置 PODMAN_BIN=/path/to/podman。" >&2
         exit 1
+    fi
+}
+
+warn_if_podman_running() {
+    if ! command -v "${PODMAN_BIN:-podman}" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local name status
+    name="$(container_name)"
+    status="$("${PODMAN_BIN:-podman}" inspect -f '{{.State.Status}}' "$name" 2>/dev/null || true)"
+    if [[ "$status" == "running" ]]; then
+        echo "提示：Podman 容器 $name 正在运行；本地测试会使用独立端口和独立索引目录。"
+        echo "      测试结束请用 Ctrl-C 关闭当前前台进程，Podman 容器不受影响。"
     fi
 }
 
@@ -155,7 +196,7 @@ podman_up() {
     repo="$(image_repo)"
     name="$(container_name)"
     port="$(host_port)"
-    index_dir="$(expand_path "${SESSION_BROWSER_DATA_DIR:-$DEFAULT_DATA_DIR}")"
+    index_dir="$(expand_path "${SESSION_BROWSER_DATA_DIR:-$DEFAULT_PODMAN_DATA_DIR}")"
     claude_dir="$(expand_path "${CLAUDE_DATA_DIR:-$HOME/.claude}")"
     codex_dir="$(expand_path "${CODEX_DATA_DIR:-$HOME/.codex}")"
     qoder_dir="$(expand_path "${QODER_DATA_DIR:-$HOME/.qoder}")"
@@ -189,6 +230,7 @@ podman_up() {
         -e "INDEX_DIR=/data/index" \
         -e "SERVER_HOST=0.0.0.0" \
         -e "SERVER_PORT=8899" \
+        -e "SESSION_BROWSER_RUN_MODE=podman" \
         -e "SESSION_BROWSER_LOG_LEVEL=${SESSION_BROWSER_LOG_LEVEL:-INFO}" \
         -e "SESSION_BROWSER_VERSION=$version" \
         "$repo:$version" \
@@ -204,16 +246,78 @@ podman_up() {
     echo "  Qoder:  $qoder_dir"
 }
 
+run_local_serve() {
+    ensure_runtime_deps
+
+    local port host index_dir
+    port="$(local_test_port)"
+    host="$(local_test_host)"
+    index_dir="$(local_test_index_dir)"
+    mkdir -p "$index_dir"
+
+    export PYTHONUNBUFFERED=1
+    export SESSION_BROWSER_LOG_LEVEL="${SESSION_BROWSER_LOG_LEVEL:-DEBUG}"
+    export SESSION_BROWSER_VERSION="${SESSION_BROWSER_VERSION:-$(read_version)}"
+    export SERVER_HOST="$host"
+    export SERVER_PORT="$port"
+    export INDEX_DIR="$index_dir"
+
+    local -a serve_args
+    serve_args=("$@")
+    if ! arg_has_option "--host" "$@"; then
+        serve_args=(--host "$host" "${serve_args[@]}")
+    fi
+    if ! arg_has_option "--port" "$@"; then
+        serve_args=(--port "$port" "${serve_args[@]}")
+    fi
+    if ! arg_has_option "--startup-scan" "$@"; then
+        serve_args=(--startup-scan "${serve_args[@]}")
+    fi
+
+    warn_if_podman_running
+    echo "启动本地前台服务"
+    echo "  版本：$SESSION_BROWSER_VERSION"
+    echo "  地址：http://$host:$port"
+    echo "  日志级别：$SESSION_BROWSER_LOG_LEVEL"
+    echo "  本地测试索引：$INDEX_DIR"
+    echo "  Podman 默认端口：$(host_port)"
+    echo "  Podman 默认索引：$(expand_path "${SESSION_BROWSER_DATA_DIR:-$DEFAULT_PODMAN_DATA_DIR}")"
+    echo "  运行方式：前台进程；Ctrl-C 后本地测试服务立即关闭"
+    echo "  源码目录：$SRC_DIR"
+    exec "$(python_bin)" -m session_browser serve --allow-empty "${serve_args[@]}"
+}
+
+run_scan() {
+    local index_dir
+    index_dir="$(local_test_index_dir)"
+    mkdir -p "$index_dir"
+
+    export SESSION_BROWSER_VERSION="${SESSION_BROWSER_VERSION:-$(read_version)}"
+    export INDEX_DIR="$index_dir"
+    echo "使用本地测试索引目录：$INDEX_DIR"
+    exec "$(python_bin)" -m session_browser scan "$@"
+}
+
+run_serve() {
+    if [[ "${SESSION_BROWSER_RUN_MODE:-}" != "podman" ]]; then
+        run_local_serve "$@"
+    fi
+
+    ensure_runtime_deps
+    export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
+    export SESSION_BROWSER_VERSION="${SESSION_BROWSER_VERSION:-$(read_version)}"
+    exec "$(python_bin)" -m session_browser serve --allow-empty "$@"
+}
+
 print_usage() {
     cat <<'EOF'
 用法：./scripts/session-browser.sh <command> [options]
 
 本地验证：
   deps [pip options]               安装本地运行/测试依赖
-  dev [serve options]              前台启动服务，默认 DEBUG 日志
-  scan [scan options]              全量或增量扫描
-  serve [serve options]            前台启动服务
-  stop [--port 8899]               按端口停止服务进程
+  serve [serve options]            前台启动本地服务，默认 DEBUG 日志
+  scan [scan options]              扫描到本地测试索引
+  stop [--port 18999]              按端口停止本地测试服务进程
   test [pytest options]            执行单元测试
 
 版本与本地镜像发布：
@@ -233,15 +337,18 @@ Podman 部署：
   SESSION_BROWSER_VENV_DIR         默认：tools/session-browser/.venv
   SESSION_BROWSER_IMAGE_REPO       默认：localhost/feipi/session-browser
   SESSION_BROWSER_CONTAINER_NAME   默认：session-browser
-  SESSION_BROWSER_HOST_PORT        默认：SERVER_PORT 或 8899
+  SESSION_BROWSER_LOCAL_HOST       默认：127.0.0.1
+  SESSION_BROWSER_LOCAL_PORT       默认：18999
+  SESSION_BROWSER_LOCAL_DATA_DIR   默认：~/.local/share/feipi/session-browser/local-test-index
+  SESSION_BROWSER_HOST_PORT        默认：8899
   SESSION_BROWSER_DATA_DIR         默认：~/.local/share/feipi/session-browser/index
-  SESSION_BROWSER_LOG_LEVEL        默认：INFO；dev 使用 DEBUG
+  SESSION_BROWSER_LOG_LEVEL        默认：INFO；本地 serve 使用 DEBUG
   CLAUDE_DATA_DIR                  默认：~/.claude
   CODEX_DATA_DIR                   默认：~/.codex
   QODER_DATA_DIR                   默认：~/.qoder
 
 示例：
-  ./scripts/session-browser.sh dev --port 8899 --force
+  ./scripts/session-browser.sh serve
   ./scripts/session-browser.sh scan --incremental
   ./scripts/session-browser.sh release 0.2.0
   ./scripts/session-browser.sh deploy 0.2.0
@@ -251,28 +358,17 @@ EOF
 
 case "$CMD" in
     dev)
-        ensure_runtime_deps
-        export PYTHONUNBUFFERED=1
-        export SESSION_BROWSER_LOG_LEVEL="${SESSION_BROWSER_LOG_LEVEL:-DEBUG}"
-        export SESSION_BROWSER_VERSION="${SESSION_BROWSER_VERSION:-$(read_version)}"
-        echo "启动前台调试服务"
-        echo "  版本：$SESSION_BROWSER_VERSION"
-        echo "  日志级别：$SESSION_BROWSER_LOG_LEVEL"
-        echo "  源码目录：$SRC_DIR"
-        exec "$(python_bin)" -m session_browser serve --allow-empty "$@"
+        echo "提示：dev 已合并到 serve；等同执行 ./scripts/session-browser.sh serve。" >&2
+        run_local_serve "$@"
         ;;
     deps)
         install_deps "$@"
         ;;
     scan)
-        export SESSION_BROWSER_VERSION="${SESSION_BROWSER_VERSION:-$(read_version)}"
-        exec "$(python_bin)" -m session_browser scan "$@"
+        run_scan "$@"
         ;;
     serve)
-        ensure_runtime_deps
-        export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
-        export SESSION_BROWSER_VERSION="${SESSION_BROWSER_VERSION:-$(read_version)}"
-        exec "$(python_bin)" -m session_browser serve --allow-empty "$@"
+        run_serve "$@"
         ;;
     stop)
         exec "$(python_bin)" -m session_browser stop "$@"

@@ -4,15 +4,15 @@ Usage:
     python -m session_browser scan        # Full scan
     python -m session_browser scan --incremental   # Incremental scan
     python -m session_browser serve       # Start web server
-    python -m session_browser serve --port 8899
+    python -m session_browser serve --port 18999
     python -m session_browser stop        # Stop web server
 
 Environment variables:
     CLAUDE_DATA_DIR  - Claude Code data directory (default: ~/.claude)
     CODEX_DATA_DIR   - Codex data directory (default: ~/.codex)
-    INDEX_DIR        - Index storage directory (default: ~/.cache/agent-session-browser)
-    SERVER_HOST      - Bind address (default: 0.0.0.0)
-    SERVER_PORT      - Server port (default: 8899)
+    INDEX_DIR        - Index storage directory (default: ~/.local/share/feipi/session-browser/local-test-index)
+    SERVER_HOST      - Bind address (default: 127.0.0.1)
+    SERVER_PORT      - Server port (default: 18999)
 """
 
 from __future__ import annotations
