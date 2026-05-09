@@ -3344,6 +3344,15 @@ tr.row--anomaly {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 12px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    max-height: 400px;
+    overflow-y: auto;
 }
 .tool-result-md {
     display: none;

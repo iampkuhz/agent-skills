@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 import urllib.parse
@@ -124,6 +125,16 @@ _template_env.filters["urlencode"] = urllib.parse.quote
 _template_env.filters["urldecode"] = urllib.parse.unquote
 _template_env.filters["markdown"] = _md_filter
 _template_env.filters["tojson_safe"] = lambda v: json.dumps(v) if v else "null"
+_template_env.filters["strip_line_numbers"] = lambda text: (
+    re.sub(r'^\d+\t', '', text, flags=re.MULTILINE)
+    if text and re.search(r'^\d+\t', text, flags=re.MULTILINE)
+    else text
+)
+_template_env.filters["renumber_lines"] = lambda text: (
+    "\n".join(f"{i + 1}\t{re.sub(r'^\d+\t', '', line)}" for i, line in enumerate(text.splitlines())) + "\n"
+    if text and re.search(r'^\d+\t', text, flags=re.MULTILINE)
+    else text
+)
 
 
 def _relative_paths_in_json(obj: any) -> any:

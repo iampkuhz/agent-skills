@@ -22,7 +22,7 @@
         <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
     </div>
     <div class="tool-result-wrapper">
-        <pre class="tool-result-raw mono text-xs">{{ result }}</pre>
+        <pre class="tool-result-raw mono text-xs">{{ result | renumber_lines }}</pre>
         <div class="tool-result-md">{{ result | markdown | safe }}</div>
     </div>
 </div>
