@@ -578,7 +578,7 @@ def compute_round_signals(
 
     # ── Critical signals ────────────────────────────────────────────
 
-    # >= 3 failed tools in a single round (occasional failures are expected)
+    # Failed tool calls in a single round: warning at 1-2, critical at >= 3
     if len(failed_tools) >= 3:
         count = len(failed_tools)
         names = ", ".join(tc.name for tc in failed_tools[:3])
@@ -589,14 +589,30 @@ def compute_round_signals(
             "severity": "critical",
             "reason": f"{count} failed tools: {names}{suffix}",
         })
+    elif len(failed_tools) >= 1:
+        count = len(failed_tools)
+        names = ", ".join(tc.name for tc in failed_tools[:3])
+        signals.append({
+            "key": "failed-tool",
+            "label": "failed tool",
+            "severity": "warning",
+            "reason": f"{count} failed tool{'s' if count != 1 else ''}: {names}",
+        })
 
-    # >= 3 LLM errors in a single round (occasional errors are expected)
+    # LLM errors in a single round: warning at 1-2, critical at >= 3
     if round.llm_error_count >= 3:
         signals.append({
             "key": "llm-error",
             "label": "llm error",
             "severity": "critical",
             "reason": f"{round.llm_error_count} LLM errors in this round",
+        })
+    elif round.llm_error_count >= 1:
+        signals.append({
+            "key": "llm-error",
+            "label": "llm error",
+            "severity": "warning",
+            "reason": f"{round.llm_error_count} LLM error{'s' if round.llm_error_count != 1 else ''} in this round",
         })
 
     # ── Warning signals ─────────────────────────────────────────────

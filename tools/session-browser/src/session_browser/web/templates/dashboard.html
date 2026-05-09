@@ -88,7 +88,6 @@
             <button class="filter-chip filter-chip--active" data-filter="all" onclick="filterNeedsAttention('all', this)">All</button>
             <button class="filter-chip" data-filter="critical" onclick="filterNeedsAttention('critical', this)">Critical</button>
             <button class="filter-chip" data-filter="long_duration" onclick="filterNeedsAttention('long_duration', this)">Long</button>
-            <button class="filter-chip" data-filter="high_tools" onclick="filterNeedsAttention('high_tools', this)">High Tools</button>
             <button class="filter-chip" data-filter="cache_write" onclick="filterNeedsAttention('cache_write', this)">Cache Write</button>
             <button class="filter-chip" data-filter="failed" onclick="filterNeedsAttention('failed', this)">Failed</button>
         </div>
@@ -328,7 +327,6 @@
             var show = true;
             if (filterType === 'critical' && severity !== 'critical') show = false;
             if (filterType === 'long_duration' && types.indexOf('long_duration') === -1) show = false;
-            if (filterType === 'high_tools' && types.indexOf('tool_spike') === -1) show = false;
             if (filterType === 'cache_write' && types.indexOf('cache_write_spike') === -1) show = false;
             if (filterType === 'failed' && types.indexOf('failed_run') === -1) show = false;
             item.style.display = show ? '' : 'none';

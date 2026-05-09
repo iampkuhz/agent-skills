@@ -50,10 +50,9 @@
         <select id="filter-anomaly" class="filter-bar__select filter-bar__select--warn">
             <option value="">All Sessions</option>
             <option value="has_anomalies">Has Anomalies</option>
-            <option value="high_tools">High Tools Only</option>
             <option value="long_duration">Long Duration Only</option>
-            <option value="low_output">Low Output Only</option>
-            <option value="low_cache">Low Cache Reuse</option>
+            <option value="failed">Failed Tools Only</option>
+            <option value="cache_write">Cache Write Hotspot Only</option>
         </select>
 
         <select id="sort-by" class="filter-bar__select">
@@ -224,10 +223,9 @@
                 var hasAnomalies = row.dataset.hasAnomalies === 'true';
                 var types = row.dataset.anomalyTypes || '';
                 if (anomalyFilter === 'has_anomalies' && !hasAnomalies) show = false;
-                if (anomalyFilter === 'high_tools' && types.indexOf('tool_spike') === -1) show = false;
                 if (anomalyFilter === 'long_duration' && types.indexOf('long_duration') === -1) show = false;
-                if (anomalyFilter === 'low_output' && types.indexOf('low_output_ratio') === -1) show = false;
-                if (anomalyFilter === 'low_cache' && types.indexOf('low_cache_reuse') === -1) show = false;
+                if (anomalyFilter === 'failed' && types.indexOf('failed_run') === -1) show = false;
+                if (anomalyFilter === 'cache_write' && types.indexOf('cache_write_spike') === -1) show = false;
             }
 
             row.style.display = show ? '' : 'none';

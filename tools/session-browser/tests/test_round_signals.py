@@ -45,18 +45,23 @@ def _signal_keys(signals: list[dict]) -> list[str]:
 
 
 class TestFailedToolSignal:
-    def test_one_failed_tool_no_signal(self):
+    def test_one_failed_tool_triggers_warning(self):
         r = _make_round(tool_calls=[_tc("Bash", status="error", exit_code=1)])
         sigs = compute_round_signals(r, 1)
-        assert "failed-tool" not in _signal_keys(sigs)
+        assert "failed-tool" in _signal_keys(sigs)
+        sig = next(s for s in sigs if s["key"] == "failed-tool")
+        assert sig["severity"] == "warning"
+        assert "1 failed tool" in sig["reason"]
 
-    def test_two_failed_tools_no_signal(self):
+    def test_two_failed_tools_triggers_warning(self):
         tools = [_tc("Read", status="error", exit_code=1), _tc("Bash", status="error", exit_code=2)]
         r = _make_round(tool_calls=tools)
         sigs = compute_round_signals(r, 1)
-        assert "failed-tool" not in _signal_keys(sigs)
+        assert "failed-tool" in _signal_keys(sigs)
+        sig = next(s for s in sigs if s["key"] == "failed-tool")
+        assert sig["severity"] == "warning"
 
-    def test_three_failed_tools_triggers(self):
+    def test_three_failed_tools_triggers_critical(self):
         tools = [
             _tc("Read", status="error", exit_code=1),
             _tc("Bash", status="error", exit_code=2),
@@ -76,17 +81,21 @@ class TestFailedToolSignal:
 
 
 class TestLLMErrorSignal:
-    def test_one_llm_error_no_signal(self):
+    def test_one_llm_error_triggers_warning(self):
         r = _make_round(llm_error_count=1)
         sigs = compute_round_signals(r, 1)
-        assert "llm-error" not in _signal_keys(sigs)
+        assert "llm-error" in _signal_keys(sigs)
+        sig = next(s for s in sigs if s["key"] == "llm-error")
+        assert sig["severity"] == "warning"
 
-    def test_two_llm_errors_no_signal(self):
+    def test_two_llm_errors_triggers_warning(self):
         r = _make_round(llm_error_count=2)
         sigs = compute_round_signals(r, 1)
-        assert "llm-error" not in _signal_keys(sigs)
+        assert "llm-error" in _signal_keys(sigs)
+        sig = next(s for s in sigs if s["key"] == "llm-error")
+        assert sig["severity"] == "warning"
 
-    def test_three_llm_errors_triggers(self):
+    def test_three_llm_errors_triggers_critical(self):
         r = _make_round(llm_error_count=3)
         sigs = compute_round_signals(r, 1)
         assert "llm-error" in _signal_keys(sigs)
@@ -189,9 +198,7 @@ class TestLargeInputSignal:
 class TestRemovedSignals:
     """Verify that previously-existing low-value signals are no longer emitted."""
 
-    REMOVED_KEYS = {"warm-up", "cache-hit", "low-output", "llm-burst", "high-write", "tool-burst"}
-    # Note: high-write and tool-burst are re-introduced with higher thresholds,
-    # but we test the old low-threshold behavior doesn't trigger.
+    REMOVED_KEYS = {"warm-up", "cache-hit", "low-output", "llm-burst"}
 
     def test_warm_up_not_emitted(self):
         # Old rule: first 3 rounds with no cache read -> "warm-up"
@@ -235,25 +242,6 @@ class TestRemovedSignals:
         )
         sigs = compute_round_signals(r, 1)
         assert "llm-burst" not in _signal_keys(sigs)
-
-    def test_single_failed_tool_not_emitted(self):
-        # One failed tool should NOT trigger (needs >= 3)
-        r = _make_round(tool_calls=[_tc("Bash", status="error", exit_code=1)])
-        sigs = compute_round_signals(r, 1)
-        assert "failed-tool" not in _signal_keys(sigs)
-
-    def test_two_failed_tools_not_emitted(self):
-        r = _make_round(tool_calls=[
-            _tc("Bash", status="error", exit_code=1),
-            _tc("Read", status="error", exit_code=1),
-        ])
-        sigs = compute_round_signals(r, 1)
-        assert "failed-tool" not in _signal_keys(sigs)
-
-    def test_single_llm_error_not_emitted(self):
-        r = _make_round(llm_error_count=1)
-        sigs = compute_round_signals(r, 1)
-        assert "llm-error" not in _signal_keys(sigs)
 
     def test_old_low_threshold_high_write_not_emitted(self):
         # Old threshold was 10K; new threshold is 300K

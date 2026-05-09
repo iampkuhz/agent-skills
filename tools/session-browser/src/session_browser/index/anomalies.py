@@ -10,13 +10,13 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from session_browser.index.percentiles import FALLBACK_THRESHOLDS
+from session_browser.index.diagnostics import SESSION_ANOMALY_DEFINITIONS
 
 
 # ─── Anomaly types ────────────────────────────────────────────────────────
 
 class AnomalyType:
     LONG_DURATION = "long_duration"
-    TOOL_SPIKE = "tool_spike"
     CACHE_WRITE_SPIKE = "cache_write_spike"
     FAILED_RUN = "failed_run"
 
@@ -116,7 +116,7 @@ def detect_session_anomalies(
     # Only flag when both absolute count AND ratio indicate a real problem.
     if failed > 0 and tools > 0:
         fail_ratio = safe_divide(failed, tools, 0)
-        if failed >= 10 and fail_ratio >= 0.15:
+        if failed >= 10 and fail_ratio >= 0.20:
             anomalies.append(Anomaly(
                 type=AnomalyType.FAILED_RUN,
                 severity=SEVERITY_CRITICAL,
@@ -153,27 +153,7 @@ def detect_session_anomalies(
                 reason=f"Duration {hours:.1f}h exceeds warning threshold ({warn/3600:.1f}h)",
             ))
 
-    # ─── Tool spike (fixed thresholds) ───
-    if tools > 0:
-        warn = FALLBACK_THRESHOLDS["tool_call_count"]["warning"]
-        crit = FALLBACK_THRESHOLDS["tool_call_count"]["critical"]
-
-        if tools >= crit:
-            anomalies.append(Anomaly(
-                type=AnomalyType.TOOL_SPIKE,
-                severity=SEVERITY_WARNING,
-                label="High Tools",
-                reason=f"{tools} tool calls exceeds critical threshold ({crit:.0f})",
-            ))
-        elif tools >= warn:
-            anomalies.append(Anomaly(
-                type=AnomalyType.TOOL_SPIKE,
-                severity=SEVERITY_WARNING,
-                label="High Tools",
-                reason=f"{tools} tool calls exceeds warning threshold ({warn:.0f})",
-            ))
-
-    # ─── Cache write spike (fixed thresholds) ───
+    # ─── Cache write hotspot (info/warning — not a problem indicator) ───
     warn = FALLBACK_THRESHOLDS["cached_output_tokens"]["warning"]
     crit = FALLBACK_THRESHOLDS["cached_output_tokens"]["critical"]
 
@@ -181,14 +161,14 @@ def detect_session_anomalies(
         anomalies.append(Anomaly(
             type=AnomalyType.CACHE_WRITE_SPIKE,
             severity=SEVERITY_WARNING,
-            label="Cache Write",
+            label="Cache Write Hotspot",
             reason=f"Cache write {cache_write:,} exceeds critical ({crit:,})",
         ))
     elif cache_write >= warn:
         anomalies.append(Anomaly(
             type=AnomalyType.CACHE_WRITE_SPIKE,
             severity=SEVERITY_INFO,
-            label="Cache Write",
+            label="Cache Write Hotspot",
             reason=f"Cache write {cache_write:,} exceeds warning ({warn:,})",
         ))
 
@@ -240,8 +220,6 @@ def get_needs_attention(
         if filter_type == "critical" and sa.max_severity != SEVERITY_CRITICAL:
             continue
         if filter_type == "long_duration" and not any(a.type == AnomalyType.LONG_DURATION for a in sa.anomalies):
-            continue
-        if filter_type == "high_tools" and not any(a.type == AnomalyType.TOOL_SPIKE for a in sa.anomalies):
             continue
         if filter_type == "cache_write" and not any(a.type == AnomalyType.CACHE_WRITE_SPIKE for a in sa.anomalies):
             continue

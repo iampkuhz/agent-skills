@@ -239,10 +239,12 @@
     </div>
 </div>
 
-<!-- 异常分类 -->
-<div class="card">
-    <div class="card-title">异常分类</div>
-    <p class="text-xs text-muted mb-2">由 <code>index/anomalies.py</code> 检测的类型。</p>
+<!-- Session Anomalies -->
+<div class="card mb-3">
+    <div class="card-title">Session Anomalies</div>
+    <p class="text-xs text-muted mb-2">
+        检测整段 session 是否需要关注，用于 <code>/dashboard</code> 的 Needs Attention、<code>/sessions</code> 的异常筛选、session 详情顶部 anomaly banner。
+    </p>
 
     <div class="table-scroll">
     <table>
@@ -255,29 +257,71 @@
         </thead>
         <tbody>
             <tr>
-                <td><span class="anomaly-badge badge-anomaly-critical">Long Duration</span></td>
-                <td class="text-sm">持续时间 &gt; P95 或 &gt; 1h（警告）/ &gt; 2h（严重）</td>
+                <td><span class="anomaly-badge badge-anomaly-warning">Long Duration</span></td>
+                <td class="text-sm">持续时间 &gt;= 1h（警告）/ &gt;= 2h（严重）</td>
                 <td class="text-sm">warning / critical</td>
             </tr>
             <tr>
-                <td><span class="anomaly-badge badge-anomaly-warning">High Tools</span></td>
-                <td class="text-sm">工具调用 &gt; P95 或 &gt; 100（警告）/ &gt; 200（严重）</td>
+                <td><span class="anomaly-badge badge-anomaly-warning">Failed Tools</span></td>
+                <td class="text-sm">失败次数 &gt;= 5 且失败比例 &gt;= 10%（警告）；失败次数 &gt;= 10 且失败比例 &gt;= 20%（严重）。单次失败不会触发。</td>
+                <td class="text-sm">warning / critical</td>
+            </tr>
+            <tr>
+                <td><span class="anomaly-badge badge-anomaly-info">Cache Write Hotspot</span></td>
+                <td class="text-sm">Cache write &gt;= 200K（info）/ &gt;= 500K（warning）。表示上下文热点，不默认红色。</td>
+                <td class="text-sm">info / warning</td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- Round Signals -->
+<div class="card mb-3">
+    <div class="card-title">Round Signals</div>
+    <p class="text-xs text-muted mb-2">
+        检测单个 ROUND 是否值得展开查看，用于 session 详情页 Timeline 表格的 SIGNALS 列。阈值与 session anomaly 不同，更敏感。
+    </p>
+
+    <div class="table-scroll">
+    <table>
+        <thead>
+            <tr>
+                <th>Signal</th>
+                <th>规则</th>
+                <th>严重度</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="signal-badge signal-warning">failed tool</span></td>
+                <td class="text-sm">单轮有失败工具调用：1-2 个 warning，&gt;= 3 个 critical</td>
+                <td class="text-sm">warning / critical</td>
+            </tr>
+            <tr>
+                <td><span class="signal-badge signal-warning">llm error</span></td>
+                <td class="text-sm">单轮有 LLM error：1-2 个 warning，&gt;= 3 个 critical</td>
+                <td class="text-sm">warning / critical</td>
+            </tr>
+            <tr>
+                <td><span class="signal-badge signal-warning">long tool</span></td>
+                <td class="text-sm">单个工具耗时 &gt;= 5 min</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
-                <td><span class="anomaly-badge badge-anomaly-warning">Low Cache</span></td>
-                <td class="text-sm">缓存复用 &lt; 10% 且输入 &gt; 10K</td>
+                <td><span class="signal-badge signal-warning">tool burst</span></td>
+                <td class="text-sm">单轮工具调用 &gt;= 20（排除 top 3 工具占 &gt;= 90% 的 tight loop）</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
-                <td><span class="anomaly-badge badge-anomaly-warning">Low Output</span></td>
-                <td class="text-sm">输出比率 &lt; 5% 且输入 &gt; 10K</td>
+                <td><span class="signal-badge signal-warning">high write</span></td>
+                <td class="text-sm">单轮 cache write &gt;= 300K tokens</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>
-                <td><span class="anomaly-badge badge-anomaly-critical">Failed Run</span></td>
-                <td class="text-sm">存在失败的工具调用</td>
-                <td class="text-sm">critical</td>
+                <td><span class="signal-badge signal-warning">large input</span></td>
+                <td class="text-sm">单轮 input &gt;= 200K 且占 session input &gt;= 50%</td>
+                <td class="text-sm">warning</td>
             </tr>
         </tbody>
     </table>

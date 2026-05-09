@@ -11,9 +11,9 @@ from typing import Optional
 # Fallback thresholds when data is insufficient (< 20 rows)
 # Fixed thresholds — percentile-based computation is unreliable on skewed distributions.
 FALLBACK_THRESHOLDS = {
-    "duration_seconds": {"warning": 7200, "critical": 21600},  # 2h / 6h
+    "duration_seconds": {"warning": 3600, "critical": 7200},  # 1h / 2h
     "tool_call_count": {"warning": 200, "critical": 500},
-    "cached_output_tokens": {"warning": 200000, "critical": 500000},  # cache write spike
+    "cached_output_tokens": {"warning": 200000, "critical": 500000},  # cache write hotspot
 }
 
 MIN_ROWS = 20
