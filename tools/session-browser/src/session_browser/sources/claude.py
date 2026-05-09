@@ -591,26 +591,25 @@ def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
     if not text:
         return False
 
-    # For Read/Write/Edit tools, only trust structured error markers.
-    # Their result is file content which often contains words like
-    # "error", "failed", "timeout" in variable/class names.
+    # For Read/Write/Edit/Glob/Grep/LS tools, only trust the JSONL
+    # is_error flag and obvious file-level error messages.  Their
+    # results are file/glob contents which can legitimately contain
+    # words like "error", "failed", "key_model_access_denied" in
+    # source code, logs, or comments.
     if tool_name in ("Read", "Write", "Edit", "Glob", "Grep", "LS"):
-        structured_markers = [
-            "api error",
-            "tool_use_error",
-            "user rejected",
-            "cancelled",
-            "key_model_access_denied",
-            "rate limit",
-            "overloaded",
-        ]
-        if any(marker in text for marker in structured_markers):
-            return True
-        # File-level errors: starts with "File does not exist" etc.
         first_line = text.split("\n", 1)[0].strip()
-        if first_line.startswith(("file does not exist", "permission denied",
-                                    "no such file", "directory not found",
-                                    "path not found", "cannot read")):
+        if first_line.startswith((
+            "file does not exist",
+            "permission denied",
+            "no such file",
+            "directory not found",
+            "path not found",
+            "cannot read",
+            "not a directory",
+            "too many levels of symbolic links",
+            "input/output error",
+            "is a directory",
+        )):
             return True
         return False
 
