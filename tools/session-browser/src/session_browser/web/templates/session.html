@@ -521,6 +521,7 @@
                                         {% endif %}
 
                                         {# LLM interactions with flow arrows #}
+                                        {% set round_index = loop.index %}
                                         {% for interaction in round.interactions %}
                                             {% if not loop.first %}
                                             <div class="timeline__flow-arrow">
@@ -578,7 +579,7 @@
                                                         <div class="llm-card__response-label">Response</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" data-content-modal="Round #{{ loop.parent.loop.index }} · Main Response"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
+                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Main Response"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
                                                         {% endif %}
                                                     </div>
                                                     {% endif %}
@@ -660,7 +661,7 @@
                                                         <div class="llm-card__response-label">Subagent Result</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" data-content-modal="Round #{{ loop.parent.loop.index }} · Subagent Result"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
+                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Subagent Result"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
                                                         {% endif %}
                                                     </div>
                                                     {% endif %}
