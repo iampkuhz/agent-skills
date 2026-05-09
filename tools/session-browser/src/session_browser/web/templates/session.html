@@ -84,143 +84,162 @@
     </div>
     {% endif %}
 
-    <!-- 4. Main grid: Run Summary + Token Mix -->
-    <div class="overview__grid">
-        <!-- Left: Run Summary -->
-        <div class="overview__run-summary">
-            <div class="run-summary-tiles">
-                <div class="run-tile">
-                    <div class="run-tile__value">{{ session.duration_seconds | format_duration }}</div>
-                    <div class="run-tile__label">Duration</div>
-                </div>
-                <div class="run-tile">
-                    <div class="run-tile__value">{{ session_grand_total | format_number }}</div>
-                    <div class="run-tile__label">Total Tokens</div>
-                </div>
-                <div class="run-tile">
-                    <div class="run-tile__value">{{ rounds | length }}</div>
-                    <div class="run-tile__label">Rounds</div>
-                </div>
-                <div class="run-tile">
-                    <div class="run-tile__value">{{ session.tool_call_count | format_number }}</div>
-                    <div class="run-tile__label">Tool Calls</div>
-                </div>
+    <!-- 4. Run Summary (full width within overview) -->
+    <div class="overview__run-summary">
+        <div class="run-summary-tiles">
+            <div class="run-tile">
+                <div class="run-tile__value">{{ session.duration_seconds | format_duration }}</div>
+                <div class="run-tile__label">Duration</div>
             </div>
-
-            <!-- Conversation & Efficiency metrics -->
-            <div class="overview__metrics">
-                <div class="metrics-grid metrics-grid--efficiency">
-                    <div class="metric-card metric-card--compact">
-                        <div class="metric-label">Messages</div>
-                        <div class="metric-value">{{ session.user_message_count + session.assistant_message_count }}</div>
-                        <div class="metric-sub">{{ session.user_message_count }}U &#x00b7; {{ session.assistant_message_count }}A</div>
-                    </div>
-                    <div class="metric-card metric-card--compact">
-                        <div class="metric-label">Tools/R</div>
-                        <div class="metric-value">{{ tools_per_round }}</div>
-                        {% if session.failed_tool_count > 0 %}
-                        <div class="metric-sub"><span class="badge badge-error">{{ session.failed_tool_count }} failed</span></div>
-                        {% else %}
-                        <div class="metric-sub">per round</div>
-                        {% endif %}
-                    </div>
-                    <div class="metric-card metric-card--compact">
-                        <div class="metric-label">Tok/R</div>
-                        <div class="metric-value">{{ avg_tok_round | format_number }}</div>
-                        <div class="metric-sub">per round</div>
-                    </div>
-                    <div class="metric-card metric-card--compact">
-                        <div class="metric-label">LLM Calls</div>
-                        <div class="metric-value">{{ total_llm_calls | format_number }}</div>
-                        {% if total_llm_errors > 0 %}
-                        <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
-                        {% else %}
-                        <div class="metric-sub">{{ main_calls_list | length }}m + {{ sub_calls_list | length }}s</div>
-                        {% endif %}
-                    </div>
-                    <div class="metric-card metric-card--compact">
-                        <div class="metric-label">LLM Input</div>
-                        <div class="metric-value">{{ llm_total_input | format_number }}</div>
-                        <div class="metric-sub">{{ llm_total_cr | format_number }} cache read</div>
-                    </div>
-                    <div class="metric-card metric-card--compact">
-                        <div class="metric-label">LLM Output</div>
-                        <div class="metric-value">{{ llm_total_output | format_number }}</div>
-                        <div class="metric-sub">{{ llm_total_cw | format_number }} cache write</div>
-                    </div>
-                </div>
+            <div class="run-tile">
+                <div class="run-tile__value">{{ session_grand_total | format_number }}</div>
+                <div class="run-tile__label">Total Tokens</div>
+            </div>
+            <div class="run-tile">
+                <div class="run-tile__value">{{ rounds | length }}</div>
+                <div class="run-tile__label">Rounds</div>
+            </div>
+            <div class="run-tile">
+                <div class="run-tile__value">{{ session.tool_call_count | format_number }}</div>
+                <div class="run-tile__label">Tool Calls</div>
             </div>
         </div>
 
-        <!-- Right: Token Mix (donut + breakdown) -->
-        <div class="overview__token-mix">
-            <div class="token-mix__donut">
-                <svg viewBox="0 0 120 120" class="token-donut__svg">
-                    {% if session_grand_total > 0 %}
-                        {% set r = 42 %}
-                        {% set c = 2 * 3.14159 * r %}
-                        <!-- Fresh input -->
-                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                            stroke="var(--token-input-fresh)"
-                            stroke-dasharray="{{ ((fresh_pct / 100) * c) | round(1) }} {{ c }}"
-                            stroke-dashoffset="0" />
-                        <!-- Cache read -->
-                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                            stroke="var(--token-cache-read)"
-                            stroke-dasharray="{{ ((cr_pct / 100) * c) | round(1) }} {{ c }}"
-                            stroke-dashoffset="{{ -(fresh_pct / 100) * c }}" />
-                        <!-- Cache write -->
-                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                            stroke="var(--token-cache-write)"
-                            stroke-dasharray="{{ ((cw_pct / 100) * c) | round(1) }} {{ c }}"
-                            stroke-dashoffset="{{ -((fresh_pct + cr_pct) / 100) * c }}" />
-                        <!-- Output -->
-                        <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
-                            stroke="var(--token-output-visible)"
-                            stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
-                            stroke-dashoffset="{{ -((fresh_pct + cr_pct + cw_pct) / 100) * c }}" />
-                    {% endif %}
-                    <text x="60" y="54" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number }}</text>
-                    <text x="60" y="70" text-anchor="middle" class="token-donut__center-label">total tokens</text>
-                </svg>
+    <!-- LLM Metrics -->
+    <div class="section-group">
+        <div class="section-label">LLM</div>
+        <div class="metrics-grid metrics-grid--llm">
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">LLM Calls</div>
+                <div class="metric-value">{{ total_llm_calls | format_number }}</div>
+                {% if total_llm_errors > 0 %}
+                <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
+                {% else %}
+                <div class="metric-sub">{{ main_calls_list | length }}m + {{ sub_calls_list | length }}s</div>
+                {% endif %}
             </div>
-            <div class="token-mix__breakdown">
-                <div class="token-mix__row">
-                    <span class="token-mix__dot token-mix__dot--fresh"></span>
-                    <span class="token-mix__name">Fresh Input</span>
-                    <span class="token-mix__val">{{ session.input_tokens | format_number }}</span>
-                    <span class="token-mix__pct">{{ fresh_pct }}%</span>
-                </div>
-                <div class="token-mix__row">
-                    <span class="token-mix__dot token-mix__dot--cr"></span>
-                    <span class="token-mix__name">Cache Read</span>
-                    <span class="token-mix__val">{{ session.cached_input_tokens | format_number }}</span>
-                    <span class="token-mix__pct">{{ cr_pct }}%</span>
-                </div>
-                <div class="token-mix__row">
-                    <span class="token-mix__dot token-mix__dot--cw"></span>
-                    <span class="token-mix__name">Cache Write</span>
-                    <span class="token-mix__val">{{ session.cached_output_tokens | format_number }}</span>
-                    <span class="token-mix__pct">{{ cw_pct }}%</span>
-                </div>
-                <div class="token-mix__row">
-                    <span class="token-mix__dot token-mix__dot--out"></span>
-                    <span class="token-mix__name">Output</span>
-                    <span class="token-mix__val">{{ session.output_tokens | format_number }}</span>
-                    <span class="token-mix__pct">{{ out_pct }}%</span>
-                </div>
-                <div class="token-mix__footer">
-                    <span>Cache Reuse: <strong>{{ cache_reuse }}%</strong></span>
-                    <span>Output/Input: <strong>{{ output_ratio }}%</strong></span>
-                    <span class="token-mix__provider">{{ session.model or 'unknown' }}</span>
-                </div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">LLM Input</div>
+                <div class="metric-value">{{ llm_total_input | format_number }}</div>
+                <div class="metric-sub">{{ llm_total_cr | format_number }} cache read</div>
+            </div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">LLM Output</div>
+                <div class="metric-value">{{ llm_total_output | format_number }}</div>
+                <div class="metric-sub">{{ llm_total_cw | format_number }} cache write</div>
+            </div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">Cache Hit Rate</div>
+                <div class="metric-value">{{ cache_reuse }}%</div>
+                <div class="metric-sub">{{ cache_reuse | round(0) | int }}% reuse</div>
             </div>
         </div>
     </div>
 
-    <!-- 5. Tokens per Round chart (full width) -->
-    {% if rounds and rounds | length > 1 %}
-    <div class="overview__round-chart">
+    <!-- Tools Metrics -->
+    <div class="section-group">
+        <div class="section-label">Tools</div>
+        <div class="metrics-grid metrics-grid--tools">
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">Tools/R</div>
+                <div class="metric-value">{{ tools_per_round }}</div>
+                <div class="metric-sub">per round</div>
+            </div>
+            <div class="metric-card metric-card--compact metric-card--error {{ 'metric-card--has-error' if session.failed_tool_count > 0 else '' }}">
+                <div class="metric-label">Failed Tools</div>
+                <div class="metric-value {{ 'text-error' if session.failed_tool_count > 0 else '' }}">{{ session.failed_tool_count }}</div>
+                <div class="metric-sub">total failures</div>
+            </div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">Top Tool</div>
+                <div class="metric-value mono text-xs">
+                    {% if tool_calls %}
+                        {% set ns_tools = namespace(tool_counts={}) %}
+                        {% for tc in tool_calls %}
+                            {% if tc.name in ns_tools.tool_counts %}
+                                {% set _ = ns_tools.tool_counts.update({tc.name: ns_tools.tool_counts[tc.name] + 1}) %}
+                            {% else %}
+                                {% set _ = ns_tools.tool_counts.update({tc.name: 1}) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% set top_tool = ns_tools.tool_counts | dictsort(by='value', reverse=true) | first %}
+                        {{ top_tool[0] if top_tool else '—' }} <span class="text-muted">({{ top_tool[1] if top_tool else 0 }})</span>
+                    {% else %}—{% endif %}
+                </div>
+                <div class="metric-sub">most used</div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</div>
+
+<!-- ── Token Charts Card (Token Mix + Tokens per Round, single full-width card) ── -->
+{% if rounds and rounds | length > 1 %}
+<div class="token-charts-card">
+    <!-- Left: Token Mix donut -->
+    <div class="token-charts-card__token-mix">
+        <div class="token-mix__donut">
+            <svg viewBox="0 0 120 120" class="token-donut__svg">
+                {% if session_grand_total > 0 %}
+                    {% set r = 42 %}
+                    {% set c = 2 * 3.14159 * r %}
+                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                        stroke="var(--token-input-fresh)"
+                        stroke-dasharray="{{ ((fresh_pct / 100) * c) | round(1) }} {{ c }}"
+                        stroke-dashoffset="0" />
+                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                        stroke="var(--token-cache-read)"
+                        stroke-dasharray="{{ ((cr_pct / 100) * c) | round(1) }} {{ c }}"
+                        stroke-dashoffset="{{ -(fresh_pct / 100) * c }}" />
+                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                        stroke="var(--token-cache-write)"
+                        stroke-dasharray="{{ ((cw_pct / 100) * c) | round(1) }} {{ c }}"
+                        stroke-dashoffset="{{ -((fresh_pct + cr_pct) / 100) * c }}" />
+                    <circle class="token-donut__seg" cx="60" cy="60" r="{{ r }}"
+                        stroke="var(--token-output-visible)"
+                        stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
+                        stroke-dashoffset="{{ -((fresh_pct + cr_pct + cw_pct) / 100) * c }}" />
+                {% endif %}
+                <text x="60" y="54" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number }}</text>
+                <text x="60" y="70" text-anchor="middle" class="token-donut__center-label">total tokens</text>
+            </svg>
+        </div>
+        <div class="token-mix__breakdown">
+            <div class="token-mix__row">
+                <span class="token-mix__dot token-mix__dot--fresh"></span>
+                <span class="token-mix__name">Fresh Input</span>
+                <span class="token-mix__val">{{ session.input_tokens | format_number }}</span>
+                <span class="token-mix__pct">{{ fresh_pct }}%</span>
+            </div>
+            <div class="token-mix__row">
+                <span class="token-mix__dot token-mix__dot--cr"></span>
+                <span class="token-mix__name">Cache Read</span>
+                <span class="token-mix__val">{{ session.cached_input_tokens | format_number }}</span>
+                <span class="token-mix__pct">{{ cr_pct }}%</span>
+            </div>
+            <div class="token-mix__row">
+                <span class="token-mix__dot token-mix__dot--cw"></span>
+                <span class="token-mix__name">Cache Write</span>
+                <span class="token-mix__val">{{ session.cached_output_tokens | format_number }}</span>
+                <span class="token-mix__pct">{{ cw_pct }}%</span>
+            </div>
+            <div class="token-mix__row">
+                <span class="token-mix__dot token-mix__dot--out"></span>
+                <span class="token-mix__name">Output</span>
+                <span class="token-mix__val">{{ session.output_tokens | format_number }}</span>
+                <span class="token-mix__pct">{{ out_pct }}%</span>
+            </div>
+            <div class="token-mix__footer">
+                <span>Cache Reuse: <strong>{{ cache_reuse }}%</strong></span>
+                <span>Output/Input: <strong>{{ output_ratio }}%</strong></span>
+                <span class="token-mix__provider">{{ session.model or 'unknown' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Tokens per Round chart -->
+    <div class="token-charts-card__round-chart">
         <div class="round-chart__header">Tokens per Round</div>
         <div class="round-chart-bars" id="roundChartBars">
             {% set spark_data = [] %}
@@ -233,7 +252,6 @@
             {% endfor %}
             {% if spark_data | length > 0 %}
                 {% set max_rt = spark_data | map(attribute='rt') | max %}
-                {% set bar_h = 90 %}
                 <svg viewBox="-15 -5 630 100" preserveAspectRatio="none" style="width:100%;height:100px;display:block">
                     {% for pct in [0, 25, 50, 75, 100] %}
                         {% set y = 90 - (pct / 100) * 90 %}
@@ -273,68 +291,12 @@
             {% endif %}
         </div>
     </div>
-    {% endif %}
-
 </div>
+{% endif %}
 
 
-<!-- Run Profile Summary: compact diagnostic -->
-<div class="run-profile-bar">
-    <div class="run-profile-bar__stat">
-        <span class="run-profile-bar__label">Rounds</span>
-        <span class="run-profile-bar__value">{{ rounds | length }}</span>
-    </div>
-    <div class="run-profile-bar__stat">
-        <span class="run-profile-bar__label">LLM Calls</span>
-        <span class="run-profile-bar__value">{{ main_calls_list | length }}m / {{ sub_calls_list | length }}s</span>
-    </div>
-    <div class="run-profile-bar__stat">
-        <span class="run-profile-bar__label">Failed Tools</span>
-        <span class="run-profile-bar__value {{ 'highlight-error' if session.failed_tool_count > 0 else '' }}">{{ session.failed_tool_count }}</span>
-    </div>
-    <div class="run-profile-bar__stat">
-        <span class="run-profile-bar__label">Top Tool</span>
-        <span class="run-profile-bar__value mono text-xs">
-            {% if tool_calls %}
-                {% set ns2 = namespace(tool_counts={}) %}
-                {% for tc in tool_calls %}
-                    {% if tc.name in ns2.tool_counts %}
-                        {% set _ = ns2.tool_counts.update({tc.name: ns2.tool_counts[tc.name] + 1}) %}
-                    {% else %}
-                        {% set _ = ns2.tool_counts.update({tc.name: 1}) %}
-                    {% endif %}
-                {% endfor %}
-                {% set top_tool = ns2.tool_counts | dictsort(by='value', reverse=true) | first %}
-                {{ top_tool[0] if top_tool else '—' }} <span class="text-muted">({{ top_tool[1] if top_tool else 0 }})</span>
-            {% else %}—{% endif %}
-        </span>
-    </div>
-    <div class="run-profile-bar__stat">
-        <span class="run-profile-bar__label">Peak Round</span>
-        <span class="run-profile-bar__value mono text-xs">
-            {% if rounds %}
-                {% set peak_r = rounds | sort(attribute='total_tokens', reverse=true) | first %}
-                <span class="text-muted">({{ peak_r.total_tokens | format_number }} tok)</span>
-            {% else %}—{% endif %}
-        </span>
-    </div>
-    <div class="run-profile-bar__stat">
-        <span class="run-profile-bar__label">Cache Heavy</span>
-        <span class="run-profile-bar__value mono text-xs">
-            {% if rounds %}
-                {% set cache_heavy_count = [] %}
-                {% for r in rounds %}
-                    {% set rb = r.token_breakdown() %}
-                    {% set total = rb.input + rb.cache_read + rb.cache_write + rb.output %}
-                    {% if total > 0 and rb.cache_read > total * 0.5 %}
-                        {% set _ = cache_heavy_count.append(1) %}
-                    {% endif %}
-                {% endfor %}
-                {{ cache_heavy_count | length }}<span class="text-muted"> / {{ rounds | length }} rounds</span>
-            {% else %}—{% endif %}
-        </span>
-    </div>
-</div>
+
+
 
 <!-- Tabs -->
 <div class="tabs">

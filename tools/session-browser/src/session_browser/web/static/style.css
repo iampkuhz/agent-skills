@@ -2750,13 +2750,41 @@ tr.row--anomaly {
     opacity: 0.7;
 }
 
-/* ─── Session Overview v2: main grid ──────────────── */
-.overview__grid {
-    display: grid;
-    grid-template-columns: 1fr 260px;
-    gap: 16px;
-    align-items: start;
+/* ─── Session Overview v2: run summary (full width) ── */
+.overview__run-summary {
+    width: 100%;
 }
+
+/* ─── Token Charts Card: single full-width card with donut + bar chart ── */
+.token-charts-card {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--space-lg);
+}
+
+.token-charts-card__token-mix {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 220px;
+    padding-right: 16px;
+    border-right: 1px solid var(--border-light);
+}
+
+.token-charts-card__round-chart {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Remove old overview__grid and overview__token-mix styles */
 
 /* ─── Session Overview: run summary section label ── */
 .overview__run-summary .section-label {
@@ -2807,6 +2835,36 @@ tr.row--anomaly {
 .metrics-grid--efficiency {
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
+}
+
+/* ── Section groups (LLM / Tools) ─────────────── */
+.section-group {
+    margin-bottom: var(--space-md);
+}
+.section-group .section-label {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.metrics-grid--llm {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.metrics-grid--tools {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+/* ─── Error-state metric card ──────────────── */
+.metric-card--has-error {
+    border-color: var(--status-error);
+    background: var(--status-error-bg);
+}
+.text-error {
+    color: var(--status-error) !important;
 }
 
 /* ─── Token Mix panel ──────────────── */
