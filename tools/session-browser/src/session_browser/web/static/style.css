@@ -1988,9 +1988,18 @@ tr.row--anomaly {
     font-weight: 600;
     line-height: 1.4;
 }
-.preview-tag--quote {
-    background: var(--accent-bg);
-    color: var(--accent);
+.preview-tag--user {
+    background: #059669;
+    color: #fff;
+}
+.preview-tool {
+    background: var(--panel, #e5e7eb);
+    color: var(--text);
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: var(--text-micro);
+    line-height: 1.4;
 }
 .preview-cell__text {
     min-width: 0;
