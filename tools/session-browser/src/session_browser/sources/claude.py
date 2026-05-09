@@ -583,9 +583,10 @@ def _stringify_tool_result(result_content) -> str:
 def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
     """Heuristic for failed tool/model results in Claude logs.
 
-    Uses word-boundary-aware matching to avoid false positives from
-    CSS variable names (--status-error:), class names (.has-failed),
-    and other embedded code that happens to contain error keywords.
+    Uses strict word-boundary matching to avoid false positives from:
+    - CSS class/variable names (text-error, --status-error)
+    - HTML template diffs (">failed</span>", "badge-error")
+    - Grep/diff output containing error keywords as data
     """
     text = _stringify_tool_result(result_content).lower()
     if not text:
@@ -613,28 +614,63 @@ def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
             return True
         return False
 
-    # For Bash/Agent and others, use broader heuristics.
-    failure_markers = [
+    # For Bash/Agent and others, use broader heuristics but with
+    # strict anchoring to avoid matching error keywords in code/diffs.
+
+    # ── Structured markers: only match at line start ──────────────
+    # These are real API/framework error prefixes.  In Bash output
+    # they commonly appear as data (grep hits, diff context, log
+    # lines) rather than as the actual failure reason.  Anchoring
+    # to line start ensures we only catch them when they ARE the
+    # error message, not when they're embedded in other content.
+    line_start_markers = [
         "api error",
         "tool_use_error",
+        "key_model_access_denied",
+        "rate limit exceeded",
+    ]
+    for marker in line_start_markers:
+        if text.startswith(marker):
+            return True
+        # Also check after common CLI prefixes (e.g. "$ ", "# ")
+        for line in text.split("\n"):
+            stripped = line.strip().lstrip("$# ").strip()
+            if stripped.startswith(marker):
+                return True
+
+    # ── Unconditional markers ─────────────────────────────────────
+    unconditional_markers = [
         "user rejected",
         "cancelled",
         "exit code",
-        "key_model_access_denied",
-        "rate limit",
         "overloaded",
     ]
-    if any(marker in text for marker in failure_markers):
+    if any(marker in text for marker in unconditional_markers):
         return True
 
-    # "failed" / "error:" as standalone words (not inside CSS vars/classes)
-    if re.search(r"(?<![a-z_-])failed(?![a-z0-9_-])", text):
-        return True
-    if re.search(r"(?<![a-z_-])error:", text):
+    # ── "failed" as standalone word ───────────────────────────────
+    # Exclude boundaries that appear in HTML/CSS diffs, code, and
+    # natural-language text where "failed" is descriptive:
+    #   ">failed" (after HTML close tag)
+    #   '"failed' (inside JSON/attribute value)
+    #   text-failed (CSS class), _failed (variable name)
+    #    failed (natural text: "commit failed", "test failed")
+    #   ;failed (HTML entities: &#39;failed)
+    # \w = [a-zA-Z0-9_]
+    # Use \x22 for " and \x27 for ' to avoid string literal issues
+    if re.search(r'''(?<![\w><\x22\x27=:.@#%&!?\-\s;])failed(?![a-z0-9_\-])''', text):
         return True
 
-    # "timeout" as a standalone word
-    if re.search(r"(?<![a-z_-])timeout(?![a-z0-9_-])", text):
+    # ── "error:" as error message prefix ─────────────────────────
+    # Only match at text/line start to avoid false positives from
+    # HTML attributes (data-tooltip="API Error: ...") and code
+    # (text-error">Error:").  Real CLI errors (pytest, cargo, etc.)
+    # emit "error:" at the start of an output line.
+    if re.search(r"(?:^|\n)\s*[A-Za-z]*error:", text, re.MULTILINE):
+        return True
+
+    # ── "timeout" as standalone word ─────────────────────────────
+    if re.search(r"(?<![\w\-])timeout(?![a-z0-9\-])", text):
         return True
 
     return False
