@@ -390,7 +390,7 @@
                             <span class="round-chevron-inline">&#8250;</span> #{{ loop.index }}
                         </td>
                         <td class="preview-cell mono text-xs" data-tooltip="{{ round.preview_text }}">
-                            {{ round.preview_text[:80] | safe if round.preview_text else '—' }}
+                            {{ round.preview_text[:120] if round.preview_text else '—' }}
                         </td>
                         <td class="signals-cell">
                             {% for sig in sigs %}

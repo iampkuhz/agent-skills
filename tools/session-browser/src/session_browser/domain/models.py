@@ -206,58 +206,94 @@ class ConversationRound:
     interactions: list[LLMCall] = field(default_factory=list)
     preview_text: str = ""  # concise human-readable summary for timeline table
 
+    @staticmethod
+    def _compact_preview_text(text: str, limit: int = 120) -> str:
+        """Compress whitespace and truncate text for preview display."""
+        import re
+        if not text:
+            return ""
+        compacted = re.sub(r'\s+', ' ', text).strip()
+        if len(compacted) > limit:
+            return compacted[:limit].rstrip() + '…'
+        return compacted
+
+    @staticmethod
+    def _format_tool_counts(tools: list[ToolCall]) -> str:
+        """Return a compact tool count string like 'Read * 2, Bash * 1'."""
+        if not tools:
+            return ""
+        tool_counts: dict[str, int] = {}
+        for tc in tools:
+            tool_counts[tc.name] = tool_counts.get(tc.name, 0) + 1
+        parts = [f"{name} * {count}" for name, count in tool_counts.items()]
+        return ", ".join(parts)
+
     def compute_preview(self) -> None:
-        """Derive a short preview from interactions/tool_calls after they are assigned."""
-        # Collect all tool calls from interactions
+        """Derive a short preview from interactions/tool_calls after they are assigned.
+
+        Priority:
+        1. LLM response text (+ tool counts if present)
+        2. User input text (+ tool counts if present)
+        3. Tool counts only
+        """
         all_tools: list[ToolCall] = []
         has_subagent = False
+        subagent_response = ""
         for ix in self.interactions:
             if ix.scope == "main":
                 all_tools.extend(ix.tool_calls)
             elif ix.scope == "subagent":
                 has_subagent = True
                 all_tools.extend(ix.tool_calls)
+                if not subagent_response and ix.response_preview:
+                    subagent_response = ix.response_preview
 
-        # No tool calls and no user message — only assistant response
+        # No tools, no user input — only assistant response
         has_user_input = bool(self.user_msg.content)
         if not all_tools and not has_user_input:
             content = self.assistant_msg.content
             if content:
-                self.preview_text = content[:120]
+                self.preview_text = self._compact_preview_text(content, 120)
             return
 
-        # Subagent takes priority
+        tool_summary = self._format_tool_counts(all_tools) if all_tools else ""
+
+        # Subagent: prefer response text over generic subagent label
         if has_subagent:
-            sub_desc = ""
-            for ix in self.interactions:
-                if ix.scope == "subagent" and ix.parent_tool_name:
-                    sub_desc = ix.parent_tool_name
-                    break
-            if all_tools:
-                tool_counts: dict[str, int] = {}
-                for tc in all_tools:
-                    tool_counts[tc.name] = tool_counts.get(tc.name, 0) + 1
-                parts = [f"<code>{name}</code> {count}" for name, count in tool_counts.items()]
-                self.preview_text = f"Subagent({sub_desc}): {', '.join(parts)}"
+            if subagent_response:
+                preview = self._compact_preview_text(subagent_response, 100)
+                if tool_summary:
+                    preview = f"{preview} · {tool_summary}"
             else:
-                self.preview_text = f"Subagent({sub_desc})"
+                # Fallback: show subagent label + tools
+                sub_desc = ""
+                for ix in self.interactions:
+                    if ix.scope == "subagent" and ix.parent_tool_name:
+                        sub_desc = ix.parent_tool_name
+                        break
+                if tool_summary:
+                    preview = f"Subagent({sub_desc}) · {tool_summary}"
+                else:
+                    preview = f"Subagent({sub_desc})"
+            self.preview_text = preview
             return
 
         # Main agent with tool calls
         if all_tools:
-            tool_counts: dict[str, int] = {}
-            for tc in all_tools:
-                tool_counts[tc.name] = tool_counts.get(tc.name, 0) + 1
-            parts = []
-            for name, count in tool_counts.items():
-                parts.append(f"<code>{name}</code> {count} time{'s' if count != 1 else ''}")
-            self.preview_text = ", ".join(parts)
+            content = self.assistant_msg.content
+            if content:
+                # Response + tools
+                preview = self._compact_preview_text(content, 100)
+                self.preview_text = f"{preview} · {tool_summary}"
+            else:
+                # Tools only
+                self.preview_text = tool_summary
             return
 
         # No tool calls but has user input — show truncated user message
         content = self.user_msg.content
         if content:
-            self.preview_text = content[:120]
+            self.preview_text = self._compact_preview_text(content, 120)
 
     @property
     def input_tokens(self) -> int:
