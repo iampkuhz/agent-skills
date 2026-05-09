@@ -45,20 +45,29 @@ def _signal_keys(signals: list[dict]) -> list[str]:
 
 
 class TestFailedToolSignal:
-    def test_single_failed_tool(self):
+    def test_one_failed_tool_no_signal(self):
         r = _make_round(tool_calls=[_tc("Bash", status="error", exit_code=1)])
+        sigs = compute_round_signals(r, 1)
+        assert "failed-tool" not in _signal_keys(sigs)
+
+    def test_two_failed_tools_no_signal(self):
+        tools = [_tc("Read", status="error", exit_code=1), _tc("Bash", status="error", exit_code=2)]
+        r = _make_round(tool_calls=tools)
+        sigs = compute_round_signals(r, 1)
+        assert "failed-tool" not in _signal_keys(sigs)
+
+    def test_three_failed_tools_triggers(self):
+        tools = [
+            _tc("Read", status="error", exit_code=1),
+            _tc("Bash", status="error", exit_code=2),
+            _tc("Edit", status="error", exit_code=1),
+        ]
+        r = _make_round(tool_calls=tools)
         sigs = compute_round_signals(r, 1)
         assert "failed-tool" in _signal_keys(sigs)
         sig = next(s for s in sigs if s["key"] == "failed-tool")
         assert sig["severity"] == "critical"
-        assert "Bash" in sig["reason"]
-
-    def test_multiple_failed_tools(self):
-        tools = [_tc("Read", status="error", exit_code=1), _tc("Bash", status="error", exit_code=2)]
-        r = _make_round(tool_calls=tools)
-        sigs = compute_round_signals(r, 1)
-        sig = next(s for s in sigs if s["key"] == "failed-tool")
-        assert "2 failed tools" in sig["reason"]
+        assert "3 failed tools" in sig["reason"]
 
     def test_no_failed_tools_no_signal(self):
         r = _make_round(tool_calls=[_tc("Read"), _tc("Bash")])
@@ -67,8 +76,18 @@ class TestFailedToolSignal:
 
 
 class TestLLMErrorSignal:
-    def test_llm_error_present(self):
+    def test_one_llm_error_no_signal(self):
+        r = _make_round(llm_error_count=1)
+        sigs = compute_round_signals(r, 1)
+        assert "llm-error" not in _signal_keys(sigs)
+
+    def test_two_llm_errors_no_signal(self):
         r = _make_round(llm_error_count=2)
+        sigs = compute_round_signals(r, 1)
+        assert "llm-error" not in _signal_keys(sigs)
+
+    def test_three_llm_errors_triggers(self):
+        r = _make_round(llm_error_count=3)
         sigs = compute_round_signals(r, 1)
         assert "llm-error" in _signal_keys(sigs)
         sig = next(s for s in sigs if s["key"] == "llm-error")
@@ -122,34 +141,45 @@ class TestToolBurstSignal:
 
 
 class TestHighWriteSignal:
-    def test_cache_write_100k(self):
-        r = _make_round(usage={"cache_creation_input_tokens": 100_000})
+    def test_cache_write_300k(self):
+        r = _make_round(usage={"cache_creation_input_tokens": 300_000})
         sigs = compute_round_signals(r, 1)
         assert "high-write" in _signal_keys(sigs)
 
     def test_cache_write_below_threshold(self):
-        r = _make_round(usage={"cache_creation_input_tokens": 99_999})
+        r = _make_round(usage={"cache_creation_input_tokens": 299_999})
         sigs = compute_round_signals(r, 1)
         assert "high-write" not in _signal_keys(sigs)
 
 
 class TestLargeInputSignal:
-    def test_input_100k(self):
+    def test_large_input_meets_both_thresholds(self):
+        # 200K input AND 50% of session
         r = _make_round(usage={
-            "input_tokens": 100_000,
+            "input_tokens": 200_000,
             "cache_read_input_tokens": 0,
             "cache_creation_input_tokens": 0,
         })
-        sigs = compute_round_signals(r, 1, session_input_tokens=200_000)
+        sigs = compute_round_signals(r, 1, session_input_tokens=300_000)
         assert "large-input" in _signal_keys(sigs)
 
-    def test_input_below_threshold(self):
+    def test_large_input_below_absolute_threshold(self):
         r = _make_round(usage={
-            "input_tokens": 99_999,
+            "input_tokens": 199_999,
             "cache_read_input_tokens": 0,
             "cache_creation_input_tokens": 0,
         })
-        sigs = compute_round_signals(r, 1, session_input_tokens=200_000)
+        sigs = compute_round_signals(r, 1, session_input_tokens=300_000)
+        assert "large-input" not in _signal_keys(sigs)
+
+    def test_large_input_below_percentage_threshold(self):
+        # 200K input but only 10% of session total
+        r = _make_round(usage={
+            "input_tokens": 200_000,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+        })
+        sigs = compute_round_signals(r, 1, session_input_tokens=2_000_000)
         assert "large-input" not in _signal_keys(sigs)
 
 
@@ -206,9 +236,28 @@ class TestRemovedSignals:
         sigs = compute_round_signals(r, 1)
         assert "llm-burst" not in _signal_keys(sigs)
 
+    def test_single_failed_tool_not_emitted(self):
+        # One failed tool should NOT trigger (needs >= 3)
+        r = _make_round(tool_calls=[_tc("Bash", status="error", exit_code=1)])
+        sigs = compute_round_signals(r, 1)
+        assert "failed-tool" not in _signal_keys(sigs)
+
+    def test_two_failed_tools_not_emitted(self):
+        r = _make_round(tool_calls=[
+            _tc("Bash", status="error", exit_code=1),
+            _tc("Read", status="error", exit_code=1),
+        ])
+        sigs = compute_round_signals(r, 1)
+        assert "failed-tool" not in _signal_keys(sigs)
+
+    def test_single_llm_error_not_emitted(self):
+        r = _make_round(llm_error_count=1)
+        sigs = compute_round_signals(r, 1)
+        assert "llm-error" not in _signal_keys(sigs)
+
     def test_old_low_threshold_high_write_not_emitted(self):
-        # Old threshold was 10K; new threshold is 100K
-        r = _make_round(usage={"cache_creation_input_tokens": 10_000})
+        # Old threshold was 10K; new threshold is 300K
+        r = _make_round(usage={"cache_creation_input_tokens": 100_000})
         sigs = compute_round_signals(r, 1)
         assert "high-write" not in _signal_keys(sigs)
 

@@ -578,7 +578,8 @@ def compute_round_signals(
 
     # ── Critical signals ────────────────────────────────────────────
 
-    if failed_tools:
+    # >= 3 failed tools in a single round (occasional failures are expected)
+    if len(failed_tools) >= 3:
         count = len(failed_tools)
         names = ", ".join(tc.name for tc in failed_tools[:3])
         suffix = f" +{count - 3}" if count > 3 else ""
@@ -586,15 +587,16 @@ def compute_round_signals(
             "key": "failed-tool",
             "label": "failed tool",
             "severity": "critical",
-            "reason": f"{count} failed tool{'s' if count != 1 else ''}: {names}{suffix}",
+            "reason": f"{count} failed tools: {names}{suffix}",
         })
 
-    if round.llm_error_count > 0:
+    # >= 3 LLM errors in a single round (occasional errors are expected)
+    if round.llm_error_count >= 3:
         signals.append({
             "key": "llm-error",
             "label": "llm error",
             "severity": "critical",
-            "reason": f"{round.llm_error_count} LLM error{'s' if round.llm_error_count != 1 else ''} in this round",
+            "reason": f"{round.llm_error_count} LLM errors in this round",
         })
 
     # ── Warning signals ─────────────────────────────────────────────
@@ -629,8 +631,9 @@ def compute_round_signals(
                 "reason": f"{len(round_tools)} tool calls in round {round_index}",
             })
 
-    # Cache write >= 100K tokens (cost / context hotspot)
-    if rb["cache_write"] >= 100_000:
+    # Cache write >= 300K tokens in a single round
+    # (100K is common in long sessions; 300K+ indicates unusual context accumulation)
+    if rb["cache_write"] >= 300_000:
         signals.append({
             "key": "high-write",
             "label": "high write",
@@ -638,18 +641,19 @@ def compute_round_signals(
             "reason": f"{rb['cache_write']:,} cache write tokens in round {round_index}",
         })
 
-    # Large input: >= 100K input tokens or >= 40% of session total input
-    if round_input_total >= 100_000:
-        pct_of_session = ""
-        if total_session_input > 0:
-            pct = round_input_total / total_session_input * 100
-            if pct >= 40:
-                pct_of_session = f" ({pct:.0f}% of session)"
+    # Large input: requires BOTH absolute (>= 200K) AND relative (>= 50% of session)
+    # thresholds. An absolute-only check fires constantly as session context grows;
+    # the percentage guard ensures it only fires when the round is truly
+    # disproportionate to the session overall.
+    if (round_input_total >= 200_000
+            and total_session_input > 0
+            and round_input_total / total_session_input >= 0.5):
+        pct = round_input_total / total_session_input * 100
         signals.append({
             "key": "large-input",
             "label": "large input",
             "severity": "warning",
-            "reason": f"{round_input_total:,} input tokens in round {round_index}{pct_of_session}",
+            "reason": f"{round_input_total:,} input tokens in round {round_index} ({pct:.0f}% of session)",
         })
 
     return signals
