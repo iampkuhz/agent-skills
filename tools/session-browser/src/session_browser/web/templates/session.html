@@ -379,32 +379,7 @@
                     {% set has_failed_tools = round.tool_calls | selectattr('is_failed') | list | length > 0 %}
                     {% set round_tools = round.tool_calls | length %}
 
-                    <!-- Determine signals -->
-                    {% set signals = [] %}
-                    {% if loop.index <= 3 and rb.cache_read == 0 and round_input_total > 0 %}
-                        {% set _ = signals.append("warm-up") %}
-                    {% endif %}
-                    {% if rb.cache_read > round_input_total * 0.5 and round_input_total > 0 %}
-                        {% set _ = signals.append("cache-hit") %}
-                    {% endif %}
-                    {% if rb.cache_write > 10000 %}
-                        {% set _ = signals.append("high-write") %}
-                    {% endif %}
-                    {% if round_tools > 5 %}
-                        {% set _ = signals.append("tool-burst") %}
-                    {% endif %}
-                    {% if round.llm_call_count > 10 %}
-                        {% set _ = signals.append("llm-burst") %}
-                    {% endif %}
-                    {% if rb.output < 100 and round_input_total > 10000 %}
-                        {% set _ = signals.append("low-output") %}
-                    {% endif %}
-                    {% if round.llm_error_count > 0 %}
-                        {% set _ = signals.append("llm-error") %}
-                    {% endif %}
-                    {% if has_failed_tools %}
-                        {% set _ = signals.append("failed-tool") %}
-                    {% endif %}
+                    {% set sigs = round_signals[loop.index0] if round_signals else [] %}
 
                     <tr class="round-header-row {{ 'row--failed' if has_failed_tools else '' }}"
                         data-round-idx="{{ loop.index }}"
@@ -418,11 +393,9 @@
                             {{ round.preview_text[:80] | safe if round.preview_text else '—' }}
                         </td>
                         <td class="signals-cell">
-                            {% if signals %}
-                                {% for sig in signals %}
-                                <span class="signal-badge signal-{{ sig }}">{{ sig }}</span>
-                                {% endfor %}
-                            {% endif %}
+                            {% for sig in sigs %}
+                            <span class="signal-badge signal-{{ sig['severity'] }}" data-tooltip="{{ sig['reason'] }}">{{ sig['label'] }}</span>
+                            {% endfor %}
                         </td>
                         <td class="numeric mono text-xs">
                             {{ round.total_tokens | format_number }}

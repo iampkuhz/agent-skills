@@ -555,6 +555,106 @@ def _build_subagent_interactions(
     return interactions
 
 
+def compute_round_signals(
+    round,  # ConversationRound
+    round_index: int,  # 1-based
+    session_input_tokens: int = 0,
+) -> list[dict]:
+    """Compute actionable round-level signals for the Timeline tab.
+
+    Only returns signals that represent "worth opening to investigate" events.
+    Normal/positive/low-value states (warm-up, cache-hit, low-output) are
+    intentionally excluded to reduce noise.
+
+    Returns a list of dicts with keys: key, label, severity, reason.
+    """
+    signals: list[dict] = []
+
+    rb = round.token_breakdown()
+    round_input_total = rb["input"] + rb["cache_read"] + rb["cache_write"]
+    round_tools = round.tool_calls
+    failed_tools = [tc for tc in round_tools if tc.is_failed]
+    total_session_input = session_input_tokens
+
+    # ── Critical signals ────────────────────────────────────────────
+
+    if failed_tools:
+        count = len(failed_tools)
+        names = ", ".join(tc.name for tc in failed_tools[:3])
+        suffix = f" +{count - 3}" if count > 3 else ""
+        signals.append({
+            "key": "failed-tool",
+            "label": "failed tool",
+            "severity": "critical",
+            "reason": f"{count} failed tool{'s' if count != 1 else ''}: {names}{suffix}",
+        })
+
+    if round.llm_error_count > 0:
+        signals.append({
+            "key": "llm-error",
+            "label": "llm error",
+            "severity": "critical",
+            "reason": f"{round.llm_error_count} LLM error{'s' if round.llm_error_count != 1 else ''} in this round",
+        })
+
+    # ── Warning signals ─────────────────────────────────────────────
+
+    # Single tool taking >= 5 minutes
+    long_tools = [tc for tc in round_tools if tc.duration_ms >= 300_000]
+    if long_tools:
+        names = ", ".join(tc.name for tc in long_tools[:2])
+        suffix = f" +{len(long_tools) - 2}" if len(long_tools) > 2 else ""
+        signals.append({
+            "key": "long-tool",
+            "label": "long tool",
+            "severity": "warning",
+            "reason": f"{len(long_tools)} tool{'s' if len(long_tools) != 1 else ''} >= 5 min: {names}{suffix}",
+        })
+
+    # >= 20 tool calls in a round (possible loop / efficiency issue)
+    if len(round_tools) >= 20:
+        # Exclude the case where it's just a handful of small repeated tools
+        tool_name_counts: dict[str, int] = {}
+        for tc in round_tools:
+            tool_name_counts[tc.name] = tool_name_counts.get(tc.name, 0) + 1
+        # If top 3 tools account for >= 90% of calls, it's likely a tight loop
+        sorted_counts = sorted(tool_name_counts.values(), reverse=True)
+        top3 = sum(sorted_counts[:3])
+        is_tight_loop = top3 >= int(len(round_tools) * 0.9)
+        if not is_tight_loop or len(tool_name_counts) >= 5:
+            signals.append({
+                "key": "tool-burst",
+                "label": "tool burst",
+                "severity": "warning",
+                "reason": f"{len(round_tools)} tool calls in round {round_index}",
+            })
+
+    # Cache write >= 100K tokens (cost / context hotspot)
+    if rb["cache_write"] >= 100_000:
+        signals.append({
+            "key": "high-write",
+            "label": "high write",
+            "severity": "warning",
+            "reason": f"{rb['cache_write']:,} cache write tokens in round {round_index}",
+        })
+
+    # Large input: >= 100K input tokens or >= 40% of session total input
+    if round_input_total >= 100_000:
+        pct_of_session = ""
+        if total_session_input > 0:
+            pct = round_input_total / total_session_input * 100
+            if pct >= 40:
+                pct_of_session = f" ({pct:.0f}% of session)"
+        signals.append({
+            "key": "large-input",
+            "label": "large input",
+            "severity": "warning",
+            "reason": f"{round_input_total:,} input tokens in round {round_index}{pct_of_session}",
+        })
+
+    return signals
+
+
 def _assign_interactions_to_rounds(
     rounds: list[ConversationRound],
     llm_calls: list[LLMCall],
@@ -811,15 +911,23 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         from session_browser.index.anomalies import detect_session_anomalies
         sa = detect_session_anomalies(session_data)
 
+        # Compute signals for each round after interactions are assigned
+        round_signals = []
+        for i, r in enumerate(rounds):
+            round_signals.append(
+                compute_round_signals(r, i + 1, session.input_tokens)
+            )
+
         # Set repo root to session's project directory for relative path rendering
         global _SESSION_REPO_ROOT
-        _SESSION_REPO_ROOT = _get_repo_root(session.cwd)
+        _SESSION_REPO_ROOT = _get_repo_root(session.project_key) if session.project_key else None
 
         html = self._render_template(
             "session.html",
             session=session,
             session_data=session_data,
             rounds=rounds,
+            round_signals=round_signals,
             tool_calls=tool_calls,
             llm_calls=llm_calls,
             current_agent=agent,

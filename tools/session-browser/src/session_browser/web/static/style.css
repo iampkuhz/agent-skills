@@ -1973,41 +1973,14 @@ tr.row--anomaly {
     line-height: 1.4;
     flex-shrink: 0;
 }
-.signal-normal {
-    background: var(--status-success-bg);
-    color: var(--status-success);
+/* Severity-based signal colors (computed in Python helper) */
+.signal-critical {
+    background: var(--status-error-bg);
+    color: var(--status-error);
 }
-.signal-warm-up {
-    background: var(--accent-bg);
-    color: var(--accent);
-}
-.signal-cache-hit {
-    background: var(--token-cache-read-bg);
-    color: var(--token-cache-read);
-}
-.signal-high-write {
-    background: var(--token-cache-write-bg);
-    color: var(--token-cache-write);
-}
-.signal-tool-burst {
-    background: var(--token-tool-bg);
-    color: var(--token-tool);
-}
-.signal-llm-burst {
-    background: var(--accent-bg);
-    color: var(--accent);
-}
-.signal-low-output {
+.signal-warning {
     background: var(--status-warning-bg);
     color: var(--status-warning);
-}
-.signal-llm-error {
-    background: var(--status-error-bg);
-    color: var(--status-error);
-}
-.signal-failed-tool {
-    background: var(--status-error-bg);
-    color: var(--status-error);
 }
 
 /* ─── Tool hotspots ─────────────────────────────────────────── */
