@@ -466,7 +466,7 @@ def _build_summary_from_events(
             if isinstance(content, list):
                 for item in content:
                     if isinstance(item, dict) and item.get("type") == "tool_result":
-                        if item.get("is_error") is True or _tool_result_looks_failed(item.get("content", "")):
+                        if item.get("is_error") is True:
                             failed_tool_count += 1
 
         ts_str = ev.get("timestamp", "")
@@ -580,25 +580,65 @@ def _stringify_tool_result(result_content) -> str:
     return str(result_content)
 
 
-def _tool_result_looks_failed(result_content) -> bool:
-    """Heuristic for failed tool/model results in Claude logs."""
+def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
+    """Heuristic for failed tool/model results in Claude logs.
+
+    Uses word-boundary-aware matching to avoid false positives from
+    CSS variable names (--status-error:), class names (.has-failed),
+    and other embedded code that happens to contain error keywords.
+    """
     text = _stringify_tool_result(result_content).lower()
     if not text:
         return False
+
+    # For Read/Write/Edit tools, only trust structured error markers.
+    # Their result is file content which often contains words like
+    # "error", "failed", "timeout" in variable/class names.
+    if tool_name in ("Read", "Write", "Edit", "Glob", "Grep", "LS"):
+        structured_markers = [
+            "api error",
+            "tool_use_error",
+            "user rejected",
+            "cancelled",
+            "key_model_access_denied",
+            "rate limit",
+            "overloaded",
+        ]
+        if any(marker in text for marker in structured_markers):
+            return True
+        # File-level errors: starts with "File does not exist" etc.
+        first_line = text.split("\n", 1)[0].strip()
+        if first_line.startswith(("file does not exist", "permission denied",
+                                    "no such file", "directory not found",
+                                    "path not found", "cannot read")):
+            return True
+        return False
+
+    # For Bash/Agent and others, use broader heuristics.
     failure_markers = [
         "api error",
         "tool_use_error",
         "user rejected",
         "cancelled",
-        "failed",
-        "error:",
         "exit code",
         "key_model_access_denied",
         "rate limit",
-        "timeout",
         "overloaded",
     ]
-    return any(marker in text for marker in failure_markers)
+    if any(marker in text for marker in failure_markers):
+        return True
+
+    # "failed" / "error:" as standalone words (not inside CSS vars/classes)
+    if re.search(r"(?<![a-z_-])failed(?![a-z0-9_-])", text):
+        return True
+    if re.search(r"(?<![a-z_-])error:", text):
+        return True
+
+    # "timeout" as a standalone word
+    if re.search(r"(?<![a-z_-])timeout(?![a-z0-9_-])", text):
+        return True
+
+    return False
 
 
 def _usage_totals_from_messages(messages: list[ChatMessage]) -> dict:
@@ -762,8 +802,10 @@ def _extract_tool_calls(
     """
     tool_calls = []
 
-    # Build a map of tool_use_id → tool_result for status/result display
-    tool_results = {}
+    # Build a map of tool_use_id → tool_result for status/result display.
+    # We only extract the JSONL is_error flag and raw content here;
+    # the heuristic is applied later once we know the tool name.
+    tool_results: dict[str, dict] = {}
     for ev in events:
         if ev.get("type") != "user":
             continue
@@ -776,27 +818,10 @@ def _extract_tool_calls(
                 if isinstance(item, dict) and item.get("type") == "tool_result":
                     tool_use_id = item.get("tool_use_id", "")
                     result_content = item.get("content", "")
-
-                    is_error = item.get("is_error") is True
-                    exit_code = None
                     result_text = _stringify_tool_result(result_content)
-                    error_msg = result_text[:500] if is_error else ""
-
-                    if _tool_result_looks_failed(result_text):
-                        is_error = True
-                    exit_match = re.search(r"exit code[:\s]*(\d+)", result_text, re.IGNORECASE)
-                    if exit_match:
-                        exit_code = int(exit_match.group(1))
-                        if exit_code != 0:
-                            is_error = True
-                    if is_error and not error_msg:
-                        error_msg = result_text[:500]
-
                     tool_results[tool_use_id] = {
-                        "is_error": is_error,
-                        "exit_code": exit_code,
-                        "error_message": error_msg,
-                        "result": result_text[:2000],
+                        "is_error_raw": item.get("is_error") is True,
+                        "result_text": result_text,
                     }
 
     # Extract tool calls from assistant messages
@@ -809,17 +834,26 @@ def _extract_tool_calls(
             params = tc.get("parameters", {})
 
             # Try to find matching tool result
-            result_info = tool_results.get(tool_use_id, {})
-            status = "completed"
+            raw = tool_results.get(tool_use_id, {})
+            is_error = raw.get("is_error_raw", False)
+            result_text = raw.get("result_text", "")
+
+            # Apply heuristic now that we know the tool name
+            if _tool_result_looks_failed(result_text, tool_name=name):
+                is_error = True
+
             exit_code = None
-            error_msg = ""
-            result = ""
+            exit_match = re.search(r"exit code[:\s]*(\d+)", result_text, re.IGNORECASE)
+            if exit_match:
+                exit_code = int(exit_match.group(1))
+                if exit_code != 0:
+                    is_error = True
+
+            error_msg = result_text[:500] if is_error else ""
+
+            status = "error" if is_error else "completed"
+            result = result_text[:2000]
             files_touched = []
-            if result_info:
-                status = "error" if result_info.get("is_error") else "completed"
-                exit_code = result_info.get("exit_code")
-                error_msg = result_info.get("error_message", "")
-                result = result_info.get("result", "")
 
             # For Read/Write/Edit tools, extract file path from params
             file_path = (
