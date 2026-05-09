@@ -45,21 +45,16 @@
 
 参考规则：`references/input-sufficiency.md`。
 
-### 3. Page Contract
+### 3. 决策确认卡片
 
-信息足够后，先输出 Page Contract，锁定本页内容范围和版面预算。
+信息足够后，先输出**决策确认卡片**，锁定本页内容范围和版面预算。
 
-Page Contract 必须包含：
+内部完成完整 Page Contract 规划，但**只展示不确定的决策点**给用户：
+- 每个决策点提供 2-3 个候选选项，标注推荐项。
+- 不重复列出已提供的原始信息。
+- 无不确定性时只输出简短确认。
 
-- 本页目标
-- 一句话结论
-- 使用的原始信息
-- 页面内容范围
-- 推荐页面结构
-- 版面蓝图
-- 生成前确认
-
-Page Contract 只给一个推荐结构，不列多个设计方案让用户选择。用户确认前不得生成 PPTX。
+用户确认前不得生成 PPTX。
 
 参考规则：`references/page-contract.md`、`references/interaction-protocol.md`。
 
@@ -253,7 +248,7 @@ node scripts/validate_design_system.js
 | 维度 | draft | production |
 |------|-------|------------|
 | 目标 | 快速看方向，讨论内容和版式 | 正式可交付，可编辑可发布 |
-| 用户确认 | 简化确认 / 可先出样 | 标准 Page Contract 确认 |
+| 用户确认 | 简化确认 / 可先出样 | 决策确认卡片确认 |
 | 版式复杂度 | 低到中 | 中到高 |
 | 组件范围 | 简化组件子集 | 完整组件全集 |
 | QA 门禁 | draft gate（避免明显重叠、越界、无结论；允许部分 warning） | production gate（Static QA 无 hard_fail，PPTX postcheck 通过，Render QA 可用时通过） |

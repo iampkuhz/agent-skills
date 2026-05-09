@@ -1,7 +1,7 @@
 /**
  * PPTX 基础图形原语（Primitives）
  * 封装小而稳定的 PptxGenJS 操作函数。
- * 每个 primitive 只消费 element 的 layout、style、content。
+ * 每个 primitive 消费 element 的 layout、style、content。
  */
 
 'use strict';
@@ -9,13 +9,16 @@
 const theme = require('./theme');
 
 // --- PptxGenJS ShapeType 映射 ---
+// PptxGenJS 内部常量是大写，但输出到 OpenXML prst 属性时必须是小写。
+// 修复：直接使用 OpenXML 合法的 prst 值。
+// 参考: ECMA-376 Part 4 §20.1.10.39 ST_ShapeType
 const SHAPE_MAP = {
-  rect:          'RECTANGLE',
-  rounded_rect:  'ROUNDED_RECTANGLE',
-  oval:          'OVAL',
-  diamond:       'DIAMOND',
-  chevron:       'CHEVRON',
-  cloud:         'CLOUD'
+  rect:          'rect',
+  rounded_rect:  'roundRect',
+  oval:          'ellipse',
+  diamond:       'diamond',
+  chevron:       'chevron',
+  cloud:         'cloud'
 };
 
 // --- PptxGenJS ConnectorType 映射 ---
@@ -54,14 +57,22 @@ function mergeStyle(element, themeDefaults) {
 
 /**
  * 提取 layout 坐标和尺寸。
+ * 返回 { x, y, w, h, hasCoords }，hasCoords=false 表示缺少必需坐标。
  */
 function extractLayout(element) {
   const l = element.layout || {};
+  const hasX = l.x !== undefined && l.x !== null;
+  const hasY = l.y !== undefined && l.y !== null;
+  const hasW = l.w !== undefined && l.w !== null;
+  const hasH = l.h !== undefined && l.h !== null;
+  const hasCoords = hasX && hasY && hasW && hasH;
+
   return {
-    x: l.x || 0,
-    y: l.y || 0,
-    w: l.w || 2,
-    h: l.h || 0.5
+    x: hasX ? l.x : 0,
+    y: hasY ? l.y : 0,
+    w: hasW ? l.w : 2,
+    h: hasH ? l.h : 0.5,
+    hasCoords
   };
 }
 
@@ -94,6 +105,7 @@ function addTextBox(slide, element, thm) {
 
 /**
  * 添加组件节点（带背景色的圆角矩形 + 文本）。
+ * 单个带 fillColor 的文本框，不再用背景矩形 + 文本框拼接。
  */
 function addComponentNode(slide, element, thm) {
   const layout = extractLayout(element);
@@ -103,30 +115,23 @@ function addComponentNode(slide, element, thm) {
   });
 
   const content = element.content || {};
-  const shapeType = SHAPE_MAP[content.shape_type] || 'ROUNDED_RECTANGLE';
   const labelText = content.label || extractText(element);
 
-  slide.addShape(shapeType, {
+  slide.addText(labelText, {
     x: layout.x, y: layout.y, w: layout.w, h: layout.h,
     fill: { color: style.fillColor || thm.COLORS.paleBlue },
     line: { color: thm.COLORS.border, width: 0.5 },
-    rectRadius: 0.1
+    rectRadius: 0.1,
+    fontSize: style.fontSize,
+    fontFace: style.fontFace,
+    color: style.color,
+    bold: style.bold || false,
+    align: 'center',
+    valign: 'middle',
+    wrap: true,
+    autoFit: true,
+    margin: [0.05, 0.08, 0.05, 0.08]
   });
-
-  if (labelText) {
-    slide.addText(labelText, {
-      x: layout.x, y: layout.y, w: layout.w, h: layout.h,
-      fontSize: style.fontSize,
-      fontFace: style.fontFace,
-      color: style.color,
-      bold: style.bold || false,
-      align: 'center',
-      valign: 'middle',
-      wrap: true,
-      autoFit: true,
-      margin: [0.05, 0.08, 0.05, 0.08]
-    });
-  }
 }
 
 /**
@@ -173,6 +178,11 @@ function addStepMarker(slide, element, thm) {
 
 /**
  * 添加 KPI 卡片（带背景色的文本框）。
+ *
+ * 架构：单个带 fillColor 的文本框，内部用多段落排版 label + value。
+ * 不再用 "背景矩形 + 文本框" 拼接方案，因为：
+ * 1. PptxGenJS 3.12.0 没有 slide.addGroup()，无法将多个 shape 绑为整体
+ * 2. 分开画导致 shape 数量翻倍，Office XML 校验更严格
  */
 function addKpiCard(slide, element, thm) {
   const layout = extractLayout(element);
@@ -180,47 +190,40 @@ function addKpiCard(slide, element, thm) {
   const label = content.label || '';
   const value = String(content.value !== undefined ? content.value : extractText(element));
 
-  // 背景色
   const bgColor = element.style && element.style.background_color
     ? element.style.background_color
     : thm.COLORS.paleBlue;
 
-  slide.addShape('RECTANGLE', {
+  // 单个文本框，用多段落排版 label + value
+  slide.addText([
+    { text: label + '\n', options: {
+      fontSize: thm.FONT_SIZES.kpiLabel,
+      fontFace: thm.resolveFontFace('default'),
+      color: thm.COLORS.gray,
+      bold: false,
+    }},
+    { text: value, options: {
+      fontSize: thm.FONT_SIZES.kpiValue,
+      fontFace: thm.resolveFontFace('default'),
+      color: thm.COLORS.navy,
+      bold: true,
+    }}
+  ], {
     x: layout.x, y: layout.y, w: layout.w, h: layout.h,
     fill: { color: bgColor },
     line: { color: thm.COLORS.border, width: 0.5 },
-    rectRadius: 0.08
-  });
-
-  // 标签
-  slide.addText(label, {
-    x: layout.x + 0.08, y: layout.y + 0.05, w: layout.w - 0.16, h: layout.h * 0.4,
-    fontSize: thm.FONT_SIZES.kpiLabel,
-    fontFace: thm.resolveFontFace('default'),
-    color: thm.COLORS.gray,
-    bold: false,
+    rectRadius: 0.08,
     align: 'left',
     valign: 'top',
     wrap: true,
-    margin: 0
-  });
-
-  // 值
-  slide.addText(value, {
-    x: layout.x + 0.08, y: layout.y + layout.h * 0.4, w: layout.w - 0.16, h: layout.h * 0.55,
-    fontSize: thm.FONT_SIZES.kpiValue,
-    fontFace: thm.resolveFontFace('default'),
-    color: thm.COLORS.navy,
-    bold: true,
-    align: 'left',
-    valign: 'top',
-    wrap: true,
-    margin: 0
+    margin: [0.08, 0.12, 0.08, 0.12],
+    paraSpaceAfter: 4
   });
 }
 
 /**
  * 添加矩阵/表格。
+ * 确保 table frame 高度覆盖所有行高总和。
  */
 function addMatrix(slide, element, thm) {
   const layout = extractLayout(element);
@@ -262,17 +265,26 @@ function addMatrix(slide, element, thm) {
 
   if (tableRows.length === 0) return;
 
+  // 计算行高：确保 frame 高度 >= 行高总和
+  const rowCount = tableRows.length;
+  const perRowH = layout.h / rowCount;
+  // 最小行高 0.25 inch（保证文字可读），但 frame 高度必须覆盖总和
+  const rowH = Math.max(0.25, perRowH);
+  // 如果 layout.h 不足以覆盖所有行，扩大 frame 高度
+  const actualFrameH = rowH * rowCount;
+
   slide.addTable(tableRows, {
-    x: layout.x, y: layout.y, w: layout.w,
+    x: layout.x, y: layout.y, w: layout.w, h: actualFrameH,
     border: { color: thm.COLORS.border, width: 0.5, type: 'solid' },
     colW: headers.length > 0 ? Array(headers.length).fill(layout.w / headers.length) : undefined,
     margin: 0,
-    rowH: tableRows.length > 0 ? Math.min(0.4, layout.h / tableRows.length) : undefined
+    rowH: Array(rowCount).fill(rowH)
   });
 }
 
 /**
  * 添加注释/说明文本。
+ * 单个带 fillColor 的文本框，不再用背景矩形 + 文本框拼接。
  */
 function addNote(slide, element, thm) {
   const layout = extractLayout(element);
@@ -285,15 +297,11 @@ function addNote(slide, element, thm) {
   const text = extractText(element);
   if (!text) return;
 
-  slide.addShape('RECTANGLE', {
+  slide.addText(text, {
     x: layout.x, y: layout.y, w: layout.w, h: layout.h,
     fill: { color: style.fillColor || thm.COLORS.white },
     line: { color: thm.COLORS.border, width: 0.5 },
-    rectRadius: 0.05
-  });
-
-  slide.addText(text, {
-    x: layout.x, y: layout.y, w: layout.w, h: layout.h,
+    rectRadius: 0.05,
     fontSize: style.fontSize,
     fontFace: style.fontFace,
     color: style.color,
@@ -335,7 +343,7 @@ function addRegionFrame(slide, region, thm, options) {
 
   if (!fillColor && !lineColor) return;
 
-  slide.addShape('RECTANGLE', {
+  slide.addShape('rect', {
     x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h,
     fill: fillColor ? { color: fillColor } : undefined,
     line: lineColor ? { color: lineColor, width: 0.5 } : undefined,

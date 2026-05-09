@@ -18,7 +18,8 @@ const BUILDERS = {
   'roadmap-timeline':   require('./builders/roadmap-timeline'),
   'metrics-dashboard':  require('./builders/metrics-dashboard'),
   'decision-tree':      require('./builders/decision-tree'),
-  'capability-map':     require('./builders/capability-map')
+  'capability-map':     require('./builders/capability-map'),
+  'primitive-gallery':  require('./builders/primitive-gallery')
 };
 
 /**
@@ -65,6 +66,21 @@ async function compile(slideIR, outputPath) {
   try {
     const pres = new PptxGenJS();
     const canvasSize = theme.getCanvasSize(slideIR.canvas);
+
+    // PptxGenJS 的 defineLayout 不影响输出 PPTX 的幻灯片尺寸。
+    // 实际幻灯片尺寸由 _presLayout 控制，默认 screen16x9 = 10×5.625 inch。
+    // 需要直接修改 _presLayout 的 EMU 尺寸才能输出正确的画布。
+    const EMU_PER_INCH = 914400;
+    const targetW = Math.round(canvasSize.width_in * EMU_PER_INCH);
+    const targetH = Math.round(canvasSize.height_in * EMU_PER_INCH);
+    pres._presLayout = {
+      name: 'custom',
+      width: targetW,
+      height: targetH,
+      _sizeW: targetW,
+      _sizeH: targetH
+    };
+
     pres.defineLayout({ name: 'Custom', width: canvasSize.width_in, height: canvasSize.height_in });
 
     const summary = builder.build(pres, slideIR, theme);

@@ -1,0 +1,252 @@
+{
+  "version": "v1",
+  "slide_id": "primitive-gallery-all-types",
+  "language": "zh-CN",
+  "audience": "CTO / technical executive",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.5, "right": 0.5, "bottom": 0.5, "left": 0.5 }
+  },
+  "layout_pattern": "primitive-gallery",
+  "source_summary": [
+    { "source_id": "src_1", "content_type": "text", "description": "Primitive gallery fixture: 覆盖所有原子组件类型" }
+  ],
+  "takeaway": "Primitive Gallery：每个原子组件类型都有正常样例和压力样例",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.5, "y": 0.5, "w": 12.33, "h": 0.8 },
+      "capacity": { "max_items": 3 },
+      "priority": 1
+    },
+    {
+      "id": "region_kpi",
+      "role": "kpi_row",
+      "bounds": { "x": 0.5, "y": 1.4, "w": 12.33, "h": 0.7 },
+      "capacity": { "max_items": 4 },
+      "priority": 2
+    },
+    {
+      "id": "region_main",
+      "role": "evidence_zone",
+      "bounds": { "x": 0.5, "y": 2.3, "w": 7.5, "h": 3.8 },
+      "capacity": { "max_items": 6, "max_table_rows": 8 },
+      "priority": 3
+    },
+    {
+      "id": "region_side",
+      "role": "sidebar",
+      "bounds": { "x": 8.2, "y": 2.3, "w": 4.63, "h": 3.8 },
+      "capacity": { "max_items": 4 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway",
+      "bounds": { "x": 0.5, "y": 6.3, "w": 12.33, "h": 0.3 },
+      "capacity": { "max_items": 1 },
+      "priority": 4
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.5, "y": 6.65, "w": 12.33, "h": 0.25 },
+      "capacity": { "max_items": 1, "max_text_chars": 80 },
+      "priority": 5
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "layout": { "x": 0.6, "y": 0.55, "w": 12.13, "h": 0.35, "alignment": "left" },
+      "content": { "label": "Primitive Gallery — 原子组件回归验证" },
+      "style": { "color": "#1B2A4A", "font_size_pt": 28, "bold": true },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "layout": { "x": 0.6, "y": 0.9, "w": 10, "h": 0.25 },
+      "content": { "label": "覆盖 text box、KPI Card、Note、Matrix、Component Node、Badge、Connector、Step Marker" },
+      "style": { "color": "#5F6368", "font_size_pt": 14 },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_kpi_1",
+      "kind": "kpi_card",
+      "semantic_role": "kpi",
+      "region_id": "region_kpi",
+      "layout": { "x": 0.6, "y": 1.45, "w": 2.8, "h": 0.6 },
+      "content": { "label": "正常 KPI", "value": "99.9%" },
+      "style": { "background_color": "#E8F0FE" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_kpi_2",
+      "kind": "kpi_card",
+      "semantic_role": "kpi",
+      "region_id": "region_kpi",
+      "layout": { "x": 3.6, "y": 1.45, "w": 2.8, "h": 0.6 },
+      "content": { "label": "长标签 KPI", "value": "1,234,567" },
+      "style": { "background_color": "#E8F0FE" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_kpi_3",
+      "kind": "kpi_card",
+      "semantic_role": "kpi",
+      "region_id": "region_kpi",
+      "layout": { "x": 6.6, "y": 1.45, "w": 2.8, "h": 0.6 },
+      "content": { "label": "极大数值", "value": "9,876,543,210" },
+      "style": { "background_color": "#E8F0FE" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_kpi_4",
+      "kind": "kpi_card",
+      "semantic_role": "kpi",
+      "region_id": "region_kpi",
+      "layout": { "x": 9.6, "y": 1.45, "w": 2.8, "h": 0.6 },
+      "content": { "label": "空值 KPI", "value": "—" },
+      "style": { "background_color": "#E8F0FE" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_table_2x2",
+      "kind": "matrix",
+      "semantic_role": "evidence",
+      "region_id": "region_main",
+      "layout": { "x": 0.6, "y": 2.4, "w": 7.2, "h": 1.2 },
+      "content": {
+        "headers": ["维度", "值"],
+        "rows": [
+          ["正常 2x2 表", "A"],
+          ["行 2", "B"]
+        ]
+      },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_table_4x5",
+      "kind": "matrix",
+      "semantic_role": "evidence",
+      "region_id": "region_main",
+      "layout": { "x": 0.6, "y": 3.8, "w": 7.2, "h": 2.2 },
+      "content": {
+        "headers": ["列 1", "列 2", "列 3", "列 4"],
+        "rows": [
+          ["行 A", "数据 A1", "数据 A2", "数据 A3"],
+          ["行 B", "数据 B1", "数据 B2", "数据 B3"],
+          ["行 C", "数据 C1", "数据 C2", "数据 C3"],
+          ["行 D", "数据 D1", "数据 D2", "数据 D3"]
+        ]
+      },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_note_short",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "layout": { "x": 8.3, "y": 2.4, "w": 4.43, "h": 0.8 },
+      "content": { "label": "短句洞察面板" },
+      "style": { "color": "#1B2A4A" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_note_long",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_side",
+      "layout": { "x": 8.3, "y": 3.4, "w": 4.43, "h": 1.2 },
+      "content": { "label": "这是一段较长的洞察面板文本，用于验证 note 组件在内容较多时的排版表现和文本换行情况。" },
+      "style": { "color": "#1B2A4A" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_note_risk",
+      "kind": "note",
+      "semantic_role": "risk",
+      "region_id": "region_side",
+      "layout": { "x": 8.3, "y": 4.8, "w": 4.43, "h": 0.8 },
+      "content": { "label": "⚠ 风险标注样例" },
+      "style": { "color": "#C5221F" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_node_1",
+      "kind": "component_node",
+      "semantic_role": "component",
+      "region_id": "region_side",
+      "layout": { "x": 8.3, "y": 5.7, "w": 2.0, "h": 0.6 },
+      "content": { "label": "模块 A", "shape_type": "rounded_rect" },
+      "style": { "color": "#1B2A4A" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_node_2",
+      "kind": "component_node",
+      "semantic_role": "component",
+      "region_id": "region_side",
+      "layout": { "x": 10.5, "y": 5.7, "w": 2.0, "h": 0.6 },
+      "content": { "label": "模块 B", "shape_type": "rounded_rect" },
+      "style": { "color": "#1B2A4A" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_conn_1",
+      "kind": "connector",
+      "semantic_role": "flow_arrow",
+      "region_id": "region_side",
+      "layout": { "x": 8.3, "y": 6.0, "w": 2.2, "h": 0.1 },
+      "content": { "connector_type": "arrow" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_step_1",
+      "kind": "step_marker",
+      "semantic_role": "step",
+      "region_id": "region_main",
+      "layout": { "x": 0.6, "y": 2.0, "w": 1.5, "h": 0.3 },
+      "content": { "label": "步骤 1" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_step_2",
+      "kind": "step_marker",
+      "semantic_role": "step",
+      "region_id": "region_main",
+      "layout": { "x": 2.3, "y": 2.0, "w": 1.5, "h": 0.3 },
+      "content": { "label": "步骤 2" },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "layout": { "x": 0.6, "y": 6.35, "w": 12.13, "h": 0.25, "alignment": "center" },
+      "content": { "label": "所有原子组件类型均已验证" },
+      "style": { "color": "#1A73E8", "font_size_pt": 13, "bold": true },
+      "provenance": ["src_1"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "layout": { "x": 0.6, "y": 6.7, "w": 12.13, "h": 0.15, "alignment": "left" },
+      "content": { "label": "Primitive Gallery — 仅用于回归验证，不构成业务叙事" },
+      "style": { "color": "#5F6368", "font_size_pt": 8.5 },
+      "provenance": ["src_1"]
+    }
+  ]
+}

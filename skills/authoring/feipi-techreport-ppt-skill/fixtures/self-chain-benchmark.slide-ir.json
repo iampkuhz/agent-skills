@@ -1,0 +1,331 @@
+{
+  "version": "v1",
+  "slide_id": "self-chain-benchmark-tempo-arc-solana",
+  "language": "zh-CN",
+  "audience": "CTO / 技术负责人 / 区块链基础设施团队",
+  "canvas": {
+    "preset": "wide_16_9",
+    "width_in": 13.33,
+    "height_in": 7.5,
+    "safe_margin_in": { "top": 0.4, "right": 0.4, "bottom": 0.4, "left": 0.4 }
+  },
+  "layout_pattern": "comparison-matrix",
+  "source_summary": [
+    {
+      "source_id": "src_topic",
+      "content_type": "text",
+      "description": "主题：自建链 公链能力目标与外部对标；副标题：对标 Tempo / Arc / Solana，明确从联盟链向支付专用链演进的性能与架构目标"
+    },
+    {
+      "source_id": "src_positioning",
+      "content_type": "comparison",
+      "description": "定位：自建链目标=支付专用链，自建链现状=TD联盟链，Tempo=支付专用链，Arc=稳定币结算链，Solana=高性能通用L1"
+    },
+    {
+      "source_id": "src_tps",
+      "content_type": "data",
+      "description": "TPS：自建链目标=单链10K+网络100K+，自建链现状=理论1K实际<0.1，Tempo=理论20K+实际2.4，Arc=理论3K实际29，Solana=目标100K理论65K实际3.2K"
+    },
+    {
+      "source_id": "src_block",
+      "content_type": "data",
+      "description": "出块/确认：自建链目标~500ms，自建链现状4s，Tempo~600ms，Arc~500ms，Solana=400ms确认12.8s"
+    },
+    {
+      "source_id": "src_fee",
+      "content_type": "data",
+      "description": "手续费：自建链目标机器成本<0.01 cents，Tempo=0.08，Arc=1，Solana=0.05"
+    },
+    {
+      "source_id": "src_nodes",
+      "content_type": "data",
+      "description": "节点数量：自建链目标20，现状10，Tempo 10+，Arc 10+，Solana 1K+"
+    },
+    {
+      "source_id": "src_node_config",
+      "content_type": "data",
+      "description": "节点配置：自建链目标32C/64G/1T/1Gbps，现状4C/8G/1T/100bps，Tempo 16C/32G/1T/1Gbps，Arc CPU?/64G/1T/24Mbps，Solana 12C/256G/4T/10Gbps"
+    },
+    {
+      "source_id": "src_consensus",
+      "content_type": "comparison",
+      "description": "共识算法：自建链目标自研并行BFT，现状QBFT，Tempo Simplex并行BFT，Arc Malachite串行BFT，Solana Tower BFT+PoH"
+    },
+    {
+      "source_id": "src_architecture",
+      "content_type": "comparison",
+      "description": "节点架构：自建链目标Reth深改+自研CL，现状Besu内置共识层，Tempo Reth深改EL+CL融合，Arc Reth EL+Malachite CL，Solana Agave一体化"
+    },
+    {
+      "source_id": "src_notes",
+      "content_type": "text",
+      "description": "数据口径/批注：Tempo未公开测试链配置；Arc benchmark使用20节点/4地域；手续费按公开样本估计"
+    },
+    {
+      "source_id": "src_solana_why",
+      "content_type": "text",
+      "description": "潜在热点（Solana为什么更快）：Rust执行、非EVM并行模型、交易传播优化、共识与排序优化、状态库读写差异"
+    },
+    {
+      "source_id": "src_takeaway",
+      "content_type": "text",
+      "description": "页面结论：自建链目标不是复制Solana，而是在支付专用链场景下用Reth深改+自研并行BFT把单链TPS推到10K+网络100K+"
+    }
+  ],
+  "takeaway": "自建链目标不是复制 Solana，而是在支付专用链场景下用 Reth 深改+自研并行 BFT 把单链 TPS 推到 10K+、网络 100K+",
+  "regions": [
+    {
+      "id": "region_header",
+      "role": "header",
+      "bounds": { "x": 0.4, "y": 0.4, "w": 12.53, "h": 1.0 },
+      "capacity": { "max_items": 2, "max_text_chars": 160 },
+      "priority": 1
+    },
+    {
+      "id": "region_kpi",
+      "role": "kpi_row",
+      "bounds": { "x": 0.4, "y": 1.45, "w": 12.53, "h": 0.75 },
+      "capacity": { "max_items": 4, "max_text_chars": 80 },
+      "priority": 2
+    },
+    {
+      "id": "region_matrix",
+      "role": "evidence_zone",
+      "bounds": { "x": 0.4, "y": 2.35, "w": 8.3, "h": 3.6 },
+      "capacity": { "max_items": 1, "max_table_rows": 5, "max_table_cols": 4 },
+      "priority": 3
+    },
+    {
+      "id": "region_insight",
+      "role": "insight_panel",
+      "bounds": { "x": 8.9, "y": 2.35, "w": 4.03, "h": 3.6 },
+      "capacity": { "max_items": 3, "max_text_chars": 300 },
+      "priority": 3
+    },
+    {
+      "id": "region_takeaway",
+      "role": "takeaway_bar",
+      "bounds": { "x": 0.4, "y": 6.05, "w": 12.53, "h": 0.6 },
+      "capacity": { "max_items": 1, "max_text_chars": 100 },
+      "priority": 1
+    },
+    {
+      "id": "region_footer",
+      "role": "footer",
+      "bounds": { "x": 0.4, "y": 6.7, "w": 12.53, "h": 0.4 },
+      "capacity": { "max_items": 2, "max_text_chars": 100 },
+      "priority": 4
+    }
+  ],
+  "elements": [
+    {
+      "id": "elem_title",
+      "kind": "text",
+      "semantic_role": "title",
+      "region_id": "region_header",
+      "content": "自建链公链能力目标与外部对标",
+      "layout": { "alignment": "left", "position_hint": "header-top" },
+      "style": { "font_size_pt": 26, "bold": true },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_topic"]
+    },
+    {
+      "id": "elem_subtitle",
+      "kind": "text",
+      "semantic_role": "subtitle",
+      "region_id": "region_header",
+      "content": "对标 Tempo / Arc / Solana — 从 TD 联盟链向支付专用链演进的性能与架构目标",
+      "layout": { "alignment": "left", "position_hint": "header-bottom" },
+      "style": { "font_size_pt": 13, "bold": false, "color": "#5F6368" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "high" },
+      "source_refs": ["src_topic"]
+    },
+    {
+      "id": "elem_kpi_1",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "目标 TPS", "value": "单链 10K+ / 网络 100K+" },
+      "layout": { "x": 0.4, "y": 1.45, "w": 3.0, "h": 0.65, "position_hint": "kpi-left" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_tps"]
+    },
+    {
+      "id": "elem_kpi_2",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "出块/确认目标", "value": "~500ms（现状 4s → 8× 提升）" },
+      "layout": { "x": 3.55, "y": 1.45, "w": 3.0, "h": 0.65, "position_hint": "kpi-center-left" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "critical" },
+      "source_refs": ["src_block"]
+    },
+    {
+      "id": "elem_kpi_3",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "手续费目标", "value": "机器成本 <0.01¢（Solana 0.05¢）" },
+      "layout": { "x": 6.7, "y": 1.45, "w": 3.0, "h": 0.65, "position_hint": "kpi-center-right" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_fee"]
+    },
+    {
+      "id": "elem_kpi_4",
+      "kind": "kpi_card",
+      "semantic_role": "evidence",
+      "region_id": "region_kpi",
+      "content": { "label": "节点配置升级", "value": "4C/8G → 32C/64G / 100Mbps → 1Gbps" },
+      "layout": { "x": 9.85, "y": 1.45, "w": 3.0, "h": 0.65, "position_hint": "kpi-right" },
+      "style": { "font_size_pt": 11, "bold": true, "background_color": "#E8F0FE" },
+      "constraints": { "must_stay_within_region": true, "priority": "high" },
+      "source_refs": ["src_node_config"]
+    },
+    {
+      "id": "elem_matrix",
+      "kind": "matrix",
+      "semantic_role": "evidence",
+      "region_id": "region_matrix",
+      "content": {
+        "headers": ["维度", "自建链目标", "自建链现状", "Tempo", "Solana"],
+        "rows": [
+          ["定位", "支付专用链", "TD联盟链", "支付专用链", "高性能通用L1"],
+          ["TPS", "单链10K+ 网络100K+", "理论1K 实际<0.1", "理论20K+ 实际2.4", "理论65K 实际3.2K"],
+          ["出块/确认", "~500ms", "4s", "~600ms", "400ms确认 / 12.8s最终"],
+          ["共识算法", "自研并行BFT", "QBFT", "Simplex并行BFT", "Tower BFT + PoH"],
+          ["节点架构", "Reth深改+自研CL", "Besu内置CL", "Reth深改EL+CL融合", "Agave一体化"]
+        ]
+      },
+      "layout": { "x": 0.4, "y": 2.35, "w": 8.3, "h": 3.6, "position_hint": "center-left" },
+      "style": { "font_size_pt": 9 },
+      "constraints": {
+        "must_stay_within_region": true,
+        "max_lines": 5,
+        "no_overlap_with": ["elem_insight"],
+        "priority": "critical"
+      },
+      "source_refs": ["src_positioning", "src_tps", "src_block", "src_consensus", "src_architecture"]
+    },
+    {
+      "id": "elem_insight",
+      "kind": "note",
+      "semantic_role": "explanation",
+      "region_id": "region_insight",
+      "content": "数据口径\n• Tempo 未公开测试链配置\n• Arc benchmark 使用 20 节点/4 地域\n• 手续费按公开样本估计\n\nSolana 为什么更快？\n• Rust 执行引擎 + 非 EVM 并行模型\n• 交易传播 & 共识排序优化\n• 状态库读写路径差异\n\n自建链与 Arc 数据见脚注说明",
+      "layout": { "x": 8.9, "y": 2.35, "w": 4.03, "h": 3.6 },
+      "style": { "font_size_pt": 9 },
+      "constraints": { "must_stay_within_region": true, "max_lines": 14, "no_overlap_with": ["elem_matrix"], "priority": "high" },
+      "source_refs": ["src_notes", "src_solana_why"]
+    },
+    {
+      "id": "elem_takeaway",
+      "kind": "text",
+      "semantic_role": "takeaway",
+      "region_id": "region_takeaway",
+      "content": "自建链目标不是复制 Solana，而是在支付专用链场景下用 Reth 深改+自研并行 BFT 把单链 TPS 推到 10K+、网络 100K+",
+      "layout": { "alignment": "center", "position_hint": "bottom-bar" },
+      "style": { "font_size_pt": 12, "bold": true, "color": "#1A73E8" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 1, "priority": "critical" },
+      "source_refs": ["src_takeaway"]
+    },
+    {
+      "id": "elem_footer",
+      "kind": "footer_note",
+      "semantic_role": "source_note",
+      "region_id": "region_footer",
+      "content": "① Arc 测试网：理论3K/实际29TPS，~500ms出块，Malachite串行BFT，10+节点。② 所有实测数据来自公开样本，可能存在波动。",
+      "layout": { "alignment": "left" },
+      "style": { "font_size_pt": 8.5, "color": "#999999" },
+      "constraints": { "must_stay_within_region": true, "max_lines": 2, "priority": "low" },
+      "source_refs": ["src_tps", "src_block", "src_consensus", "src_architecture", "src_notes"]
+    }
+  ],
+  "constraints": {
+    "min_font_pt": {
+      "title": 18,
+      "body": 10,
+      "footnote": 7.5,
+      "table_cell": 8.5
+    },
+    "no_overlap": true,
+    "max_table_rows": 5,
+    "max_table_cols": 4,
+    "max_kpi_cards": 4
+  },
+  "provenance": [
+    {
+      "source_id": "src_topic",
+      "source_type": "user_input",
+      "quote_or_summary": "主题：自建链公链能力目标与外部对标；副标题：对标 Tempo / Arc / Solana，明确从联盟链向支付专用链演进的性能与架构目标",
+      "used_by_elements": ["elem_title", "elem_subtitle"]
+    },
+    {
+      "source_id": "src_positioning",
+      "source_type": "user_input",
+      "quote_or_summary": "定位：自建链目标=支付专用链，自建链现状=TD联盟链，Tempo=支付专用链，Arc=稳定币结算链，Solana=高性能通用L1",
+      "used_by_elements": ["elem_matrix"]
+    },
+    {
+      "source_id": "src_tps",
+      "source_type": "user_input",
+      "quote_or_summary": "TPS：自建链目标=单链10K+网络100K+，自建链现状=理论1K实际<0.1，Tempo=理论20K+实际2.4，Arc=理论3K实际29，Solana=目标100K理论65K实际3.2K",
+      "used_by_elements": ["elem_kpi_1", "elem_matrix", "elem_footer"]
+    },
+    {
+      "source_id": "src_block",
+      "source_type": "user_input",
+      "quote_or_summary": "出块/确认：自建链目标~500ms，自建链现状4s，Tempo~600ms，Arc~500ms，Solana=400ms确认12.8s",
+      "used_by_elements": ["elem_kpi_2", "elem_matrix", "elem_footer"]
+    },
+    {
+      "source_id": "src_fee",
+      "source_type": "user_input",
+      "quote_or_summary": "手续费：自建链目标机器成本<0.01 cents，Tempo=0.08，Arc=1，Solana=0.05",
+      "used_by_elements": ["elem_kpi_3"]
+    },
+    {
+      "source_id": "src_node_config",
+      "source_type": "user_input",
+      "quote_or_summary": "节点配置：自建链目标32C/64G/1T/1Gbps，现状4C/8G/1T/100bps，Tempo 16C/32G/1T/1Gbps，Arc CPU?/64G/1T/24Mbps，Solana 12C/256G/4T/10Gbps",
+      "used_by_elements": ["elem_kpi_4"]
+    },
+    {
+      "source_id": "src_consensus",
+      "source_type": "user_input",
+      "quote_or_summary": "共识算法：自建链目标自研并行BFT，现状QBFT，Tempo Simplex并行BFT，Arc Malachite串行BFT，Solana Tower BFT+PoH",
+      "used_by_elements": ["elem_matrix", "elem_footer"]
+    },
+    {
+      "source_id": "src_architecture",
+      "source_type": "user_input",
+      "quote_or_summary": "节点架构：自建链目标Reth深改+自研CL，现状Besu内置共识层，Tempo Reth深改EL+CL融合，Arc Reth EL+Malachite CL，Solana Agave一体化",
+      "used_by_elements": ["elem_matrix", "elem_footer"]
+    },
+    {
+      "source_id": "src_notes",
+      "source_type": "user_input",
+      "quote_or_summary": "数据口径/批注：Tempo未公开测试链配置；Arc benchmark使用20节点/4地域；手续费按公开样本估计",
+      "used_by_elements": ["elem_insight", "elem_footer"]
+    },
+    {
+      "source_id": "src_solana_why",
+      "source_type": "user_input",
+      "quote_or_summary": "潜在热点（Solana为什么更快）：Rust执行、非EVM并行模型、交易传播优化、共识与排序优化、状态库读写差异",
+      "used_by_elements": ["elem_insight"]
+    },
+    {
+      "source_id": "src_takeaway",
+      "source_type": "user_input",
+      "quote_or_summary": "页面结论：自建链目标不是复制Solana，而是在支付专用链场景下用Reth深改+自研并行BFT把单链TPS推到10K+网络100K+",
+      "used_by_elements": ["elem_takeaway"]
+    }
+  ],
+  "backend_hints": {
+    "preferred_backend": "pptxgenjs-native",
+    "style_lock": "comparison-brief",
+    "notes": "包含矩阵 4×5 + 4 个 KPI cards + 洞察面板，需要 table 和 shape 组合能力"
+  }
+}

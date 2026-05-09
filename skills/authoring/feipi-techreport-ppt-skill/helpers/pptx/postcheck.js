@@ -1,6 +1,7 @@
 /**
  * PPTX Post-check
- * 生成 PPTX 后的产物验证：文件存在性、结构完整性、placeholder 残留、路径泄漏、母版残留。
+ * 生成 PPTX 后的产物验证：文件存在性、结构完整性、placeholder 残留、路径泄漏、母版残留、
+ * 重复 cNvPr id、默认 fallback 坐标聚集、表格 geometry 风险。
  * 使用 JSZip 解析 PPTX（ZIP 格式），精确统计 slide 数量和提取可见文本。
  */
 'use strict';
@@ -39,6 +40,11 @@ const MASTER_RESIDUAL_PATTERNS = [
   '‹#›',
   '7/23/19',
 ];
+
+// 默认 fallback 坐标（extractLayout 的旧默认值）
+const FALLBACK_COORD = { x: 0, y: 0, w: 2, h: 0.5 };
+const FALLBACK_TOLERANCE = 0.01;
+const FALLBACK_CLUSTER_THRESHOLD = 2; // 2+ 元素同时落在 fallback 坐标视为问题
 
 /**
  * 检查文件存在性和基本属性。
@@ -117,6 +123,143 @@ function scanMasterResidual(texts, releaseMode) {
 }
 
 /**
+ * 检查同一 slide 内是否有重复的 cNvPr id。
+ * OpenXML 要求同一张 slide 内 cNvPr id 唯一。
+ * @param {string} slideXml - slide XML 内容
+ * @returns {Array} issues
+ */
+function checkDuplicateCnvrId(slideXml) {
+  const issues = [];
+  const seenIds = new Map();
+
+  // Match <p:cNvPr id="N" .../> patterns
+  const idRegex = /cNvPr\s+id="(\d+)"/g;
+  let match;
+  while ((match = idRegex.exec(slideXml)) !== null) {
+    const id = match[1];
+    if (seenIds.has(id)) {
+      issues.push({
+        severity: 'hard_fail',
+        type: 'duplicate_cnvp_id',
+        message: `同一 slide 内存在重复 cNvPr id="${id}"，会触发 PowerPoint repair`
+      });
+      break; // One hard_fail is enough
+    }
+    seenIds.set(id, true);
+  }
+
+  return issues;
+}
+
+/**
+ * 检测元素是否落在默认 fallback 坐标附近。
+ * @param {Object} bounds - { x, y, w, h }
+ * @returns {boolean}
+ */
+function isFallbackCoord(bounds) {
+  return Math.abs(bounds.x - FALLBACK_COORD.x) < FALLBACK_TOLERANCE &&
+         Math.abs(bounds.y - FALLBACK_COORD.y) < FALLBACK_TOLERANCE &&
+         Math.abs(bounds.w - FALLBACK_COORD.w) < FALLBACK_TOLERANCE &&
+         Math.abs(bounds.h - FALLBACK_COORD.h) < FALLBACK_TOLERANCE;
+}
+
+/**
+ * 从 slide XML 中提取所有 shape/text 的坐标信息。
+ * @param {string} slideXml - slide XML 内容
+ * @returns {Array<{x: number, y: number, w: number, h: number, tag: string}>}
+ */
+function extractShapeCoords(slideXml) {
+  const coords = [];
+  // Match <p:sp> blocks with <a:off> and <a:ext> children
+  // <a:off x="..." y="..."/> and <a:ext cx="..." cy="..."/>
+  // EMU to inches: 1 inch = 914400 EMU
+  const EMU_TO_INCH = 1 / 914400;
+
+  // Find all transform blocks within shape contexts
+  const xfrmRegex = /<a:off\s+x="(\d+)"\s+y="(\d+)"[^>]*>\s*<\/a:off>\s*<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/g;
+  let match;
+  while ((match = xfrmRegex.exec(slideXml)) !== null) {
+    const x = parseInt(match[1], 10) * EMU_TO_INCH;
+    const y = parseInt(match[2], 10) * EMU_TO_INCH;
+    const w = parseInt(match[3], 10) * EMU_TO_INCH;
+    const h = parseInt(match[4], 10) * EMU_TO_INCH;
+    coords.push({ x: parseFloat(x.toFixed(4)), y: parseFloat(y.toFixed(4)), w: parseFloat(w.toFixed(4)), h: parseFloat(h.toFixed(4)) });
+  }
+
+  return coords;
+}
+
+/**
+ * 检查是否有多个元素落在默认 fallback 坐标。
+ * @param {Array} shapeCoords - 从 extractShapeCoords 获取的坐标列表
+ * @returns {Array} issues
+ */
+function checkFallbackClustering(shapeCoords) {
+  const issues = [];
+  const fallbackCount = shapeCoords.filter(c => isFallbackCoord(c)).length;
+  if (fallbackCount >= FALLBACK_CLUSTER_THRESHOLD) {
+    issues.push({
+      severity: 'hard_fail',
+      type: 'fallback_coordinate_cluster',
+      message: `${fallbackCount} 个元素落在默认 fallback 坐标 (0,0,2,0.5) 附近，可能存在缺失 layout 的元素堆叠在左上角`
+    });
+  }
+  return issues;
+}
+
+/**
+ * 检查表格 frame 高度与行高一致性。
+ * 从 slide XML 中解析 table 结构。
+ * @param {string} slideXml - slide XML 内容
+ * @returns {Array} issues
+ */
+function checkTableGeometry(slideXml) {
+  const issues = [];
+  const EMU_TO_INCH = 1 / 914400;
+
+  // Find table blocks: <a:tbl> with <a:tblPr> (containing tblH) and <a:tr> elements
+  // Match table frame height from <a:ext> within the table's parent <a:graphicData>
+  // Then match row heights from <a:tr h="...">
+
+  // Extract table regions
+  const tableRegex = /<a:graphicData[^>]*>.*?<a:tbl\b[\s\S]*?<\/a:tbl>/g;
+  let tableMatch;
+  while ((tableMatch = tableRegex.exec(slideXml)) !== null) {
+    const tableXml = tableMatch[0];
+
+    // Find table frame height from <a:ext cx="..." cy="..."> before the table
+    // Look backward from the table start for the ext
+    const beforeTable = slideXml.substring(0, tableMatch.index);
+    const extRegex = /<a:ext\s+cx="(\d+)"\s+cy="(\d+)"[^>]*>\s*<\/a:ext>\s*$/;
+    const extMatch = extRegex.exec(beforeTable);
+
+    if (extMatch) {
+      const frameH = parseInt(extMatch[2], 10) * EMU_TO_INCH;
+
+      // Count rows and sum their heights
+      const rowRegex = /<a:tr\s+h="(\d+)"/g;
+      let rowMatch;
+      let totalRowH = 0;
+      let rowCount = 0;
+      while ((rowMatch = rowRegex.exec(tableXml)) !== null) {
+        totalRowH += parseInt(rowMatch[1], 10) * EMU_TO_INCH;
+        rowCount++;
+      }
+
+      if (rowCount > 0 && totalRowH > frameH * 1.05) { // Allow 5% tolerance
+        issues.push({
+          severity: 'warning',
+          type: 'table_geometry_mismatch',
+          message: `表格 frame 高度 (${frameH.toFixed(2)} inch) 小于行高总和 (${totalRowH.toFixed(2)} inch, ${rowCount} 行)，可能触发 PowerPoint repair`
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
  * 验证 slide 数量与预期一致。
  */
 function checkSlideCount(actualSlides, expectedSlides) {
@@ -131,7 +274,7 @@ function checkSlideCount(actualSlides, expectedSlides) {
  * 统计 ppt/slides/slide*.xml 文件数量，从 slide XML 中提取可见文本。
  * 同时提取 slideMaster XML 中的文本用于母版残留检测。
  * @param {string} filePath - PPTX 文件路径
- * @returns {Promise<{slideCount: number, texts: string[], masterTexts: string[]}>}
+ * @returns {Promise<{slideCount: number, texts: string[], masterTexts: string[], slideXmls: Map}>}
  */
 async function inspectPptxStructure(filePath) {
   const buffer = fs.readFileSync(filePath);
@@ -156,8 +299,10 @@ async function inspectPptxStructure(filePath) {
 
   // Extract text from slide XMLs only (not from master/theme)
   const texts = [];
+  const slideXmls = new Map();
   for (const slideFile of slideFiles) {
     const content = await zip.files[slideFile].async('string');
+    slideXmls.set(slideFile, content);
     // <a:t>...</a:t> contains visible text in DrawingML
     const textRegex = /<a:t[^>]*>([^<]*)<\/a:t>/g;
     let match;
@@ -202,7 +347,7 @@ async function inspectPptxStructure(filePath) {
     }
   }
 
-  return { slideCount, texts, masterTexts };
+  return { slideCount, texts, masterTexts, slideXmls };
 }
 
 /**
@@ -230,11 +375,13 @@ async function postcheck(outputPath, options = {}) {
   let slideCount = 0;
   let extractedTexts = [];
   let masterTexts = [];
+  let slideXmls = new Map();
   try {
     const pptxStructure = await inspectPptxStructure(outputPath);
     slideCount = pptxStructure.slideCount;
     extractedTexts = pptxStructure.texts;
     masterTexts = pptxStructure.masterTexts || [];
+    slideXmls = pptxStructure.slideXmls || new Map();
     stats.slide_count = slideCount;
     stats.text_element_count = extractedTexts.length;
     stats.master_text_count = masterTexts.length;
@@ -246,24 +393,28 @@ async function postcheck(outputPath, options = {}) {
   // 3. Slide count check
   allIssues.push(...checkSlideCount(slideCount, expectedSlides));
 
-  // 4. Placeholder scan (slide text only)
+  // 4. XML-level checks: duplicate cNvPr id, fallback coords, table geometry
+  for (const [fileName, xmlContent] of slideXmls) {
+    allIssues.push(...checkDuplicateCnvrId(xmlContent));
+    const shapeCoords = extractShapeCoords(xmlContent);
+    allIssues.push(...checkFallbackClustering(shapeCoords));
+    allIssues.push(...checkTableGeometry(xmlContent));
+  }
+
+  // 5. Placeholder scan (slide text only)
   if (extractedTexts.length > 0) {
     allIssues.push(...scanPlaceholder(extractedTexts));
     allIssues.push(...scanPathLeaks(extractedTexts));
   }
 
-  // 5. Master residual scan (both slide text and master text)
-  // Master residual patterns in slide text = warning (or hard_fail in release mode)
-  // Master residual patterns in master XML = always warning (these are template defaults)
+  // 6. Master residual scan (both slide text and master text)
   const slideMasterIssues = scanMasterResidual(extractedTexts, releaseMode);
   allIssues.push(...slideMasterIssues);
 
   // Also check master XML itself for default template patterns
   if (masterTexts.length > 0) {
     const masterResiduals = scanMasterResidual(masterTexts, releaseMode);
-    // If master XML has default template text, that means new slides may inherit it
     if (masterResiduals.length > 0) {
-      // In release mode this is a hard_fail, otherwise warning
       const masterSeverity = releaseMode ? 'hard_fail' : 'warning';
       allIssues.push({
         severity: masterSeverity,
@@ -273,7 +424,7 @@ async function postcheck(outputPath, options = {}) {
     }
   }
 
-  // 6. Expected text check
+  // 7. Expected text check
   if (expectedTexts) {
     for (const expected of expectedTexts) {
       const found = extractedTexts.some(t => t.includes(expected));
@@ -295,6 +446,11 @@ module.exports = {
   scanMasterResidual,
   checkSlideCount,
   inspectPptxStructure,
+  // New XML-level checks
+  checkDuplicateCnvrId,
+  extractShapeCoords,
+  checkFallbackClustering,
+  checkTableGeometry,
   MASTER_RESIDUAL_PATTERNS,
   PLACEHOLDER_PATTERNS,
   PATH_LEAK_PATTERNS,
