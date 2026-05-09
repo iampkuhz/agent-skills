@@ -317,7 +317,7 @@
             <div class="msg__meta">Round #{{ loop.index }} · User</div>
             <div class="msg__body" data-expandable>{{ round.user_msg.content_html | safe }}</div>
             {% if round.user_msg.content_html | length > 800 %}
-            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>View full</button>
+            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>Open</button>
             {% endif %}
         </div>
         {% endif %}
@@ -326,7 +326,7 @@
             <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
             <div class="msg__body" data-expandable>{{ round.assistant_msg.content_html | safe }}</div>
             {% if round.assistant_msg.content_html | length > 800 %}
-            <button class="show-more" data-content-modal="Round #{{ loop.index }} · Assistant"><template>{{ round.assistant_msg.content }}</template><template>{{ round.assistant_msg.content_html | safe }}</template>View full</button>
+            <button class="show-more" data-content-modal="Round #{{ loop.index }} · Assistant"><template>{{ round.assistant_msg.content }}</template><template>{{ round.assistant_msg.content_html | safe }}</template>Open</button>
             {% endif %}
         </div>
         {% endif %}
@@ -515,7 +515,7 @@
                                             </div>
                                             <div class="msg-body">{{ round.user_msg.content_html | safe }}</div>
                                             {% if round.user_msg.content_html | length > 600 %}
-                                            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>View full</button>
+                                            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>Open</button>
                                             {% endif %}
                                         </div>
                                         {% endif %}
@@ -579,7 +579,7 @@
                                                         <div class="llm-card__response-label">Response</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Main Response"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
+                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Main Response"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>Open</button>
                                                         {% endif %}
                                                     </div>
                                                     {% endif %}
@@ -661,7 +661,7 @@
                                                         <div class="llm-card__response-label">Subagent Result</div>
                                                         <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
                                                         {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Subagent Result"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>View full</button>
+                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Subagent Result"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>Open</button>
                                                         {% endif %}
                                                     </div>
                                                     {% endif %}
@@ -918,7 +918,7 @@
     </div>
 </div>
 
-<!-- Content Modal (shared for "View full" buttons) -->
+<!-- Content Modal (shared for "Open" buttons) -->
 <div id="content-modal" class="content-modal" onclick="if(event.target===this)closeContentModal()">
     <div class="content-modal__panel">
         <div class="content-modal__header">
@@ -1262,21 +1262,18 @@
         var titleEl = modal.querySelector('.content-modal__title');
         if (titleEl) titleEl.textContent = btn.getAttribute('data-content-modal') || 'Content';
 
-        // Find sibling <template> elements: [0]=raw text, [1]=markdown HTML
         var templates = btn.querySelectorAll('template');
         var rawTpl = templates[0];
         var mdTpl = templates[1];
 
-        var rawContent = modal.querySelector('.content-modal__raw');
+        var rawPre = modal.querySelector('.content-modal__raw pre');
         var mdContent = modal.querySelector('.content-modal__markdown');
-        if (rawTpl && rawContent) {
-            // Use textContent to safely store raw text (browser auto-escapes HTML)
+        if (rawTpl && rawPre) {
             var clone = rawTpl.content.cloneNode(true);
-            rawContent.innerHTML = '';
-            rawContent.appendChild(clone);
+            rawPre.textContent = clone.textContent;
         }
         if (mdTpl && mdContent) {
-            mdContent.innerHTML = mdTpl.innerHTML;
+            mdContent.innerHTML = mdTpl.content.innerHTML;
         }
 
         // Reset to Markdown tab
