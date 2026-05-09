@@ -1250,11 +1250,17 @@
         var rawPre = modal.querySelector('.content-modal__raw pre');
         var mdContent = modal.querySelector('.content-modal__markdown');
         if (rawTpl && rawPre) {
-            var clone = rawTpl.content.cloneNode(true);
-            rawPre.textContent = clone.textContent;
+            var rawClone = rawTpl.content.cloneNode(true);
+            rawPre.textContent = rawClone.textContent;
         }
         if (mdTpl && mdContent) {
-            mdContent.innerHTML = mdTpl.content.innerHTML;
+            // DocumentFragment has no innerHTML — serialize via temp div
+            var mdClone = mdTpl.content.cloneNode(true);
+            var tmpDiv = document.createElement('div');
+            while (mdClone.firstChild) {
+                tmpDiv.appendChild(mdClone.firstChild);
+            }
+            mdContent.innerHTML = tmpDiv.innerHTML;
         }
 
         // Reset to Markdown tab
