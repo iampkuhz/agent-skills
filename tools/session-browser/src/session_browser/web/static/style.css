@@ -1956,6 +1956,33 @@ tr.row--anomaly {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.preview-cell__content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+}
+.preview-tag {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    line-height: 1.4;
+}
+.preview-tag--quote {
+    background: var(--accent-bg);
+    color: var(--accent);
+}
+.preview-cell__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .preview-cell code {
     font-size: inherit;
     background: var(--panel);

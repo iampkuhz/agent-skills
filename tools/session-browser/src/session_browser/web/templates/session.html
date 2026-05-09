@@ -399,7 +399,12 @@
                             <span class="round-chevron-inline">&#8250;</span> #{{ loop.index }}
                         </td>
                         <td class="preview-cell mono text-xs" data-tooltip="{{ round.preview_text }}">
-                            {{ round.preview_text[:120] if round.preview_text else '—' }}
+                            <span class="preview-cell__content">
+                                {% if round.user_msg.content | trim %}
+                                <span class="preview-tag preview-tag--quote" data-tooltip="This round includes user input">quote text</span>
+                                {% endif %}
+                                <span class="preview-cell__text">{{ round.preview_text[:120] if round.preview_text else '—' }}</span>
+                            </span>
                         </td>
                         <td class="signals-cell">
                             {% for sig in sigs %}
