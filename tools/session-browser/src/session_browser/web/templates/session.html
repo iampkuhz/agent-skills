@@ -398,12 +398,12 @@
                         <td class="numeric mono text-xs">
                             <span class="round-chevron-inline">&#8250;</span> #{{ loop.index }}
                         </td>
-                        <td class="preview-cell mono text-xs" data-tooltip="{{ round.preview_text }}">
+                        <td class="preview-cell mono text-xs" data-tooltip="{{ round.preview_text | striptags }}">
                             <span class="preview-cell__content">
                                 {% if round.user_msg.content | trim %}
                                 <span class="preview-tag preview-tag--quote" data-tooltip="This round includes user input">quote text</span>
                                 {% endif %}
-                                <span class="preview-cell__text">{{ round.preview_text[:120] if round.preview_text else '—' }}</span>
+                                <span class="preview-cell__text">{{ (round.preview_text | striptags)[:120] if round.preview_text else '—' }}</span>
                             </span>
                         </td>
                         <td class="signals-cell">
@@ -592,12 +592,20 @@
                                                                     {% endif %}
                                                                 </span>
                                                                 {% if tc.is_failed %}
-                                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                                {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                                {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
+                                                                {% else %}<span class="badge badge-error">failed</span>{% endif %}
                                                                 {% else %}
                                                                 <span class="badge badge-success">ok</span>
                                                                 {% endif %}
                                                             </div>
                                                             <div class="tool-detail-card__body">
+                                                                {% if tc.is_failed and tc.error_message %}
+                                                                <div class="tool-error-block">
+                                                                    <strong class="text-xs text-error">Error:</strong>
+                                                                    <pre class="mono text-xs tool-error-pre">{{ tc.error_message }}</pre>
+                                                                </div>
+                                                                {% endif %}
                                                                 <div class="tool-param-block">
                                                                     <strong class="text-xs">Parameters:</strong>
                                                                     <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
@@ -659,12 +667,20 @@
                                                                     {% endif %}
                                                                 </span>
                                                                 {% if tc.is_failed %}
-                                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                                {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                                {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
+                                                                {% else %}<span class="badge badge-error">failed</span>{% endif %}
                                                                 {% else %}
                                                                 <span class="badge badge-success">ok</span>
                                                                 {% endif %}
                                                             </div>
                                                             <div class="tool-detail-card__body">
+                                                                {% if tc.is_failed and tc.error_message %}
+                                                                <div class="tool-error-block">
+                                                                    <strong class="text-xs text-error">Error:</strong>
+                                                                    <pre class="mono text-xs tool-error-pre">{{ tc.error_message }}</pre>
+                                                                </div>
+                                                                {% endif %}
                                                                 <div class="tool-param-block">
                                                                     <strong class="text-xs">Parameters:</strong>
                                                                     <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
@@ -720,12 +736,20 @@
                                                     {% endif %}
                                                 </span>
                                                 {% if tc.is_failed %}
-                                                <span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
+                                                {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
+                                                {% else %}<span class="badge badge-error">failed</span>{% endif %}
                                                 {% else %}
                                                 <span class="badge badge-success">ok</span>
                                                 {% endif %}
                                             </div>
                                             <div class="tool-detail-card__body">
+                                                {% if tc.is_failed and tc.error_message %}
+                                                <div class="tool-error-block">
+                                                    <strong class="text-xs text-error">Error:</strong>
+                                                    <pre class="mono text-xs tool-error-pre">{{ tc.error_message }}</pre>
+                                                </div>
+                                                {% endif %}
                                                 <div class="tool-param-block">
                                                     <strong class="text-xs">Parameters:</strong>
                                                     <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
@@ -950,7 +974,7 @@
                                             <span class="tool-tree__name">{{ tc.name }}</span>
                                             <span class="tool-tree__detail">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
                                             <span class="tool-tree__status">
-                                                {% if tc.is_failed %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>{% else %}<span class="badge badge-success">ok</span>{% endif %}
+                                                {% if tc.is_failed %}{% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>{% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>{% else %}<span class="badge badge-error">failed</span>{% endif %}{% else %}<span class="badge badge-success">ok</span>{% endif %}
                                             </span>
                                         </div>
                                         {% endfor %}

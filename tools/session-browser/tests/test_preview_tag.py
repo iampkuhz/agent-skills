@@ -11,14 +11,15 @@ class TestPreviewTagRendersForUserInput:
     def test_tag_present_for_user_input(self):
         with open("src/session_browser/web/templates/session.html") as f:
             content = f.read()
-        assert "quote text" in content
+        assert "preview-tag--user" in content
+        assert ">User</span>" in content
 
     def test_tag_condition_checks_user_msg_content(self):
         with open("src/session_browser/web/templates/session.html") as f:
             content = f.read()
         # The tag should be conditional on user_msg.content
         assert "round.user_msg.content" in content
-        assert "preview-tag--quote" in content
+        assert "preview-tag--user" in content
 
     def test_tag_has_descriptive_tooltip(self):
         with open("src/session_browser/web/templates/session.html") as f:
@@ -34,7 +35,7 @@ class TestPreviewTagDoesNotLeakUserContent:
         with open("src/session_browser/web/templates/session.html") as f:
             content = f.read()
         # The tag tooltip is static text, not dynamic user content
-        assert "preview-tag--quote" in content
+        assert "preview-tag--user" in content
 
     def test_preview_tooltip_no_user_content(self):
         """Preview cell tooltip should only use preview_text, not user_msg.content."""
@@ -57,7 +58,7 @@ class TestPreviewTagPlacement:
         with open("src/session_browser/web/templates/session.html") as f:
             content = f.read()
         # The tag should come before the text span in template order
-        tag_pos = content.find("preview-tag--quote")
+        tag_pos = content.find("preview-tag--user")
         text_pos = content.find("preview-cell__text")
         assert tag_pos > 0, "Preview tag not found"
         assert text_pos > 0, "Preview text span not found"
@@ -67,7 +68,7 @@ class TestPreviewTagPlacement:
         if td_start >= 0:
             # Between td start and text span, tag should appear first
             block = content[td_start:text_pos]
-            assert "preview-tag--quote" in block
+            assert "preview-tag--user" in block
 
 
 class TestPreviewCellNoSafe:

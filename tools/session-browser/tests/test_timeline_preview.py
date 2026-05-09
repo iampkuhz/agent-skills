@@ -61,17 +61,19 @@ class TestFormatToolCounts:
     def test_single_tool(self):
         tools = [ToolCall(name="Read")]
         result = ConversationRound._format_tool_counts(tools)
-        assert result == "Read * 1"
+        assert '<span class="preview-tool">Read</span>×1' in result
 
     def test_two_same_tools(self):
         tools = [ToolCall(name="Read"), ToolCall(name="Read")]
         result = ConversationRound._format_tool_counts(tools)
-        assert result == "Read * 2"
+        assert '<span class="preview-tool">Read</span>×2' in result
 
     def test_two_different_tools(self):
         tools = [ToolCall(name="Read"), ToolCall(name="Bash")]
         result = ConversationRound._format_tool_counts(tools)
-        assert result == "Read * 1, Bash * 1"
+        assert '<span class="preview-tool">Read</span>×1' in result
+        assert '<span class="preview-tool">Bash</span>×1' in result
+        assert '·' in result
 
     def test_multiple_tools_with_counts(self):
         tools = [
@@ -83,14 +85,16 @@ class TestFormatToolCounts:
             ToolCall(name="Bash"),
         ]
         result = ConversationRound._format_tool_counts(tools)
-        assert result == "Read * 2, Bash * 3, Edit * 1"
+        assert '<span class="preview-tool">Read</span>×2' in result
+        assert '<span class="preview-tool">Bash</span>×3' in result
+        assert '<span class="preview-tool">Edit</span>×1' in result
 
-    def test_no_html_in_output(self):
-        """Tool counts must not contain HTML tags."""
+    def test_tool_names_wrapped_in_spans(self):
+        """Tool names are now wrapped in preview-tool spans for CSS styling."""
         tools = [ToolCall(name="Read"), ToolCall(name="Bash")]
         result = ConversationRound._format_tool_counts(tools)
-        assert "<" not in result
-        assert ">" not in result
+        assert '<span class="preview-tool">Read</span>' in result
+        assert '<span class="preview-tool">Bash</span>' in result
 
 
 # ── compute_preview() scenarios ─────────────────────────────────────
@@ -112,8 +116,8 @@ class TestComputePreviewLLMResponse:
         )]
         r.compute_preview()
         assert "Let me check" in r.preview_text
-        assert "Read * 1" in r.preview_text
-        assert "Bash * 1" in r.preview_text
+        assert "Read * 1" in r.preview_text or '<span class="preview-tool">Read</span>×1' in r.preview_text
+        assert "Bash * 1" in r.preview_text or '<span class="preview-tool">Bash</span>×1' in r.preview_text
 
     def test_response_truncated_when_long(self):
         long_response = "word " * 50  # 250 chars
@@ -129,8 +133,7 @@ class TestComputePreviewLLMResponse:
         )]
         r.compute_preview()
         # Response is truncated to 100 chars, then tool summary appended
-        # So total = truncated_text + " · Read * 1"
-        assert "Read * 1" in r.preview_text
+        assert '<span class="preview-tool">Read</span>×1' in r.preview_text
         assert "…" in r.preview_text  # ellipsis present due to truncation
 
     def test_response_long_with_no_tools(self):
@@ -191,7 +194,7 @@ class TestComputePreviewSubagent:
         )]
         r.compute_preview()
         assert "Done" in r.preview_text
-        assert "Read * 2" in r.preview_text
+        assert '<span class="preview-tool">Read</span>×2' in r.preview_text
 
     def test_subagent_no_response_text(self):
         assistant = ChatMessage(role="assistant", content="", timestamp="")
@@ -207,7 +210,7 @@ class TestComputePreviewSubagent:
         r.compute_preview()
         assert "Subagent" in r.preview_text
         assert "Agent" in r.preview_text
-        assert "Bash * 1" in r.preview_text
+        assert '<span class="preview-tool">Bash</span>×1' in r.preview_text
 
 
 class TestComputePreviewFallback:
@@ -237,7 +240,8 @@ class TestComputePreviewFallback:
             tool_calls=tools,
         )]
         r.compute_preview()
-        assert r.preview_text == "Read * 1, Bash * 1"
+        assert '<span class="preview-tool">Read</span>×1' in r.preview_text
+        assert '<span class="preview-tool">Bash</span>×1' in r.preview_text
 
 
 class TestComputePreviewNoHTML:
@@ -265,4 +269,4 @@ class TestComputePreviewNoHTML:
         r.compute_preview()
         # Main agent: assistant_msg.content + tool summary
         assert "See the code section" in r.preview_text
-        assert "Read * 1" in r.preview_text
+        assert '<span class="preview-tool">Read</span>×1' in r.preview_text

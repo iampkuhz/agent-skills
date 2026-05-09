@@ -219,14 +219,19 @@ class ConversationRound:
 
     @staticmethod
     def _format_tool_counts(tools: list[ToolCall]) -> str:
-        """Return a compact tool count string like 'Read * 2, Bash * 1'."""
+        """Return tool count fragments as HTML-safe <span> tags for each tool.
+        Format: <span class=\"preview-tool\">Bash</span>×1 · <span class=\"preview-tool\">Read</span>×2
+        """
         if not tools:
             return ""
         tool_counts: dict[str, int] = {}
         for tc in tools:
             tool_counts[tc.name] = tool_counts.get(tc.name, 0) + 1
-        parts = [f"{name} * {count}" for name, count in tool_counts.items()]
-        return ", ".join(parts)
+        parts = [
+            f'<span class="preview-tool">{name}</span>×{count}'
+            for name, count in tool_counts.items()
+        ]
+        return ' · '.join(parts)
 
     def compute_preview(self) -> None:
         """Derive a short preview from interactions/tool_calls after they are assigned.
