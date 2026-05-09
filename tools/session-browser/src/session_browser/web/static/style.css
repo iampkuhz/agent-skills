@@ -394,6 +394,8 @@ td.muted-zero { color: var(--text-muted); opacity: 0.5; }
 .badge-claude { background: var(--agent-claude-bg); color: var(--agent-claude); }
 .badge-codex { background: var(--agent-codex-bg); color: var(--agent-codex); }
 .badge-qoder { background: var(--agent-qoder-bg); color: var(--agent-qoder); }
+.agents-cell { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: nowrap; }
+.agents-cell .badge { font-size: var(--text-xs); padding: 1px 6px; }
 .badge-primary { background: var(--accent-bg); color: var(--accent); }
 .badge-muted { background: var(--border-light); color: var(--text-muted); }
 .badge-success { background: var(--status-success-bg); color: var(--status-success); }
@@ -2055,21 +2057,36 @@ tr.row--anomaly {
     min-width: 0;
 }
 .path-copy-btn {
-    background: none;
-    border: none;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
     cursor: pointer;
     color: var(--text-muted);
-    font-size: var(--text-micro);
-    padding: 0 2px;
+    padding: 3px;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 150ms ease;
+    opacity: 0.4;
+    transition: opacity 150ms ease, color 150ms ease, border-color 150ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
 }
-.path-cell:hover .path-copy-btn {
+.path-copy-btn:hover,
+.path-copy-btn:focus-visible {
+    opacity: 1;
+    color: var(--text);
+    border-color: var(--border);
+}
+.path-copy-btn.copied {
+    color: var(--color-success);
     opacity: 1;
 }
-.path-copy-btn:hover {
-    color: var(--text);
+.path-cell:hover .path-copy-btn {
+    opacity: 0.7;
+}
+.path-cell:hover .path-copy-btn:hover {
+    opacity: 1;
 }
 
 /* Projects table: constrain path column */
