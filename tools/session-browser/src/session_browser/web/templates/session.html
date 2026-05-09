@@ -14,6 +14,20 @@
 
 {% block content %}
 
+<!-- Macro for tool result block (avoids duplication across 3 locations) -->
+{% macro render_tool_result(result) %}
+<div class="tool-result-block">
+    <div class="tool-result-header">
+        <strong class="text-xs">Result:</strong>
+        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
+    </div>
+    <div class="tool-result-wrapper">
+        <pre class="tool-result-raw mono text-xs">{{ result }}</pre>
+        <div class="tool-result-md">{{ result | markdown | safe }}</div>
+    </div>
+</div>
+{% endmacro %}
+
 <!-- Set session ID for localStorage persistence (used by base.html JS) -->
 <script>window._sessionId = "{{ session.session_id }}";</script>
 
@@ -620,18 +634,7 @@
                                                                     <strong class="text-xs">Parameters:</strong>
                                                                     <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                                 </div>
-                                                                {% if tc.result %}
-                                                                <div>
-                                                                    <div class="tool-result-header">
-                                                                        <strong class="text-xs">Result:</strong>
-                                                                        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
-                                                                    </div>
-                                                                    <div class="tool-result-wrapper" data-raw="{{ tc.result[:500] }}">
-                                                                        <pre class="tool-result-raw mono text-xs">{{ tc.result[:500] }}</pre>
-                                                                        <div class="tool-result-md">{{ tc.result[:500] | markdown | safe }}</div>
-                                                                    </div>
-                                                                </div>
-                                                                {% endif %}
+                                                                {{ render_tool_result(tc.result) }}
                                                             </div>
                                                         </div>
                                                         {% endfor %}
@@ -698,18 +701,7 @@
                                                                     <strong class="text-xs">Parameters:</strong>
                                                                     <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                                 </div>
-                                                                {% if tc.result %}
-                                                                <div>
-                                                                    <div class="tool-result-header">
-                                                                        <strong class="text-xs">Result:</strong>
-                                                                        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
-                                                                    </div>
-                                                                    <div class="tool-result-wrapper" data-raw="{{ tc.result[:500] }}">
-                                                                        <pre class="tool-result-raw mono text-xs">{{ tc.result[:500] }}</pre>
-                                                                        <div class="tool-result-md">{{ tc.result[:500] | markdown | safe }}</div>
-                                                                    </div>
-                                                                </div>
-                                                                {% endif %}
+                                                                {{ render_tool_result(tc.result) }}
                                                             </div>
                                                         </div>
                                                         {% endfor %}
@@ -770,18 +762,7 @@
                                                     <strong class="text-xs">Parameters:</strong>
                                                     <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
                                                 </div>
-                                                {% if tc.result %}
-                                                <div>
-                                                    <div class="tool-result-header">
-                                                        <strong class="text-xs">Result:</strong>
-                                                        <button class="md-toggle-btn" onclick="event.stopPropagation(); toggleResultMd(this)" title="Toggle markdown rendering">MD</button>
-                                                    </div>
-                                                    <div class="tool-result-wrapper" data-raw="{{ tc.result[:500] }}">
-                                                        <pre class="tool-result-raw mono text-xs">{{ tc.result[:500] }}</pre>
-                                                        <div class="tool-result-md">{{ tc.result[:500] | markdown | safe }}</div>
-                                                    </div>
-                                                </div>
-                                                {% endif %}
+                                                {{ render_tool_result(tc.result) }}
                                             </div>
                                         </div>
                                         {% endfor %}
@@ -1284,7 +1265,7 @@
             tabs[0].classList.add('active');
             tabs[1].classList.remove('active');
         }
-        if (mdSection) mdSection.style.display = '';
+        if (mdSection) mdSection.style.display = 'block';
         if (rawSection) rawSection.style.display = 'none';
 
         modal.classList.add('visible');
@@ -1307,12 +1288,12 @@
         var mdBtn = modal.querySelector('[data-view="markdown"]');
         var rawBtn = modal.querySelector('[data-view="raw"]');
         if (view === 'markdown') {
-            if (mdSection) mdSection.style.display = '';
+            if (mdSection) mdSection.style.display = 'block';
             if (rawSection) rawSection.style.display = 'none';
             if (mdBtn) mdBtn.classList.add('active');
             if (rawBtn) rawBtn.classList.remove('active');
         } else {
-            if (rawSection) rawSection.style.display = '';
+            if (rawSection) rawSection.style.display = 'block';
             if (mdSection) mdSection.style.display = 'none';
             if (rawBtn) rawBtn.classList.add('active');
             if (mdBtn) mdBtn.classList.remove('active');
@@ -1353,20 +1334,18 @@
 
     /* ─── Tool result markdown toggle ─────────────────────── */
     window.toggleResultMd = function(btn) {
-        var wrapper = btn.closest('.tool-result-wrapper');
-        if (!wrapper) return;
-        var rawEl = wrapper.querySelector('.tool-result-raw');
-        var mdEl = wrapper.querySelector('.tool-result-md');
-        if (!rawEl || !mdEl) return;
-        var showingMd = mdEl.style.display !== 'none';
-        if (showingMd) {
-            mdEl.style.display = 'none';
-            rawEl.style.display = '';
+        var block = btn.closest('.tool-result-block');
+        if (!block) return;
+        var wrapper = block.querySelector('.tool-result-wrapper');
+        var rawEl = block.querySelector('.tool-result-raw');
+        var mdEl = block.querySelector('.tool-result-md');
+        if (!wrapper || !rawEl || !mdEl) return;
+        if (wrapper.classList.contains('is-md')) {
+            wrapper.classList.remove('is-md');
             btn.textContent = 'MD';
             btn.classList.remove('active');
         } else {
-            rawEl.style.display = 'none';
-            mdEl.style.display = '';
+            wrapper.classList.add('is-md');
             btn.textContent = 'Raw';
             btn.classList.add('active');
         }
