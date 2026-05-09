@@ -1590,8 +1590,12 @@ tr.row--anomaly {
 /* ─── Anomaly cell ──────────────────────────────────────────── */
 .anomaly-cell {
     white-space: nowrap;
-    max-width: 180px;
-    overflow: hidden;
+    max-width: 260px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    gap: 4px;
+    align-items: center;
 }
 
 /* ─── Needs Attention card ──────────────────────────────────── */

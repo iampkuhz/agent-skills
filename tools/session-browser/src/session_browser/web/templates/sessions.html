@@ -57,7 +57,7 @@
 
         <select id="sort-by" class="filter-bar__select">
             <option value="ended_at">Sort: Last Active</option>
-            <option value="input_tokens">Sort: Input Tokens</option>
+            <option value="total_tokens">Sort: Tokens</option>
             <option value="output_tokens">Sort: Output Tokens</option>
             <option value="tool_call_count">Sort: Tool Calls</option>
             <option value="failed_tool_count">Sort: Failed Tools</option>
@@ -75,19 +75,13 @@
         <table id="sessions-table">
             <thead>
                 <tr>
-                    <th></th>
                     <th>Title</th>
                     <th>Project</th>
                     <th>Agent</th>
                     <th>Model</th>
-                    <th class="numeric">Input</th>
-                    <th class="numeric">Cache R</th>
-                    <th class="numeric">Cache W</th>
+                    <th class="numeric">Tokens</th>
                     <th class="numeric">Output</th>
-                    <th class="numeric">Output%</th>
                     <th class="numeric">Tools</th>
-                    <th class="numeric">Tools/R</th>
-                    <th class="numeric">Failed</th>
                     <th>Duration</th>
                     <th>Anomaly</th>
                     <th>Time</th>
@@ -95,9 +89,16 @@
             </thead>
             <tbody>
                 {% for s in sessions %}
+                {% set total_tokens = s.input_tokens + s.cached_input_tokens + s.cached_output_tokens + s.output_tokens %}
                 {% set has_anomalies = s.get('anomalies') and s['anomalies'] | length > 0 %}
-                {% set output_ratio_val = (s.output_tokens / (s.input_tokens + s.cached_input_tokens + s.cached_output_tokens) * 100) | round(1) if (s.input_tokens + s.cached_input_tokens + s.cached_output_tokens) > 0 else 0 %}
                 {% set tools_per_round_val = (s.tool_call_count / s.assistant_message_count) | round(1) if s.assistant_message_count > 0 else 0 %}
+                {% set anomaly_tooltip = '' %}
+                {% if has_anomalies %}
+                    {% for a in s.anomalies %}
+                        {% set anomaly_tooltip = anomaly_tooltip + a.label + ': ' + a.reason %}
+                        {% if not loop.last %}{% set anomaly_tooltip = anomaly_tooltip + '&#10;' %}{% endif %}
+                    {% endfor %}
+                {% endif %}
                 <tr data-agent="{{ s.agent }}"
                     data-model="{{ s.model }}"
                     data-project="{{ s.project_key }}"
@@ -111,9 +112,8 @@
                     data-duration="{{ s.duration_seconds }}"
                     data-has-anomalies="{{ 'true' if has_anomalies else 'false' }}"
                     data-anomaly-types="{% if has_anomalies %}{% for a in s.anomalies %}{{ a.type }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
-                    data-total-tokens="{{ s.input_tokens + s.cached_input_tokens + s.cached_output_tokens + s.output_tokens }}"
+                    data-total-tokens="{{ total_tokens }}"
                     class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }} {{ 'row--anomaly' if has_anomalies else '' }}">
-                    <td><span class="agent-dot {{ 'claude' if s.agent == 'claude_code' else 'qoder' if s.agent == 'qoder' else 'codex' }}"></span></td>
                     <td class="sessions-title-cell">
                         <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link sessions-title-link" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
                             {{ s.title[:80] or 'Untitled' }}
@@ -124,28 +124,22 @@
                     </td>
                     <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-qoder' if s.agent == 'qoder' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'QD' if s.agent == 'qoder' else 'CX' }}</span></td>
                     <td class="text-xs text-muted mono truncate" style="max-width:120px" data-tooltip="{{ s.model or 'unknown' }}">{{ s.model or '—' }}</td>
-                    <td class="numeric mono text-xs">{{ s.input_tokens | format_number }}</td>
-                    <td class="numeric mono text-xs">{{ s.cached_input_tokens | format_number }}</td>
-                    <td class="numeric mono text-xs">{{ s.cached_output_tokens | format_number }}</td>
+                    <td class="numeric mono text-xs">{{ total_tokens | format_number }}</td>
                     <td class="numeric mono text-xs">{{ s.output_tokens | format_number }}</td>
-                    <td class="numeric mono text-xs">{{ output_ratio_val }}%</td>
-                    <td class="numeric mono text-xs {{ 'highlight-warn' if s.tool_call_count > 50 else '' }}">{{ s.tool_call_count }}</td>
-                    <td class="numeric mono text-xs">{{ tools_per_round_val }}</td>
-                    <td class="numeric mono text-xs">
+                    <td class="numeric mono text-xs" data-tooltip="Tools: {{ s.tool_call_count }}{% if s.failed_tool_count > 0 %}; Failed: {{ s.failed_tool_count }}; Tools/R: {{ tools_per_round_val }}{% endif %}">
+                        {{ s.tool_call_count }}
                         {% if s.failed_tool_count > 0 %}
-                        <span class="badge badge-error">{{ s.failed_tool_count }}</span>
-                        {% else %}
-                        <span class="muted-zero">0</span>
+                        <span class="badge badge-error">{{ s.failed_tool_count }}f</span>
                         {% endif %}
                     </td>
                     <td class="text-xs text-muted {{ 'highlight-warn' if s.duration_seconds > 3600 else '' }}" data-tooltip="{{ s.duration_seconds | int }}s">{{ s.duration_seconds | format_duration }}</td>
-                    <td class="anomaly-cell">
+                    <td class="anomaly-cell" data-tooltip="{{ anomaly_tooltip }}">
                         {% if has_anomalies %}
-                        {% for a in s.anomalies[:3] %}
-                        <span class="anomaly-badge {{ a.badge_class }}" data-tooltip="{{ a.reason }}">{{ a.label }}</span>
+                        {% for a in s.anomalies[:2] %}
+                        <span class="anomaly-badge {{ a.badge_class }}">{{ a.label }}</span>
                         {% endfor %}
-                        {% if s.anomalies | length > 3 %}
-                        <span class="anomaly-badge anomaly-badge--more" data-tooltip="{% for a in s.anomalies[3:] %}{{ a.label }}: {{ a.reason }}&#10;{% endfor %}">+{{ s.anomalies | length - 3 }}</span>
+                        {% if s.anomalies | length > 2 %}
+                        <span class="anomaly-badge anomaly-badge--more" data-tooltip="{% for a in s.anomalies[2:] %}{{ a.label }}: {{ a.reason }}&#10;{% endfor %}">+{{ s.anomalies | length - 2 }}</span>
                         {% endif %}
                         {% endif %}
                     </td>
@@ -239,8 +233,8 @@
         visibleRows.sort(function(a, b) {
             var va, vb;
             switch (sortBy) {
-                case 'input_tokens':
-                    va = parseInt(a.dataset.inputTokens) || 0; vb = parseInt(b.dataset.inputTokens) || 0; break;
+                case 'total_tokens':
+                    va = parseInt(a.dataset.totalTokens) || 0; vb = parseInt(b.dataset.totalTokens) || 0; break;
                 case 'output_tokens':
                     va = parseInt(a.dataset.outputTokens) || 0; vb = parseInt(b.dataset.outputTokens) || 0; break;
                 case 'tool_call_count':
