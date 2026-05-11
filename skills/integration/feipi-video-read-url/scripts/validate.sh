@@ -117,6 +117,7 @@ for required_file in \
   "$TARGET_DIR/scripts/render_background_prompt.sh" \
   "$TARGET_DIR/scripts/install_deps.sh" \
   "$TARGET_DIR/scripts/lib/yt_dlp_common.sh" \
+  "$TARGET_DIR/scripts/lib/youtube_retry_policy.sh" \
   "$TARGET_DIR/scripts/lib/whispercpp_transcribe.sh" \
   "$TEST_SCRIPT" \
   "$TARGET_DIR/references/test_cases.txt" \

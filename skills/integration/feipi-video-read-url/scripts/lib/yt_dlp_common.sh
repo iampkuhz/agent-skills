@@ -85,6 +85,31 @@ yt_common_run() {
   return 1
 }
 
+# 与 yt_common_run 的区别：成功时将 err_file 输出到 stdout。
+# 仅用于音频下载链路，便于从日志中回填音频文件路径。
+yt_common_run_with_success_log() {
+  local err_file
+  err_file="$(mktemp)"
+
+  if yt_common_run_cmd "$err_file" "$@"; then
+    cat "$err_file"
+    rm -f "$err_file"
+    return 0
+  fi
+
+  if type yt_common_on_error >/dev/null 2>&1; then
+    if yt_common_on_error "$err_file" "$@"; then
+      cat "$err_file"
+      rm -f "$err_file"
+      return 0
+    fi
+  fi
+
+  cat "$err_file" >&2
+  rm -f "$err_file"
+  return 1
+}
+
 yt_common_try() {
   local err_file
   err_file="$(mktemp)"
@@ -123,12 +148,44 @@ yt_common_mode_audio() {
 yt_common_mode_whisper_audio() {
   local url="$1"
   # 转写优先速度：优先拉取中低码率音频，减小下载与后续转写耗时。
-  yt_common_run \
+  yt_common_run_with_success_log \
     --format "bestaudio[abr<=96]/bestaudio/best" \
     --extract-audio \
     --audio-format mp3 \
     --audio-quality 7 \
     "$url"
+}
+
+yt_common_mode_whisper_audio_with_format_fallback() {
+  local url="$1"
+  local -a format_variants=(
+    "bestaudio[abr<=96]/bestaudio"
+    "18"
+    "best"
+  )
+  local format_var log_file
+
+  for format_var in "${format_variants[@]}"; do
+    echo "yt_common_whisper_audio: 尝试 format=\"$format_var\"" >&2
+    log_file="$(mktemp)"
+    if yt_common_run_with_success_log \
+      --format "$format_var" \
+      --extract-audio \
+      --audio-format mp3 \
+      --audio-quality 7 \
+      "$url" >"$log_file" 2>&1; then
+      cat "$log_file"
+      rm -f "$log_file"
+      return 0
+    fi
+
+    if rg -qi "403|HTTP Error|Requested format is not available|Only images" "$log_file"; then
+      echo "yt_common_whisper_audio: format=$format_var 下载失败" >&2
+    fi
+    rm -f "$log_file"
+  done
+
+  return 1
 }
 
 yt_common_mode_video() {
@@ -244,6 +301,7 @@ yt_common_run_whisper_mode_from_url() {
   local whisper_helper="$3"
   local language="${4:-zh}"
   local whisper_profile="${5:-auto}"
+  local audio_download_fn="${6:-yt_common_mode_whisper_audio}"
 
   local marker audio_file transcribe_audio_file base text_file srt_file output_prefix
   local audio_download_log
@@ -262,7 +320,7 @@ yt_common_run_whisper_mode_from_url() {
 
   marker="$(mktemp "$out_dir/.audio-marker.XXXXXX")"
   audio_download_log="$(mktemp "$out_dir/.audio-download-log.XXXXXX")"
-  if ! yt_common_mode_whisper_audio "$url" >"$audio_download_log" 2>&1; then
+  if ! "$audio_download_fn" "$url" >"$audio_download_log" 2>&1; then
     cat "$audio_download_log" >&2
     rm -f "$audio_download_log"
     rm -f "$marker"
@@ -272,14 +330,14 @@ yt_common_run_whisper_mode_from_url() {
 
   audio_file="$(yt_common_find_new_audio_file "$out_dir" "$marker")"
 
-  # 若文件已存在，yt-dlp 可能不会生成“新文件”；从日志回填音频路径。
+  # 若文件已存在，yt-dlp 可能不会生成"新文件"；从日志回填音频路径。
   if [[ -z "$audio_file" ]]; then
     audio_file="$(sed -nE \
-      -e 's#^\[download\] Destination: (.*\.mp3)$#\1#p' \
-      -e 's#^\[download\] (.*\.mp3) has already been downloaded$#\1#p' \
-      -e 's#^\[ExtractAudio\] Destination: (.*\.mp3)$#\1#p' \
-      -e 's#^\[ExtractAudio\] Not converting audio (.*\.mp3);.*$#\1#p' \
-      "$audio_download_log" | tail -n1)"
+      -e 's#^\[download\] Destination: (.*)$#\1#p' \
+      -e 's#^\[download\] (.*) has already been downloaded$#\1#p' \
+      -e 's#^\[ExtractAudio\] Destination: (.*)$#\1#p' \
+      -e 's#^\[ExtractAudio\] Not converting audio (.*)[; ].*$#\1#p' \
+      "$audio_download_log" | grep '\.mp3$' | tail -n1)"
     if [[ -n "$audio_file" && ! -f "$audio_file" ]]; then
       audio_file=""
     fi

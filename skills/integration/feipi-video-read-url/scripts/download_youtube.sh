@@ -55,7 +55,17 @@ AGENT_YOUTUBE_COOKIE_FILE="$(normalize_out_dir "$AGENT_YOUTUBE_COOKIE_FILE_RAW")
 
 # YouTube 反爬重试策略固定值（不通过环境变量暴露）。
 YT_REMOTE_COMPONENTS_DEFAULT="ejs:github"
-YT_EXTRACTOR_ARGS_DEFAULT="youtube:player_client=web,web_safari"
+# client fallback 收敛为单 client 列表，不使用逗号分隔的组合项（如 "web,web_safari"），
+# 以免日志和重试语义混乱。删除了 yt-dlp 不支持的 tv_embedded。
+# 首次请求不显式指定 player_client，让 yt-dlp 使用默认策略。
+# android_vr 默认不放入主链路：当前 yt-dlp 默认已会尝试 android_vr，且其列出
+# 的 DASH 音频格式在实际下载时容易 403。如需强制加入，可通过环境变量开启。
+YT_CLIENT_FALLBACKS=("web_safari" "ios" "web")
+if [[ "${AGENT_YOUTUBE_ENABLE_ANDROID_VR_FALLBACK:-0}" == "1" ]]; then
+  YT_CLIENT_FALLBACKS+=("android_vr")
+fi
+YT_CURRENT_CLIENT_IDX=-1
+YT_CLIENT_TRIED=()
 YT_BOT_HIT=0
 YT_AUTH_RETRY_NOAUTH=0
 YT_AUTH_RETRY_WITH_AUTH=0
@@ -114,6 +124,14 @@ fi
 # shellcheck disable=SC1090
 source "$YT_COMMON_LIB"
 
+YT_RETRY_POLICY_LIB="$SCRIPT_DIR/lib/youtube_retry_policy.sh"
+if [[ ! -r "$YT_RETRY_POLICY_LIB" ]]; then
+  echo "缺少 YouTube retry policy lib: $YT_RETRY_POLICY_LIB" >&2
+  exit 1
+fi
+# shellcheck disable=SC1090
+source "$YT_RETRY_POLICY_LIB"
+
 yt_common_require_tools "$MODE"
 yt_common_init "$OUT_DIR" "$AGENT_CHROME_PROFILE"
 AUTH_SOURCE="none"
@@ -157,8 +175,34 @@ retry_with_current_auth_tuned() {
 
   yt_common_run_cmd "$err_file" \
     --remote-components "$YT_REMOTE_COMPONENTS_DEFAULT" \
-    --extractor-args "$YT_EXTRACTOR_ARGS_DEFAULT" \
     "$@"
+}
+
+# 遍历剩余 client 执行，直到成功或耗尽。
+# 使用局部索引避免状态污染：每次调用从全局 YT_CURRENT_CLIENT_IDX 的下一个开始。
+run_with_client_fallbacks() {
+  local err_file="$1"
+  shift
+  local client
+  local idx
+
+  idx="$YT_CURRENT_CLIENT_IDX"
+  while [[ "$idx" -lt $(( ${#YT_CLIENT_FALLBACKS[@]} - 1 )) ]]; do
+    idx=$(( idx + 1 ))
+    client="${YT_CLIENT_FALLBACKS[$idx]}"
+    YT_CLIENT_TRIED+=("$client")
+    echo "client_fallback: 切换到 youtube:player_client=$client" >&2
+
+    if yt_common_run_cmd "$err_file" \
+      --remote-components "$YT_REMOTE_COMPONENTS_DEFAULT" \
+      --extractor-args "youtube:player_client=$client" \
+      "$@"; then
+      YT_CURRENT_CLIENT_IDX="$idx"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 # 公开视频优先无认证尝试；遇到需要登录的场景再按需切换到 cookie/profile。
@@ -292,11 +336,6 @@ if ! ensure_youtube_network_ready; then
   exit 1
 fi
 
-is_challenge_error() {
-  local err_file="$1"
-  rg -qi "n challenge solving failed|Remote components challenge solver script|Only images are available|Requested format is not available|Sign in to confirm|confirm you're not a bot" "$err_file"
-}
-
 print_bot_guidance() {
   echo "检测到可能的 YouTube bot/风控拦截。" >&2
   echo "处理建议:" >&2
@@ -306,6 +345,9 @@ print_bot_guidance() {
   echo "   # cookies.txt 需为 Netscape Cookie File 格式" >&2
   echo "2) 若同时配置 profile 与 cookie 文件，默认优先 cookie 文件" >&2
   echo "3) 配置后先执行 dryrun，再重试下载" >&2
+  if [[ ${#YT_CLIENT_TRIED[@]} -gt 1 ]]; then
+    printf "client_tried=%s\n" "${YT_CLIENT_TRIED[*]}" >&2
+  fi
 }
 
 # 可选回调：yt_common_run 在失败时会调用该函数。
@@ -346,6 +388,13 @@ yt_common_on_error() {
   # YouTube JS challenge 失败时，使用远程组件与提取器参数重试一次。
   if is_challenge_error "$err_file"; then
     if retry_with_current_auth_tuned "$err_file" "$@"; then
+      return 0
+    fi
+  fi
+
+  # 认证降级 + tuned 重试都失败后，若属于可重试下载错误，遍历剩余 client 尝试。
+  if is_retryable_youtube_download_error "$err_file"; then
+    if run_with_client_fallbacks "$err_file" "$@"; then
       return 0
     fi
   fi
@@ -391,8 +440,10 @@ run_subtitle_mode() {
   if [[ -z "$subtitle_file" ]]; then
     if [[ "$YT_BOT_HIT" -eq 1 ]]; then
       print_bot_guidance
+      echo "subtitle 模式失败：网络或认证问题（非无字幕）。" >&2
+    else
+      echo "subtitle 模式失败：该视频无可用字幕（已尝试 zh.*、en.* 及 all 语言）。" >&2
     fi
-    echo "未获取到字幕文件（vtt/srt）。" >&2
     return 1
   fi
 
@@ -438,9 +489,21 @@ run_whisper_mode() {
 
   whisper_log="$(mktemp "$OUT_DIR/.whisper-mode.XXXXXX")"
   if ! yt_common_run_whisper_mode_from_url "$URL" "$OUT_DIR" "$WHISPER_HELPER" zh "$resolved_profile" >"$whisper_log" 2>&1; then
-    cat "$whisper_log"
-    rm -f "$whisper_log"
-    return 1
+    # 标准路径失败，检查是否是格式/下载错误
+    if rg -qi "403|HTTP Error|Requested format is not available|Only images" "$whisper_log"; then
+      echo "whisper 标准音频下载失败，尝试 format fallback..." >&2
+      rm -f "$whisper_log"
+      whisper_log="$(mktemp "$OUT_DIR/.whisper-mode.XXXXXX")"
+      if ! yt_common_run_whisper_mode_from_url "$URL" "$OUT_DIR" "$WHISPER_HELPER" zh "$resolved_profile" yt_common_mode_whisper_audio_with_format_fallback >"$whisper_log" 2>&1; then
+        cat "$whisper_log"
+        rm -f "$whisper_log"
+        return 1
+      fi
+    else
+      cat "$whisper_log"
+      rm -f "$whisper_log"
+      return 1
+    fi
   fi
 
   cat "$whisper_log"
