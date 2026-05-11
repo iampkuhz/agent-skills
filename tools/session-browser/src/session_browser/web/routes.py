@@ -130,11 +130,17 @@ _template_env.filters["strip_line_numbers"] = lambda text: (
     if text and re.search(r'^\d+\t', text, flags=re.MULTILINE)
     else text
 )
-_template_env.filters["renumber_lines"] = lambda text: (
-    "\n".join(f"{i + 1}\t{re.sub(r'^\d+\t', '', line)}" for i, line in enumerate(text.splitlines())) + "\n"
-    if text and re.search(r'^\d+\t', text, flags=re.MULTILINE)
-    else text
-)
+def _renumber_lines(text: str) -> str:
+    if not text or not re.search(r'^\d+\t', text, flags=re.MULTILINE):
+        return text
+    tab = '\t'
+    lines = []
+    for i, line in enumerate(text.splitlines()):
+        cleaned = re.sub(r'^\d+\t', '', line)
+        lines.append(f"{i + 1}{tab}{cleaned}")
+    return "\n".join(lines) + "\n"
+
+_template_env.filters["renumber_lines"] = _renumber_lines
 
 
 def _relative_paths_in_json(obj: any) -> any:
