@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(chmod:*)",
       "Bash(pip3 show:*)",
@@ -11,7 +10,10 @@
       "WebFetch(domain:plantuml.com)",
       "WebSearch",
       "Bash(bash scripts/test.sh)",
-      "Bash(/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/skills/feipi-plantuml-arch-diagram/scripts/tests/test_cases.txt:*)"
-    ]
+      "Bash(/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/skills/feipi-plantuml-arch-diagram/scripts/tests/test_cases.txt:*)",
+      "Bash(rm -rf /Users/zhehan/Documents/tools/llm/feipi-agent-kit/output/* /Users/zhehan/Documents/tools/llm/feipi-agent-kit/tmp_pptx)",
+      "Bash(node skills/authoring/feipi-techreport-ppt-skill/scripts/generate_pptx_pipeline.js skills/authoring/feipi-techreport-ppt-skill/fixtures/self-chain-benchmark.slide-ir.json output/ --mode production)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

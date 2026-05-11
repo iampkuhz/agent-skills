@@ -199,6 +199,103 @@ a:focus-visible, button:focus-visible {
     min-height: 100vh;
 }
 
+/* ─── Sidebar collapse toggle ────────────────────────────────── */
+.sidebar-toggle {
+    position: absolute;
+    right: -14px;
+    top: 200px;
+    width: 16px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fb;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 210;
+    padding: 0;
+    line-height: 1;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.08);
+    transition: width 150ms ease, height 150ms ease, background 150ms ease, color 150ms ease;
+}
+.sidebar-toggle:hover {
+    width: 22px;
+    height: 80px;
+    background: var(--accent-bg);
+    color: var(--accent);
+}
+.sidebar-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Expand button: sits on body, fixed at left edge, hidden by default */
+.sidebar-toggle-expand {
+    position: fixed;
+    left: 0;
+    top: 200px;
+    width: 16px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fb;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 300;
+    padding: 0;
+    line-height: 1;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.08);
+    transition: width 150ms ease, height 150ms ease, background 150ms ease, color 150ms ease;
+    opacity: 0;
+    pointer-events: none;
+}
+.sidebar-toggle-expand:hover {
+    width: 22px;
+    height: 80px;
+    background: var(--accent-bg);
+    color: var(--accent);
+}
+.sidebar-toggle-expand:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Collapsed state */
+body.sidebar-collapsed .sidebar {
+    transform: translateX(calc(-1 * var(--sidebar-w)));
+}
+body.sidebar-collapsed .main-area {
+    margin-left: 0;
+}
+/* Hide collapse button, show expand button when collapsed */
+body.sidebar-collapsed .sidebar-toggle {
+    opacity: 0;
+    pointer-events: none;
+}
+body.sidebar-collapsed .sidebar-toggle-expand {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Transition for smooth collapse */
+.sidebar {
+    transition: transform 200ms ease;
+}
+.main-area {
+    transition: margin-left 200ms ease;
+}
+
 /* ─── Top bar ─────────────────────────────────────────────────── */
 .topbar {
     height: var(--header-h);
