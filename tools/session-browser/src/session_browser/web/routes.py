@@ -227,8 +227,8 @@ def _build_rounds(
     happen during tool loops get an empty user_msg so repeated tool iterations
     stay visible instead of collapsing into one giant round.
 
-    Token ratio is derived from the assistant message's usage data (Claude)
-    or distributed evenly (Codex).
+    Token ratio is derived from the assistant message's usage data (Claude, Qoder)
+    or set to zero when usage data is unavailable (Codex).
     """
     if not messages:
         return []
@@ -326,12 +326,12 @@ def _make_round(
             if tc.tool_use_id and tc.tool_use_id in matched_ids:
                 round_tool_calls.append(tc)
 
-    # Token info (Claude only)
+    # Token info (Claude and Qoder both have per-message usage data)
     round_input = 0
     round_output = 0
     round_cached = 0
     round_cache_write = 0
-    if agent == "claude_code" and assistant_msg.usage:
+    if agent in ("claude_code", "qoder") and assistant_msg.usage:
         round_input = assistant_msg.usage.get("input_tokens", 0)
         round_output = assistant_msg.usage.get("output_tokens", 0)
         round_cached = assistant_msg.usage.get("cache_read_input_tokens", 0)

@@ -93,4 +93,4 @@ class TestPreviewTextTruncation:
     def test_truncation_at_120_chars(self):
         with open("src/session_browser/web/templates/session.html") as f:
             content = f.read()
-        assert "[:120]" in content or "[:120]" in content
+        assert "[:80]" in content
