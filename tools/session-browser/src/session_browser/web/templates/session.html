@@ -103,11 +103,15 @@
         <div class="run-summary-tiles metrics-grid metrics-grid--run-summary">
             <div class="metric-card metric-card--compact">
                 <div class="metric-value">{{ session.duration_seconds | format_duration }}</div>
-                <div class="metric-label">Duration</div>
+                <div class="metric-label" data-tooltip="Wall-clock: first event to last event (includes idle wait)">Wall Duration</div>
             </div>
             <div class="metric-card metric-card--compact">
-                <div class="metric-value">{{ session_grand_total | format_number }}</div>
-                <div class="metric-label">Total Tokens</div>
+                <div class="metric-value">{{ (session.model_execution_seconds if session.model_execution_seconds else 0) | format_duration }}</div>
+                <div class="metric-label" data-tooltip="Merged LLM response intervals (user msg → assistant msg), excluding idle wait">Model Exec</div>
+            </div>
+            <div class="metric-card metric-card--compact">
+                <div class="metric-value">{{ (session.tool_execution_seconds if session.tool_execution_seconds else 0) | format_duration }}</div>
+                <div class="metric-label" data-tooltip="Merged tool + subagent execution intervals (tool_use → tool_result), parallel overlaps merged">Tool Exec</div>
             </div>
             <div class="metric-card metric-card--compact">
                 <div class="metric-value">{{ rounds | length }}</div>
@@ -235,7 +239,7 @@
             </div>
             <div class="token-mix__row">
                 <span class="token-mix__dot token-mix__dot--cw"></span>
-                <span class="token-mix__name">Cache Write</span>
+                <span class="token-mix__name" data-tooltip="cache_creation_input_tokens: input tokens written to prompt cache for future rounds">Cache Write</span>
                 <span class="token-mix__val">{{ session.cached_output_tokens | format_number }}</span>
                 <span class="token-mix__pct">{{ cw_pct }}%</span>
             </div>
@@ -446,7 +450,7 @@
                                     </div>
                                     <div class="token-bar-tooltip__row">
                                         <span class="token-bar-tooltip__dot token-bar-tooltip__dot--cw"></span>
-                                        <span class="token-bar-tooltip__name">Cache Write</span>
+                                        <span class="token-bar-tooltip__name" data-tooltip="Input tokens cached for future rounds">Cache Write</span>
                                         <span class="token-bar-tooltip__value">{{ rb.cache_write | format_number }}</span>
                                         <span class="token-bar-tooltip__pct">{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
                                         <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
@@ -854,26 +858,30 @@
             </div>
         </div>
 
-        <!-- High cache-write rounds -->
-        {% set high_cw_rounds = [] %}
+        <!-- Cache creation rounds (per-round breakdown) -->
+        {% set cache_write_all = [] %}
         {% for r in rounds %}
             {% set rb = r.token_breakdown() %}
-            {% if rb.cache_write > 5000 %}
-                {% set _ = high_cw_rounds.append({'idx': loop.index, 'cw': rb.cache_write, 'total': rb.input + rb.cache_read + rb.cache_write + rb.output}) %}
+            {% if rb.cache_write > 0 %}
+                {% set _ = cache_write_all.append({'idx': loop.index, 'cw': rb.cache_write, 'total': rb.input + rb.cache_read + rb.cache_write + rb.output, 'preview': r.preview_text}) %}
             {% endif %}
         {% endfor %}
-        {% if high_cw_rounds | length > 0 %}
+        {% if cache_write_all | length > 0 %}
         <div class="card">
-            <div class="card-title">High Cache Write Rounds</div>
+            <div class="card-title">Cache Creation per Round
+                <span class="badge badge-muted" data-tooltip="cache_creation_input_tokens: input tokens written to prompt cache for future rounds. Grows with multi-turn sessions.">{{ session.cached_output_tokens | format_number }} total</span>
+            </div>
+            <div class="card-subtitle">Each round that wrote to the prompt cache, sorted by volume. Hover a round number to jump to it in Timeline.</div>
             <div class="top-rounds-list">
-                {% for hr in high_cw_rounds[:5] %}
-                <div class="top-round__row">
-                    <span class="top-round__idx mono text-xs">#{{ hr.idx }}</span>
-                    <span class="top-round__val mono">{{ hr.cw | format_number }}</span>
-                    <div class="top-round__bar">
-                        <div class="top-round__bar--cw" style="width:{{ (hr.cw / hr.total * 100) | round(0) if hr.total > 0 else 0 }}%"></div>
+                {% set max_cw = cache_write_all | map(attribute='cw') | max %}
+                {% for cr in cache_write_all | sort(attribute='cw', reverse=True) %}
+                <div class="top-round__row" data-tooltip="Round #{{ cr.idx }}">
+                    <span class="top-round__idx mono text-xs">#{{ cr.idx }}</span>
+                    <span class="top-round__val mono">{{ cr.cw | format_number }}</span>
+                    <div class="top-round__bar" style="flex:1">
+                        <div class="top-round__bar--cw" style="width:{{ (cr.cw / max_cw * 100) | round(0) if max_cw > 0 else 0 }}%"></div>
                     </div>
-                    <span class="text-muted text-xs">{{ (hr.cw / hr.total * 100) | round(0) }}%</span>
+                    <span class="text-muted text-xs">{{ (cr.cw / cr.total * 100) | round(0) if cr.total > 0 else 0 }}%</span>
                 </div>
                 {% endfor %}
             </div>

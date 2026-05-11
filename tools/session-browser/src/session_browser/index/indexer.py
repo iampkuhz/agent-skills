@@ -66,6 +66,8 @@ def init_schema(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
             started_at TEXT NOT NULL DEFAULT '',
             ended_at TEXT NOT NULL DEFAULT '',
             duration_seconds REAL NOT NULL DEFAULT 0,
+            model_execution_seconds REAL NOT NULL DEFAULT 0,
+            tool_execution_seconds REAL NOT NULL DEFAULT 0,
             model TEXT NOT NULL DEFAULT '',
             git_branch TEXT NOT NULL DEFAULT '',
             source TEXT NOT NULL DEFAULT '',
@@ -114,11 +116,12 @@ def upsert_session(
         """
         INSERT INTO sessions (
             session_key, agent, session_id, title, project_key, project_name,
-            cwd, started_at, ended_at, duration_seconds, model, git_branch,
-            source, user_message_count, assistant_message_count, tool_call_count,
-            input_tokens, output_tokens, cached_input_tokens, cached_output_tokens,
-            failed_tool_count, indexed_at, file_mtime, file_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cwd, started_at, ended_at, duration_seconds, model_execution_seconds,
+            tool_execution_seconds,
+            model, git_branch, source, user_message_count, assistant_message_count,
+            tool_call_count, input_tokens, output_tokens, cached_input_tokens,
+            cached_output_tokens, failed_tool_count, indexed_at, file_mtime, file_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_key) DO UPDATE SET
             title=excluded.title,
             project_key=excluded.project_key,
@@ -127,6 +130,8 @@ def upsert_session(
             started_at=excluded.started_at,
             ended_at=excluded.ended_at,
             duration_seconds=excluded.duration_seconds,
+            model_execution_seconds=excluded.model_execution_seconds,
+            tool_execution_seconds=excluded.tool_execution_seconds,
             model=excluded.model,
             git_branch=excluded.git_branch,
             source=excluded.source,
@@ -153,6 +158,8 @@ def upsert_session(
             summary.started_at,
             summary.ended_at,
             summary.duration_seconds,
+            summary.model_execution_seconds,
+            summary.tool_execution_seconds,
             summary.model,
             summary.git_branch,
             summary.source,
@@ -408,8 +415,11 @@ def incremental_scan(
         cutoff_dt = datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)
         cutoff_iso = cutoff_dt.isoformat()
 
-    # Load existing sessions from DB: session_key → {ended_at, file_mtime, file_path, agent}
+    # Load existing sessions from DB: session_key → {ended_at, file_mtime, file_path, agent, model_execution_seconds, tool_execution_seconds}
     existing = {}
+    columns = [r[0] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+    has_model_exec = "model_execution_seconds" in columns
+    has_tool_exec = "tool_execution_seconds" in columns
     for row in conn.execute(
         "SELECT session_key, ended_at, file_mtime, file_path, agent FROM sessions"
     ).fetchall():
@@ -418,6 +428,8 @@ def incremental_scan(
             "file_mtime": row["file_mtime"],
             "file_path": row["file_path"],
             "agent": row["agent"],
+            "model_execution_seconds": row[5] if has_model_exec else 0,
+            "tool_execution_seconds": row[6] if len(row) > 6 and has_tool_exec else 0,
         }
 
     # Also load session_id → project_key mapping from DB for Claude sessions
@@ -456,10 +468,14 @@ def incremental_scan(
                     skipped_count += 1
                     continue
 
-                # Check file mtime — skip if unchanged
+                # Check file mtime — skip if unchanged and already has execution times
                 stored_mtime = info["file_mtime"]
                 stored_path = info["file_path"]
-                if stored_path:
+                stored_model_exec = info.get("model_execution_seconds", 0)
+                stored_tool_exec = info.get("tool_execution_seconds", 0)
+                has_timing_data = (stored_model_exec and stored_model_exec > 0 and
+                                   stored_tool_exec and stored_tool_exec > 0)
+                if stored_path and has_timing_data:
                     fpath = Path(stored_path)
                     if fpath.exists():
                         current_mtime = os.path.getmtime(fpath)
@@ -476,7 +492,8 @@ def incremental_scan(
 
                 if fpath and fpath.exists():
                     current_mtime = os.path.getmtime(fpath)
-                    if current_mtime <= stored_mtime:
+                    # Always re-process if execution times are missing
+                    if has_timing_data and current_mtime <= stored_mtime:
                         skipped_count += 1
                         continue
                 else:
@@ -528,7 +545,11 @@ def incremental_scan(
 
                 stored_mtime = info["file_mtime"]
                 stored_path = info["file_path"]
-                if stored_path:
+                stored_model_exec = info.get("model_execution_seconds", 0)
+                stored_tool_exec = info.get("tool_execution_seconds", 0)
+                has_timing_data = (stored_model_exec and stored_model_exec > 0 and
+                                   stored_tool_exec and stored_tool_exec > 0)
+                if stored_path and has_timing_data:
                     fpath = Path(stored_path)
                     if fpath.exists():
                         current_mtime = os.path.getmtime(fpath)
@@ -547,7 +568,8 @@ def incremental_scan(
 
                 if fpath and fpath.exists():
                     current_mtime = os.path.getmtime(fpath)
-                    if current_mtime <= stored_mtime:
+                    # Always re-process if execution times are missing
+                    if has_timing_data and current_mtime <= stored_mtime:
                         skipped_count += 1
                         continue
                 else:
@@ -601,7 +623,11 @@ def incremental_scan(
 
                 stored_mtime = info["file_mtime"]
                 stored_path = info["file_path"]
-                if stored_path:
+                stored_model_exec = info.get("model_execution_seconds", 0)
+                stored_tool_exec = info.get("tool_execution_seconds", 0)
+                has_timing_data = (stored_model_exec and stored_model_exec > 0 and
+                                   stored_tool_exec and stored_tool_exec > 0)
+                if stored_path and has_timing_data:
                     p = Path(stored_path)
                     if p.exists():
                         current_mtime = os.path.getmtime(p)
@@ -615,7 +641,8 @@ def incremental_scan(
 
                 if fpath and fpath.exists():
                     current_mtime = os.path.getmtime(fpath)
-                    if current_mtime <= stored_mtime:
+                    # Always re-process if execution times are missing
+                    if has_timing_data and current_mtime <= stored_mtime:
                         skipped_count += 1
                         continue
                 else:
@@ -980,6 +1007,8 @@ def _row_to_summary(row: sqlite3.Row) -> SessionSummary:
         started_at=row["started_at"],
         ended_at=row["ended_at"],
         duration_seconds=row["duration_seconds"],
+        model_execution_seconds=row["model_execution_seconds"],
+        tool_execution_seconds=row["tool_execution_seconds"],
         model=row["model"],
         git_branch=row["git_branch"],
         source=row["source"],

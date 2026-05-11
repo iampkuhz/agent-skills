@@ -22,10 +22,10 @@ SESSION_ANOMALY_DEFINITIONS: dict[str, dict] = {
         "filter_value": "long_duration",
         "severity_levels": ("warning", "critical"),
         "thresholds": {
-            "warning": 3600,    # >= 1h
-            "critical": 7200,   # >= 2h
+            "warning": 3600,    # >= 1h model execution time
+            "critical": 7200,   # >= 2h model execution time
         },
-        "description": "Session duration exceeds time thresholds. Warning at >= 1h, critical at >= 2h.",
+        "description": "Combined active time (LLM response intervals + tool execution with parallel overlap merged) exceeds thresholds. Warning at >= 1h, critical at >= 2h.",
     },
     "failed_run": {
         "key": "failed_run",
@@ -34,15 +34,15 @@ SESSION_ANOMALY_DEFINITIONS: dict[str, dict] = {
         "filter_value": "failed",
         "severity_levels": ("warning", "critical"),
         "thresholds": {
-            "warning": {"min_count": 5, "min_ratio": 0.10},
-            "critical": {"min_count": 10, "min_ratio": 0.20},
+            "warning": {"min_ratio": 0.15},
+            "critical": {"min_ratio": 0.25},
         },
-        "description": "Session has a high number and ratio of failed tool calls. "
-                       "Warning at >= 5 failures and >= 10% ratio; critical at >= 10 and >= 20%.",
+        "description": "Session has a high ratio of failed tool calls. "
+                       "Warning at >= 15% failure ratio; critical at >= 25%.",
     },
     "cache_write_spike": {
         "key": "cache_write_spike",
-        "label": "Cache Write Hotspot",
+        "label": "Cache Creation",
         "filter_label": "Cache Write",
         "filter_value": "cache_write",
         "severity_levels": ("info", "warning"),
@@ -50,8 +50,10 @@ SESSION_ANOMALY_DEFINITIONS: dict[str, dict] = {
             "warning": 200_000,
             "critical": 500_000,  # kept for backward compat, but severity caps at warning
         },
-        "description": "High cache write tokens indicate context accumulation hotspot. "
-                       "Info/warning level only — not a problem indicator like failures.",
+        "description": "High cache creation tokens (cache_creation_input_tokens) indicate that this session generated "
+                       "a large amount of context being written to the prompt cache for future rounds. "
+                       "This is expected for multi-turn sessions with growing context — info/warning level only, "
+                       "not a problem indicator like failures.",
     },
 }
 

@@ -92,7 +92,9 @@ class SessionSummary:
     cwd: str
     started_at: str  # ISO8601
     ended_at: str  # ISO8601
-    duration_seconds: float = 0
+    duration_seconds: float = 0  # wall-clock: first event to last event
+    model_execution_seconds: float = 0  # merged LLM response intervals (user msg → assistant msg)
+    tool_execution_seconds: float = 0   # merged tool + subagent intervals (tool_use → tool_result)
     model: str = ""
     git_branch: str = ""
     source: str = ""  # "cli" | "vscode" | ...

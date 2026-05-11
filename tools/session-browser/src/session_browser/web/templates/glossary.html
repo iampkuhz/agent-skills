@@ -258,17 +258,17 @@
         <tbody>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-warning">Long Duration</span></td>
-                <td class="text-sm">持续时间 &gt;= 1h（警告）/ &gt;= 2h（严重）</td>
+                <td class="text-sm">总活跃时间（Model Exec + Tool Exec，合并并行重叠）&gt;= 1h（警告）/ &gt;= 2h（严重）</td>
                 <td class="text-sm">warning / critical</td>
             </tr>
             <tr>
                 <td><span class="anomaly-badge badge-anomaly-warning">Failed Tools</span></td>
-                <td class="text-sm">失败次数 &gt;= 5 且失败比例 &gt;= 10%（警告）；失败次数 &gt;= 10 且失败比例 &gt;= 20%（严重）。单次失败不会触发。</td>
+                <td class="text-sm">失败比例 &gt;= 15%（警告）；失败比例 &gt;= 25%（严重）。单次失败不会触发。</td>
                 <td class="text-sm">warning / critical</td>
             </tr>
             <tr>
-                <td><span class="anomaly-badge badge-anomaly-info">Cache Write Hotspot</span></td>
-                <td class="text-sm">Cache write &gt;= 200K（info）/ &gt;= 500K（warning）。表示上下文热点，不默认红色。</td>
+                <td><span class="anomaly-badge badge-anomaly-info">Cache Creation</span></td>
+                <td class="text-sm">Cache creation（cache_creation_input_tokens）&gt;= 200K（info）/ &gt;= 500K（warning）。表示该 session 向 prompt cache 写入了大量上下文，供后续 round 复用。是 info/warning 级别——不是问题指标。在 Hotspots 标签页中可查看每轮的写入分布。</td>
                 <td class="text-sm">info / warning</td>
             </tr>
         </tbody>
@@ -315,7 +315,7 @@
             </tr>
             <tr>
                 <td><span class="signal-badge signal-warning">high write</span></td>
-                <td class="text-sm">单轮 cache write &gt;= 300K tokens</td>
+                <td class="text-sm">单轮 cache creation &gt;= 300K tokens（cache_creation_input_tokens，写入 prompt cache 供后续 round 复用）</td>
                 <td class="text-sm">warning</td>
             </tr>
             <tr>

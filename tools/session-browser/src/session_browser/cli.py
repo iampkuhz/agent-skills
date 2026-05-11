@@ -200,6 +200,32 @@ def cmd_scan(args: argparse.Namespace) -> None:
     conn.close()
 
 
+def _migrate_model_execution_seconds(conn) -> None:
+    """Add model_execution_seconds column if it doesn't exist."""
+    try:
+        columns = [r[0] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+        if "model_execution_seconds" not in columns:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN model_execution_seconds REAL NOT NULL DEFAULT 0"
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_tool_execution_seconds(conn) -> None:
+    """Add tool_execution_seconds column if it doesn't exist."""
+    try:
+        columns = [r[0] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+        if "tool_execution_seconds" not in columns:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN tool_execution_seconds REAL NOT NULL DEFAULT 0"
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
 def _ensure_schema_exists(conn) -> None:
     """Create tables if they don't exist, without dropping data."""
     conn.executescript("""
@@ -214,6 +240,8 @@ def _ensure_schema_exists(conn) -> None:
             started_at TEXT NOT NULL DEFAULT '',
             ended_at TEXT NOT NULL DEFAULT '',
             duration_seconds REAL NOT NULL DEFAULT 0,
+            model_execution_seconds REAL NOT NULL DEFAULT 0,
+            tool_execution_seconds REAL NOT NULL DEFAULT 0,
             model TEXT NOT NULL DEFAULT '',
             git_branch TEXT NOT NULL DEFAULT '',
             source TEXT NOT NULL DEFAULT '',
@@ -246,6 +274,8 @@ def _ensure_schema_exists(conn) -> None:
         );
     """)
     conn.commit()
+    _migrate_model_execution_seconds(conn)
+    _migrate_tool_execution_seconds(conn)
 
 
 def _find_pids_on_port(port: int) -> list[int]:

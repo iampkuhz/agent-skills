@@ -233,7 +233,7 @@ def parse_session_detail(
     events = _parse_session_events(session_file)
     subagent_runs = _parse_subagent_runs(session_file)
 
-    summary = _build_summary_from_events(events, session_id, project_key)
+    summary = _build_summary_from_events(events, session_id, project_key, subagent_runs)
     messages = _extract_messages(events)
     tool_calls = _extract_tool_calls(events, messages)
     _attach_subagents_to_agent_tools(tool_calls, subagent_runs)
@@ -399,12 +399,31 @@ def _summarize_text(text: str, max_len: int = 80) -> str:
 # ─── Summary building ─────────────────────────────────────────────────────
 
 
+def _parse_ts_ms(ts_str: str) -> int:
+    """Parse ISO8601 timestamp string to millisecond epoch."""
+    if not ts_str:
+        return 0
+    from datetime import datetime
+    try:
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        return int(dt.timestamp() * 1000)
+    except (ValueError, TypeError):
+        return 0
+
+
 def _build_summary_from_events(
     events: list[dict],
     session_id: str,
     project_key: str,
+    subagent_runs: list | None = None,
 ) -> SessionSummary:
-    """Build SessionSummary from parsed Claude events."""
+    """Build SessionSummary from parsed Claude events.
+
+    Computes timeline-based execution times:
+    - model_execution_seconds: merged LLM response intervals (user msg → assistant msg)
+    - tool_execution_seconds: merged tool + subagent intervals (tool_use → tool_result),
+      with parallel overlaps merged
+    """
     from pathlib import PurePosixPath
 
     user_count = 0
@@ -437,22 +456,23 @@ def _build_summary_from_events(
         if not model and rec.get("model"):
             model = rec.get("model", "")
 
+    # Collect timestamps for interval calculation
+    user_event_timestamps: list[int] = []
+    assistant_event_timestamps: list[int] = []
+    tool_use_map: dict[str, int] = {}       # tool_use_id -> start_ts_ms
+    tool_result_map: dict[str, int] = {}    # tool_use_id -> end_ts_ms
+
     for ev in events:
         etype = ev.get("type", "")
+        ts_str = ev.get("timestamp", "")
+        ts_ms = _parse_ts_ms(ts_str) if ts_str else 0
 
         if etype == "user":
             user_text = _extract_user_text(ev)
             if user_text:
                 user_count += 1
-            ts_str = ev.get("timestamp", "")
             if ts_str and not first_ts:
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                    first_ts = int(dt.timestamp() * 1000)
-                except (ValueError, TypeError):
-                    pass
-            # Extract title from first user message
+                first_ts = _parse_ts_ms(ts_str)
             if not title and user_text:
                 title = _extract_readable_title(user_text)
             if not cwd:
@@ -468,15 +488,51 @@ def _build_summary_from_events(
                     if isinstance(item, dict) and item.get("type") == "tool_result":
                         if item.get("is_error") is True:
                             failed_tool_count += 1
+                        tuid = item.get("tool_use_id", "")
+                        if tuid and ts_ms:
+                            tool_result_map[tuid] = ts_ms
+            if ts_ms:
+                user_event_timestamps.append(ts_ms)
 
-        ts_str = ev.get("timestamp", "")
-        if ts_str:
-            from datetime import datetime
-            try:
-                dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                last_ts = int(dt.timestamp() * 1000)
-            except (ValueError, TypeError):
-                pass
+        elif etype == "assistant" and ev.get("message", {}).get("type") == "message":
+            if ts_ms:
+                assistant_event_timestamps.append(ts_ms)
+            msg = ev.get("message", {})
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "tool_use":
+                        if ts_ms:
+                            tool_use_map[item["id"]] = ts_ms
+
+        if ts_ms:
+            last_ts = ts_ms
+
+    # ─── Model execution: LLM response intervals (user → next assistant) ───
+    llm_intervals: list[tuple[int, int]] = []
+    sorted_user_ts = sorted(user_event_timestamps)
+    sorted_assistant_ts = sorted(assistant_event_timestamps)
+    for u_ts in sorted_user_ts:
+        # Find the next assistant message after this user message
+        for a_ts in sorted_assistant_ts:
+            if a_ts > u_ts:
+                llm_intervals.append((u_ts, a_ts))
+                break
+
+    # ─── Tool execution: tool_use → tool_result intervals ───
+    tool_intervals: list[tuple[int, int]] = []
+    for tool_id, use_ts in tool_use_map.items():
+        if tool_id in tool_result_map:
+            tool_intervals.append((use_ts, tool_result_map[tool_id]))
+
+    # ─── Subagent intervals from sidechain event streams ───
+    subagent_intervals: list[tuple[int, int]] = []
+    for run in (subagent_runs or []):
+        summary = run.get("summary", {})
+        s_ms = _parse_ts_ms(summary.get("started_at", ""))
+        e_ms = _parse_ts_ms(summary.get("ended_at", ""))
+        if s_ms and e_ms:
+            subagent_intervals.append((s_ms, e_ms))
 
     if not last_ts and first_ts:
         last_ts = first_ts
@@ -484,6 +540,9 @@ def _build_summary_from_events(
     duration = 0
     if first_ts and last_ts:
         duration = (last_ts - first_ts) / 1000
+
+    model_execution_seconds = _merge_intervals(llm_intervals) / 1000.0
+    tool_execution_seconds = _merge_intervals(tool_intervals + subagent_intervals) / 1000.0
 
     project_name = PurePosixPath(project_key).name if project_key else "unknown"
 
@@ -497,6 +556,8 @@ def _build_summary_from_events(
         started_at=_ts_ms_to_iso(first_ts) if first_ts else "",
         ended_at=_ts_ms_to_iso(last_ts) if last_ts else "",
         duration_seconds=round(duration, 1),
+        model_execution_seconds=round(model_execution_seconds, 1),
+        tool_execution_seconds=round(tool_execution_seconds, 1),
         model=model,
         git_branch=git_branch,
         source=source,
@@ -509,6 +570,27 @@ def _build_summary_from_events(
         cached_output_tokens=cache_write_tokens,
         failed_tool_count=failed_tool_count,
     )
+
+
+def _merge_intervals(intervals: list[tuple[int, int]], max_gap_ms: int = 300_000) -> int:
+    """Merge overlapping intervals and return total merged duration in milliseconds.
+
+    Filters out individual intervals longer than max_gap_ms (likely idle time).
+    """
+    if not intervals:
+        return 0
+    # Filter out intervals > max_gap_ms (idle time)
+    intervals = [(s, e) for s, e in intervals if (e - s) <= max_gap_ms]
+    if not intervals:
+        return 0
+    intervals.sort()
+    merged = [intervals[0]]
+    for s, e in intervals[1:]:
+        if s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return sum(e - s for s, e in merged)
 
 
 def _extract_messages(events: list[dict]) -> list[ChatMessage]:

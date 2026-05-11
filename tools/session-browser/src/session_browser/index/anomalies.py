@@ -111,19 +111,19 @@ def detect_session_anomalies(
     total_input = input_tokens + cache_read + cache_write
     input_side_total = total_input
 
-    # ─── Failed run (count + ratio AND threshold) ───
+    # ─── Failed run (ratio-based thresholds) ───
     # Occasional failures are normal (esp. for certain models).
-    # Only flag when both absolute count AND ratio indicate a real problem.
+    # Flag when ratio crosses severity thresholds.
     if failed > 0 and tools > 0:
         fail_ratio = safe_divide(failed, tools, 0)
-        if failed >= 10 and fail_ratio >= 0.20:
+        if fail_ratio >= 0.25:
             anomalies.append(Anomaly(
                 type=AnomalyType.FAILED_RUN,
                 severity=SEVERITY_CRITICAL,
                 label="Failed Tools",
                 reason=f"{failed} failed tool call(s) ({fail_ratio*100:.0f}%)",
             ))
-        elif failed >= 5 and fail_ratio >= 0.10:
+        elif fail_ratio >= 0.15:
             anomalies.append(Anomaly(
                 type=AnomalyType.FAILED_RUN,
                 severity=SEVERITY_WARNING,
@@ -131,29 +131,37 @@ def detect_session_anomalies(
                 reason=f"{failed} failed tool call(s) ({fail_ratio*100:.0f}%)",
             ))
 
-    # ─── Long duration (fixed thresholds — percentile unreliable on skewed data) ───
-    if duration > 0:
+    # ─── Long duration (based on combined active time: model + tool execution) ───
+    # model_execution_seconds = merged LLM response intervals (user → assistant)
+    # tool_execution_seconds = merged tool + subagent intervals, parallel overlap merged
+    # Combined = total active work time excluding idle/wait
+    model_exec = session.get("model_execution_seconds", 0) or 0
+    tool_exec = session.get("tool_execution_seconds", 0) or 0
+    active_time = model_exec + tool_exec
+    if active_time > 0:
         warn = FALLBACK_THRESHOLDS["duration_seconds"]["warning"]
         crit = FALLBACK_THRESHOLDS["duration_seconds"]["critical"]
 
-        if duration >= crit:
-            hours = duration / 3600
+        if active_time >= crit:
+            hours = active_time / 3600
             anomalies.append(Anomaly(
                 type=AnomalyType.LONG_DURATION,
                 severity=SEVERITY_CRITICAL,
                 label="Long Duration",
-                reason=f"Duration {hours:.1f}h exceeds critical threshold ({crit/3600:.1f}h)",
+                reason=f"Active time {hours:.1f}h (model {model_exec/3600:.1f}h + tool {tool_exec/3600:.1f}h) exceeds critical threshold ({crit/3600:.1f}h)",
             ))
-        elif duration >= warn:
-            hours = duration / 3600
+        elif active_time >= warn:
+            hours = active_time / 3600
             anomalies.append(Anomaly(
                 type=AnomalyType.LONG_DURATION,
                 severity=SEVERITY_WARNING,
                 label="Long Duration",
-                reason=f"Duration {hours:.1f}h exceeds warning threshold ({warn/3600:.1f}h)",
+                reason=f"Active time {hours:.1f}h (model {model_exec/3600:.1f}h + tool {tool_exec/3600:.1f}h) exceeds warning threshold ({warn/3600:.1f}h)",
             ))
 
-    # ─── Cache write hotspot (info/warning — not a problem indicator) ───
+    # ─── Cache creation (cache_creation_input_tokens) ───
+    # Shows how much context this session wrote to the prompt cache.
+    # Expected for multi-turn sessions — info/warning only, not a problem.
     warn = FALLBACK_THRESHOLDS["cached_output_tokens"]["warning"]
     crit = FALLBACK_THRESHOLDS["cached_output_tokens"]["critical"]
 
@@ -161,15 +169,15 @@ def detect_session_anomalies(
         anomalies.append(Anomaly(
             type=AnomalyType.CACHE_WRITE_SPIKE,
             severity=SEVERITY_WARNING,
-            label="Cache Write Hotspot",
-            reason=f"Cache write {cache_write:,} exceeds critical ({crit:,})",
+            label="Cache Creation",
+            reason=f"Cache creation {cache_write:,} tokens exceeds threshold ({crit:,})",
         ))
     elif cache_write >= warn:
         anomalies.append(Anomaly(
             type=AnomalyType.CACHE_WRITE_SPIKE,
             severity=SEVERITY_INFO,
-            label="Cache Write Hotspot",
-            reason=f"Cache write {cache_write:,} exceeds warning ({warn:,})",
+            label="Cache Creation",
+            reason=f"Cache creation {cache_write:,} tokens exceeds threshold ({warn:,})",
         ))
 
     return SessionAnomalies(session_key=session_key, anomalies=anomalies)

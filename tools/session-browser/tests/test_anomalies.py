@@ -28,6 +28,8 @@ def _session(overrides: dict | None = None) -> dict:
         "project_key": "/tmp/test",
         "ended_at": "2026-01-01T00:00:00Z",
         "duration_seconds": 0,
+        "model_execution_seconds": 0,
+        "tool_execution_seconds": 0,
         "tool_call_count": 0,
         "failed_tool_count": 0,
         "input_tokens": 0,
@@ -49,67 +51,94 @@ def _anomaly_severities(sa, type_key: str) -> set[str]:
     return {a.severity for a in sa.anomalies if a.type == type_key}
 
 
-# ── Long Duration ──────────────────────────────────────────────────────
+# ── Long Duration (based on combined active time: model + tool) ──────────
 
 
 class TestLongDuration:
     def test_3599_seconds_no_trigger(self):
-        sa = detect_session_anomalies(_session({"duration_seconds": 3599}))
+        sa = detect_session_anomalies(_session({"model_execution_seconds": 3599}))
         assert AnomalyType.LONG_DURATION not in _anomaly_types(sa)
 
     def test_3600_seconds_triggers_warning(self):
-        sa = detect_session_anomalies(_session({"duration_seconds": 3600}))
+        sa = detect_session_anomalies(_session({"model_execution_seconds": 3600}))
         assert AnomalyType.LONG_DURATION in _anomaly_types(sa)
         assert "warning" in _anomaly_severities(sa, AnomalyType.LONG_DURATION)
 
     def test_7200_seconds_triggers_critical(self):
-        sa = detect_session_anomalies(_session({"duration_seconds": 7200}))
+        sa = detect_session_anomalies(_session({"model_execution_seconds": 7200}))
         assert AnomalyType.LONG_DURATION in _anomaly_types(sa)
         assert "critical" in _anomaly_severities(sa, AnomalyType.LONG_DURATION)
 
     def test_zero_duration_no_trigger(self):
-        sa = detect_session_anomalies(_session({"duration_seconds": 0}))
+        sa = detect_session_anomalies(_session({"model_execution_seconds": 0}))
         assert AnomalyType.LONG_DURATION not in _anomaly_types(sa)
+
+    def test_high_wall_clock_low_exec_no_trigger(self):
+        """Wall clock 2h but model exec only 10min — should not trigger."""
+        sa = detect_session_anomalies(_session({
+            "duration_seconds": 7200,
+            "model_execution_seconds": 600,
+        }))
+        assert AnomalyType.LONG_DURATION not in _anomaly_types(sa)
+
+    def test_combined_model_tool_triggers(self):
+        """Model 30min + tool 31min = 61min total — triggers warning."""
+        sa = detect_session_anomalies(_session({
+            "model_execution_seconds": 1800,
+            "tool_execution_seconds": 1860,
+        }))
+        assert AnomalyType.LONG_DURATION in _anomaly_types(sa)
+        assert "warning" in _anomaly_severities(sa, AnomalyType.LONG_DURATION)
+
+    def test_tool_only_triggers(self):
+        """Tool exec 1h alone — triggers warning."""
+        sa = detect_session_anomalies(_session({
+            "model_execution_seconds": 0,
+            "tool_execution_seconds": 3600,
+        }))
+        assert AnomalyType.LONG_DURATION in _anomaly_types(sa)
+        assert "warning" in _anomaly_severities(sa, AnomalyType.LONG_DURATION)
 
 
 # ── Failed Run ─────────────────────────────────────────────────────────
 
 
 class TestFailedRun:
-    def test_one_failure_out_of_ten_no_trigger(self):
-        """1 failed / 10 tools = 10% ratio but count < 5 threshold."""
+    def test_10pct_ratio_no_trigger(self):
+        """1 failed / 10 tools = 10% ratio — below 15% threshold."""
         sa = detect_session_anomalies(_session({
             "failed_tool_count": 1,
             "tool_call_count": 10,
         }))
         assert AnomalyType.FAILED_RUN not in _anomaly_types(sa)
 
-    def test_five_failures_out_of_fifty_triggers_warning(self):
-        """5 failed / 50 tools = 10% ratio, meets warning threshold."""
+    def test_16pct_ratio_triggers_warning(self):
+        """4 failed / 25 tools = 16% ratio — above 15% warning threshold."""
         sa = detect_session_anomalies(_session({
-            "failed_tool_count": 5,
-            "tool_call_count": 50,
+            "failed_tool_count": 4,
+            "tool_call_count": 25,
         }))
         assert AnomalyType.FAILED_RUN in _anomaly_types(sa)
         assert "warning" in _anomaly_severities(sa, AnomalyType.FAILED_RUN)
         assert "critical" not in _anomaly_severities(sa, AnomalyType.FAILED_RUN)
 
-    def test_ten_failures_out_of_fifty_triggers_critical(self):
-        """10 failed / 50 tools = 20% ratio, meets critical threshold."""
+    def test_30pct_ratio_triggers_critical(self):
+        """6 failed / 20 tools = 30% ratio — above 25% critical threshold."""
         sa = detect_session_anomalies(_session({
-            "failed_tool_count": 10,
-            "tool_call_count": 50,
+            "failed_tool_count": 6,
+            "tool_call_count": 20,
         }))
         assert AnomalyType.FAILED_RUN in _anomaly_types(sa)
         assert "critical" in _anomaly_severities(sa, AnomalyType.FAILED_RUN)
 
-    def test_high_ratio_low_count_no_trigger(self):
-        """2 failed / 5 tools = 40% ratio but count < 5."""
+    def test_high_ratio_low_count_triggers(self):
+        """1 failed / 2 tools = 50% ratio — ratio-only triggers critical."""
         sa = detect_session_anomalies(_session({
-            "failed_tool_count": 2,
-            "tool_call_count": 5,
+            "failed_tool_count": 1,
+            "tool_call_count": 2,
         }))
-        assert AnomalyType.FAILED_RUN not in _anomaly_types(sa)
+        assert AnomalyType.FAILED_RUN in _anomaly_types(sa)
+        assert "critical" in _anomaly_severities(sa, AnomalyType.FAILED_RUN)
 
 
 # ── Removed anomaly types ─────────────────────────────────────────────
@@ -141,19 +170,19 @@ class TestRemovedAnomalyTypes:
         assert "tool_spike" not in _anomaly_types(sa)
 
 
-# ── Cache Write Hotspot ────────────────────────────────────────────────
+# ── Cache Creation ─────────────────────────────────────────────────────
 
 
 class TestCacheWriteHotspot:
-    def test_label_is_cache_write_hotspot(self):
+    def test_label_is_cache_creation(self):
         sa = detect_session_anomalies(_session({
             "cached_output_tokens": 250_000,
         }))
         hotspot_anomalies = [a for a in sa.anomalies if a.type == AnomalyType.CACHE_WRITE_SPIKE]
         assert len(hotspot_anomalies) == 1
-        assert hotspot_anomalies[0].label == "Cache Write Hotspot"
+        assert hotspot_anomalies[0].label == "Cache Creation"
 
-    def test_below_warning_threshold(self):
+    def test_below_threshold(self):
         sa = detect_session_anomalies(_session({
             "cached_output_tokens": 100_000,
         }))

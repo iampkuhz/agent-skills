@@ -275,6 +275,13 @@ a:focus-visible, button:focus-visible {
     letter-spacing: 0.04em;
 }
 .card-title.flex { flex-wrap: wrap; }
+.card-subtitle {
+    font-size: var(--text-micro);
+    color: var(--text-muted);
+    margin-top: -6px;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
 
 /* ─── Metric section labels ───────────────────────────────────── */
 .metric-section-label {
