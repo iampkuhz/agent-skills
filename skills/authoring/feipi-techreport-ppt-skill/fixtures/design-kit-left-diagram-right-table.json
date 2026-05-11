@@ -1,0 +1,80 @@
+{
+  "slideType": "left-diagram-right-table",
+  "theme": "feipi-light-tech",
+  "density": "compact",
+  "title": "高性能 EVM 链部署架构与改造点图",
+  "components": [
+    {
+      "region": "left.main",
+      "type": "architecture-module",
+      "size": "xl",
+      "variant": "primary",
+      "slots": {
+        "title": "自研高性能 EVM 链",
+        "subtitle": "并行共识 + Reth 执行层 + 金融原生能力",
+        "items": [
+          "Simplex 类并行共识",
+          "Engine API 对接",
+          "分层 txpool",
+          "状态缓存与索引",
+          "稳定币费用"
+        ]
+      }
+    },
+    {
+      "region": "right.main",
+      "type": "native-table",
+      "variant": "tech",
+      "slots": {
+        "preset": "comparison-4col-md",
+        "headers": [
+          "维度",
+          "自建链",
+          "Tempo",
+          "Arc"
+        ],
+        "rows": [
+          [
+            "TPS",
+            "单链 30K",
+            "20K",
+            "3K"
+          ],
+          [
+            "节点",
+            "4地域20个",
+            "10+",
+            "10+"
+          ],
+          [
+            "出块",
+            "500ms",
+            "500ms",
+            "500ms"
+          ],
+          [
+            "成本",
+            "<0.002 cents",
+            "0.1 cents",
+            "1 cent"
+          ]
+        ]
+      }
+    },
+    {
+      "region": "right.notes",
+      "type": "capability-group",
+      "size": "md",
+      "variant": "muted",
+      "slots": {
+        "title": "落地要求",
+        "items": [
+          "表格必须原生",
+          "组件必须可编辑",
+          "超过容量自动降级",
+          "不允许整页图片化"
+        ]
+      }
+    }
+  ]
+}

@@ -19,7 +19,10 @@ const BUILDERS = {
   'metrics-dashboard':  require('./builders/metrics-dashboard'),
   'decision-tree':      require('./builders/decision-tree'),
   'capability-map':     require('./builders/capability-map'),
-  'primitive-gallery':  require('./builders/primitive-gallery')
+  'primitive-gallery':  require('./builders/primitive-gallery'),
+  // Design Kit v2 builders
+  'left-diagram-right-table': require('../design-kit/builders/layout-left-diagram-right-table'),
+  'roadmap-5-stage':          require('../design-kit/builders/layout-roadmap-5-stage')
 };
 
 /**
@@ -50,6 +53,12 @@ async function compile(slideIR, outputPath) {
   }
 
   const PptxGenJS = require('pptxgenjs');
+
+  // 格式检测：design-kit slide spec 使用 slideType + components，
+  // 原有 Slide IR 使用 layout_pattern + elements。
+  if (slideIR.slideType && !slideIR.layout_pattern) {
+    slideIR.layout_pattern = slideIR.slideType;
+  }
 
   const layoutPattern = slideIR.layout_pattern;
   const builder = BUILDERS[layoutPattern];

@@ -1,0 +1,14 @@
+{
+  "status": "needs_user_decision",
+  "round": 3,
+  "actions": [],
+  "requires_user_decision": true,
+  "recommendation": "建议拆成两页",
+  "reason": "经过 3 轮自动修复仍存在 布局溢出，1 项问题未解决。",
+  "remaining_issues": [
+    {
+      "type": "layout_overflow",
+      "message": "元素 \"title\" 超出 canvas safe bounds"
+    }
+  ]
+}

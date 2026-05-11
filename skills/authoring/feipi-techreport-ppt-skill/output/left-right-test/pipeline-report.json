@@ -1,0 +1,181 @@
+{
+  "slide_id": "design-kit-left-diagram-right-table",
+  "layout_pattern": "left-diagram-right-table",
+  "mode": "production",
+  "max_rounds": 3,
+  "dry_run": false,
+  "rounds": [
+    {
+      "round": 1,
+      "static_qa": {
+        "status": "pass",
+        "summary": {
+          "hard_fail": 0,
+          "warning": 3,
+          "acceptable_intentional": 0
+        },
+        "issues": [
+          {
+            "severity": "warning",
+            "type": "too_close",
+            "element_ids": [
+              "architecture-module_left.main",
+              "title"
+            ],
+            "message": "元素 \"architecture-module_left.main\" 与 \"title\" 间距过小 (0.080 inch)",
+            "metrics": {
+              "gap": 0.07999999999999996,
+              "min_gap": 0.1
+            },
+            "suggestion": "适当增加元素间距，避免视觉拥挤"
+          },
+          {
+            "severity": "warning",
+            "type": "too_close",
+            "element_ids": [
+              "native-table_right.main",
+              "title"
+            ],
+            "message": "元素 \"native-table_right.main\" 与 \"title\" 间距过小 (0.080 inch)",
+            "metrics": {
+              "gap": 0.07999999999999996,
+              "min_gap": 0.1
+            },
+            "suggestion": "适当增加元素间距，避免视觉拥挤"
+          },
+          {
+            "severity": "warning",
+            "type": "missing_takeaway",
+            "element_ids": [],
+            "message": "页面缺少 takeaway 元素",
+            "metrics": {},
+            "suggestion": "添加一行结论元素"
+          }
+        ]
+      },
+      "layout_solver": {
+        "status": "pass",
+        "elements_solved": 4,
+        "message": "布局求解已执行，缺失 bounds 的元素已自动分配坐标。"
+      },
+      "render_qa": null,
+      "classified_issues": [
+        {
+          "type": "density_overload",
+          "severity": "warning",
+          "source": "static",
+          "original_type": "too_close",
+          "element_ids": [
+            "architecture-module_left.main",
+            "title"
+          ],
+          "message": "元素 \"architecture-module_left.main\" 与 \"title\" 间距过小 (0.080 inch)",
+          "detail": null
+        },
+        {
+          "type": "density_overload",
+          "severity": "warning",
+          "source": "static",
+          "original_type": "too_close",
+          "element_ids": [
+            "native-table_right.main",
+            "title"
+          ],
+          "message": "元素 \"native-table_right.main\" 与 \"title\" 间距过小 (0.080 inch)",
+          "detail": null
+        },
+        {
+          "type": "content_policy_violation",
+          "severity": "warning",
+          "source": "static",
+          "original_type": "missing_takeaway",
+          "element_ids": [],
+          "message": "页面缺少 takeaway 元素",
+          "detail": null
+        }
+      ],
+      "repair_plan": null,
+      "build_result": {
+        "success": true,
+        "summary": {
+          "slide_id": "design-kit-left-diagram-right-table",
+          "layout_pattern": "left-diagram-right-table",
+          "elements_rendered": 3,
+          "canvas": {
+            "width_in": 13.33,
+            "height_in": 7.5
+          },
+          "validation": {
+            "passed": true,
+            "failures": [],
+            "warnings": []
+          }
+        },
+        "error": null
+      },
+      "round_status": "pass",
+      "static_qa_post_solve": {
+        "status": "pass",
+        "summary": {
+          "hard_fail": 0,
+          "warning": 3,
+          "acceptable_intentional": 0
+        },
+        "issues": [
+          {
+            "severity": "warning",
+            "type": "too_close",
+            "element_ids": [
+              "architecture-module_left.main",
+              "title"
+            ],
+            "message": "元素 \"architecture-module_left.main\" 与 \"title\" 间距过小 (0.080 inch)",
+            "metrics": {
+              "gap": 0.07999999999999996,
+              "min_gap": 0.1
+            },
+            "suggestion": "适当增加元素间距，避免视觉拥挤"
+          },
+          {
+            "severity": "warning",
+            "type": "too_close",
+            "element_ids": [
+              "native-table_right.main",
+              "title"
+            ],
+            "message": "元素 \"native-table_right.main\" 与 \"title\" 间距过小 (0.080 inch)",
+            "metrics": {
+              "gap": 0.07999999999999996,
+              "min_gap": 0.1
+            },
+            "suggestion": "适当增加元素间距，避免视觉拥挤"
+          },
+          {
+            "severity": "warning",
+            "type": "missing_takeaway",
+            "element_ids": [],
+            "message": "页面缺少 takeaway 元素",
+            "metrics": {},
+            "suggestion": "添加一行结论元素"
+          }
+        ]
+      },
+      "cnvp_fix": {
+        "success": true,
+        "error": null
+      },
+      "postcheck": {
+        "success": true,
+        "issues": [],
+        "stats": {
+          "size_bytes": 46144,
+          "slide_count": 1,
+          "text_element_count": 32,
+          "master_text_count": 0
+        }
+      }
+    }
+  ],
+  "final_status": "pass",
+  "final_message": "第 1 轮通过，无硬失败。"
+}

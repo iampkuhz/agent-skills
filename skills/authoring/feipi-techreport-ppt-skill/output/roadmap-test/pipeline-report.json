@@ -1,0 +1,101 @@
+{
+  "slide_id": "design-kit-roadmap-5-stage",
+  "layout_pattern": "roadmap-5-stage",
+  "mode": "production",
+  "max_rounds": 3,
+  "dry_run": false,
+  "rounds": [
+    {
+      "round": 1,
+      "static_qa": {
+        "status": "pass",
+        "summary": {
+          "hard_fail": 0,
+          "warning": 1,
+          "acceptable_intentional": 0
+        },
+        "issues": [
+          {
+            "severity": "warning",
+            "type": "missing_takeaway",
+            "element_ids": [],
+            "message": "页面缺少 takeaway 元素",
+            "metrics": {},
+            "suggestion": "添加一行结论元素"
+          }
+        ]
+      },
+      "layout_solver": {
+        "status": "pass",
+        "elements_solved": 7,
+        "message": "布局求解已执行，缺失 bounds 的元素已自动分配坐标。"
+      },
+      "render_qa": null,
+      "classified_issues": [
+        {
+          "type": "content_policy_violation",
+          "severity": "warning",
+          "source": "static",
+          "original_type": "missing_takeaway",
+          "element_ids": [],
+          "message": "页面缺少 takeaway 元素",
+          "detail": null
+        }
+      ],
+      "repair_plan": null,
+      "build_result": {
+        "success": true,
+        "summary": {
+          "slide_id": "design-kit-roadmap-5-stage",
+          "layout_pattern": "roadmap-5-stage",
+          "elements_rendered": 6,
+          "canvas": {
+            "width_in": 13.33,
+            "height_in": 7.5
+          },
+          "validation": {
+            "passed": true,
+            "failures": [],
+            "warnings": []
+          }
+        },
+        "error": null
+      },
+      "round_status": "pass",
+      "static_qa_post_solve": {
+        "status": "pass",
+        "summary": {
+          "hard_fail": 0,
+          "warning": 1,
+          "acceptable_intentional": 0
+        },
+        "issues": [
+          {
+            "severity": "warning",
+            "type": "missing_takeaway",
+            "element_ids": [],
+            "message": "页面缺少 takeaway 元素",
+            "metrics": {},
+            "suggestion": "添加一行结论元素"
+          }
+        ]
+      },
+      "cnvp_fix": {
+        "success": true,
+        "error": null
+      },
+      "postcheck": {
+        "success": true,
+        "issues": [],
+        "stats": {
+          "size_bytes": 46697,
+          "slide_count": 1,
+          "text_element_count": 55,
+          "master_text_count": 0
+        }
+      }
+    }
+  ],
+  "final_status": "pass",
+  "final_message": "第 1 轮通过，无硬失败。"
+}

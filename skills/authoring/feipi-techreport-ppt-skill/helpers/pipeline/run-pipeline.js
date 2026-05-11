@@ -38,6 +38,12 @@ try {
   fixCnvpIds = require(path.join(SKILL_DIR, 'helpers', 'pptx', 'fix-duplicate-cnvp-id.js'));
 } catch (e) { /* fixer 不可用 */ }
 
+// 尝试加载 design-kit adapter
+let designKitAdapter = null;
+try {
+  designKitAdapter = require(path.join(SKILL_DIR, 'helpers', 'design-kit', 'adapters', 'compiler-adapter.js'));
+} catch (e) { /* design-kit adapter 不可用 */ }
+
 let renderManifest = null;
 try {
   renderManifest = require(path.join(SKILL_DIR, 'helpers', 'render', 'manifest.js'));
@@ -76,6 +82,11 @@ function deriveQAStrategy(mode) {
  * @returns {Promise<Object>} pipeline report
  */
 async function runPipeline(slideIR, outputDir, options = {}) {
+  // 格式检测：design-kit spec → 规范化为 Slide IR
+  if (designKitAdapter && designKitAdapter.isDesignKitSpec(slideIR)) {
+    slideIR = designKitAdapter.normalizeToSlideIR(slideIR);
+  }
+
   const {
     maxRounds = 3,
     mode = 'production',

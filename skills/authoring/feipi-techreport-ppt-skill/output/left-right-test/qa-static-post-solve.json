@@ -1,0 +1,46 @@
+{
+  "status": "pass",
+  "summary": {
+    "hard_fail": 0,
+    "warning": 3,
+    "acceptable_intentional": 0
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "type": "too_close",
+      "element_ids": [
+        "architecture-module_left.main",
+        "title"
+      ],
+      "message": "元素 \"architecture-module_left.main\" 与 \"title\" 间距过小 (0.080 inch)",
+      "metrics": {
+        "gap": 0.07999999999999996,
+        "min_gap": 0.1
+      },
+      "suggestion": "适当增加元素间距，避免视觉拥挤"
+    },
+    {
+      "severity": "warning",
+      "type": "too_close",
+      "element_ids": [
+        "native-table_right.main",
+        "title"
+      ],
+      "message": "元素 \"native-table_right.main\" 与 \"title\" 间距过小 (0.080 inch)",
+      "metrics": {
+        "gap": 0.07999999999999996,
+        "min_gap": 0.1
+      },
+      "suggestion": "适当增加元素间距，避免视觉拥挤"
+    },
+    {
+      "severity": "warning",
+      "type": "missing_takeaway",
+      "element_ids": [],
+      "message": "页面缺少 takeaway 元素",
+      "metrics": {},
+      "suggestion": "添加一行结论元素"
+    }
+  ]
+}

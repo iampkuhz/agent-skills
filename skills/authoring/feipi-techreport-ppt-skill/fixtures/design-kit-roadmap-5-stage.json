@@ -1,0 +1,136 @@
+{
+  "slideType": "roadmap-5-stage",
+  "theme": "feipi-light-tech",
+  "density": "compact",
+  "title": "高性能 EVM 公链五阶段演进路线图",
+  "components": [
+    {
+      "region": "stage.1",
+      "type": "timeline-card",
+      "size": "md",
+      "variant": "done",
+      "slots": {
+        "stage": "阶段一",
+        "time": "T+3M",
+        "headline": "内部测试网",
+        "metric": "5K TPS",
+        "items": [
+          "Simplex 共识接入",
+          "Reth Engine API",
+          "500ms 出块",
+          "基础监控与部署"
+        ]
+      }
+    },
+    {
+      "region": "stage.2",
+      "type": "timeline-card",
+      "size": "md",
+      "variant": "doing",
+      "slots": {
+        "stage": "阶段二",
+        "time": "T+6M",
+        "headline": "外部测试网",
+        "metric": "5K 稳定",
+        "items": [
+          "SDK 与开发文档",
+          "Faucet / Explorer",
+          "公共 RPC",
+          "开发者反馈闭环"
+        ]
+      }
+    },
+    {
+      "region": "stage.3",
+      "type": "timeline-card",
+      "size": "md",
+      "variant": "planned",
+      "slots": {
+        "stage": "阶段三",
+        "time": "T+12M",
+        "headline": "生产主网",
+        "metric": "10K TPS",
+        "items": [
+          "参数冻结",
+          "主网发布 SOP",
+          "索引与钱包接入",
+          "升级与回滚演练"
+        ]
+      }
+    },
+    {
+      "region": "stage.4",
+      "type": "timeline-card",
+      "size": "md",
+      "variant": "planned",
+      "slots": {
+        "stage": "阶段四",
+        "time": "T+18M",
+        "headline": "多子网生产",
+        "metric": "N×10K",
+        "items": [
+          "子网生命周期",
+          "跨子网消息",
+          "统一索引",
+          "规模化运维"
+        ]
+      }
+    },
+    {
+      "region": "stage.5",
+      "type": "timeline-card",
+      "size": "md",
+      "variant": "planned",
+      "slots": {
+        "stage": "阶段五",
+        "time": "T+24M+",
+        "headline": "后量子阶段",
+        "metric": "长期可信",
+        "items": [
+          "PQC 签名支持",
+          "AA / Wallet 兼容",
+          "成本测量",
+          "SDK 适配"
+        ]
+      }
+    },
+    {
+      "region": "matrix",
+      "type": "native-table",
+      "variant": "matrix",
+      "slots": {
+        "preset": "roadmap-matrix-5col",
+        "headers": [
+          "内部测试网",
+          "外部测试网",
+          "生产主网",
+          "多子网生产",
+          "后量子阶段"
+        ],
+        "rows": [
+          [
+            "5K 压测报告",
+            "5K 长稳测试",
+            "10K 验收报告",
+            "N×10K 容量治理",
+            "PQC 成本评估"
+          ],
+          [
+            "部署脚本",
+            "开发者文档",
+            "发布 SOP",
+            "跨子网路由",
+            "钱包兼容"
+          ],
+          [
+            "基础监控",
+            "公共 RPC",
+            "回滚演练",
+            "统一索引",
+            "长期信任"
+          ]
+        ]
+      }
+    }
+  ]
+}

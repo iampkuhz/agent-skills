@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "summary": {
+    "hard_fail": 0,
+    "warning": 1,
+    "acceptable_intentional": 0
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "type": "missing_takeaway",
+      "element_ids": [],
+      "message": "页面缺少 takeaway 元素",
+      "metrics": {},
+      "suggestion": "添加一行结论元素"
+    }
+  ]
+}
