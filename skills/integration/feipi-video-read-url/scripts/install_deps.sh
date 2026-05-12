@@ -2,18 +2,18 @@
 set -euo pipefail
 
 # 视频 URL 读取 skill 的统一依赖安装/检查脚本
-# 依赖：yt-dlp, ffmpeg, whisper.cpp(whisper-cli), large-v3-q5_0 模型和 fast 基础模型
+# 依赖：yt-dlp, ffmpeg, whisper.cpp(whisper-cli), fast 基础模型
 #
 # 用法：
-#   bash scripts/install_deps.sh            # 自动安装缺失依赖（支持 macOS + Homebrew）
-#   bash scripts/install_deps.sh --check    # 仅检查，不安装
+#   bash scripts/install_deps.sh              # 默认仅检查/安装 fast 档模型
+#   bash scripts/install_deps.sh --accurate   # 额外要求 accurate（large-v3-q5_0）模型
+#   bash scripts/install_deps.sh --check      # 仅检查，不安装
+#   bash scripts/install_deps.sh --check --accurate  # 仅检查，要求 accurate
 
 WHISPER_CPP_BIN_DEFAULT="/opt/homebrew/opt/whisper-cpp/bin/whisper-cli"
 WHISPER_MODEL_DIR_DEFAULT="$HOME/Library/Caches/whisper.cpp/models"
-WHISPER_MODEL_FILE_DEFAULT="$WHISPER_MODEL_DIR_DEFAULT/ggml-large-v3-q5_0.bin"
-WHISPER_MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin"
-WHISPER_FAST_MODEL_DEFAULT="ggml-base.bin"
-WHISPER_FAST_MODEL_URL_DEFAULT="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
+WHISPER_MODEL_FILE_ACCURATE="$WHISPER_MODEL_DIR_DEFAULT/ggml-large-v3-q5_0.bin"
+WHISPER_MODEL_URL_ACCURATE="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin"
 
 # fast 档候选模型（whispercpp_transcribe.sh 按此顺序查找）
 WHISPER_FAST_MODELS=(
@@ -25,29 +25,36 @@ WHISPER_FAST_MODELS=(
 usage() {
   cat <<'USAGE'
 用法:
-  bash scripts/install_deps.sh [--check]
+  bash scripts/install_deps.sh [--check] [--accurate]
 
 参数:
-  --check   仅检查依赖，不执行安装
+  --check     仅检查依赖，不执行安装
+  --accurate  额外要求 accurate（large-v3-q5_0）模型
 USAGE
 }
 
 CHECK_ONLY=0
+REQUIRE_ACCURATE=0
 if [[ $# -gt 0 ]]; then
-  case "$1" in
-    --check)
-      CHECK_ONLY=1
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "未知参数: $1" >&2
-      usage
-      exit 1
-      ;;
-  esac
+  for arg in "$@"; do
+    case "$arg" in
+      --check)
+        CHECK_ONLY=1
+        ;;
+      --accurate)
+        REQUIRE_ACCURATE=1
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "未知参数: $arg" >&2
+        usage
+        exit 1
+        ;;
+    esac
+  done
 fi
 
 need_cmd() {
@@ -80,53 +87,60 @@ install_whisper_cpp() {
 }
 
 ensure_whisper_model() {
-  local tmp_file
+  local tmp_file model_entry model_name fast_path
 
-  if [[ -f "$WHISPER_MODEL_FILE_DEFAULT" ]]; then
-    echo "[OK] whisper 模型(accurate): $WHISPER_MODEL_FILE_DEFAULT"
-  else
-    echo "[MISS] whisper 模型(accurate): $WHISPER_MODEL_FILE_DEFAULT"
-    if [[ "$CHECK_ONLY" -eq 1 ]]; then
-      return 1
-    fi
-    echo "正在下载模型（large-v3 q5_0，首次下载较慢）..."
-    mkdir -p "$WHISPER_MODEL_DIR_DEFAULT"
-    tmp_file="${WHISPER_MODEL_FILE_DEFAULT}.partial.$$"
-    if ! curl -L --fail "$WHISPER_MODEL_URL" -o "$tmp_file"; then
-      rm -f "$tmp_file"
-      echo "[FAIL] whisper accurate 模型下载失败" >&2
-      return 1
-    fi
-    mv "$tmp_file" "$WHISPER_MODEL_FILE_DEFAULT"
-    echo "[OK] whisper accurate 模型下载完成: $WHISPER_MODEL_FILE_DEFAULT"
-  fi
-
-  # 同时确保 fast 档至少有一个模型。默认只下载 base，避免一次安装拉取多个大模型。
-  local model_entry model_name fast_model_path
+  # 确保 fast 档至少有一个模型（默认必检项）。
+  local fast_found=0
   for model_entry in "${WHISPER_FAST_MODELS[@]}"; do
     model_name="${model_entry%%|*}"
-    if [[ -f "$WHISPER_MODEL_DIR_DEFAULT/$model_name" ]]; then
-      echo "[OK] whisper 模型(fast): $WHISPER_MODEL_DIR_DEFAULT/$model_name"
-      return 0
+    fast_path="$WHISPER_MODEL_DIR_DEFAULT/$model_name"
+    if [[ -f "$fast_path" ]]; then
+      echo "[OK] whisper 模型(fast): $fast_path"
+      fast_found=1
+    else
+      echo "[MISS] whisper 模型(fast): $fast_path"
     fi
   done
 
-  fast_model_path="$WHISPER_MODEL_DIR_DEFAULT/$WHISPER_FAST_MODEL_DEFAULT"
-  echo "[MISS] whisper 模型(fast): 未检测到 turbo/small/base"
-  if [[ "$CHECK_ONLY" -eq 1 ]]; then
-    return 1
+  if [[ "$fast_found" -eq 0 ]]; then
+    if [[ "$CHECK_ONLY" -eq 1 ]]; then
+      return 1
+    fi
+    echo "正在下载 fast 基础模型: ggml-base.bin ..."
+    mkdir -p "$WHISPER_MODEL_DIR_DEFAULT"
+    local default_url="${WHISPER_FAST_MODELS[2]#*|}"
+    tmp_file="${WHISPER_MODEL_DIR_DEFAULT}/ggml-base.bin.partial.$$"
+    if ! curl -L --fail "$default_url" -o "$tmp_file"; then
+      rm -f "$tmp_file"
+      echo "[FAIL] whisper fast 模型下载失败" >&2
+      return 1
+    fi
+    mv "$tmp_file" "$WHISPER_MODEL_DIR_DEFAULT/ggml-base.bin"
+    echo "[OK] whisper fast 模型下载完成: $WHISPER_MODEL_DIR_DEFAULT/ggml-base.bin"
   fi
 
-  echo "正在下载 fast 基础模型: $WHISPER_FAST_MODEL_DEFAULT ..."
-  mkdir -p "$WHISPER_MODEL_DIR_DEFAULT"
-  tmp_file="${fast_model_path}.partial.$$"
-  if ! curl -L --fail "$WHISPER_FAST_MODEL_URL_DEFAULT" -o "$tmp_file"; then
-    rm -f "$tmp_file"
-    echo "[FAIL] whisper fast 模型下载失败: $WHISPER_FAST_MODEL_DEFAULT" >&2
-    return 1
+  # accurate 模型仅在显式要求时检查/安装。
+  if [[ "$REQUIRE_ACCURATE" -eq 1 ]]; then
+    if [[ -f "$WHISPER_MODEL_FILE_ACCURATE" ]]; then
+      echo "[OK] whisper 模型(accurate): $WHISPER_MODEL_FILE_ACCURATE"
+    else
+      echo "[MISS] whisper 模型(accurate): $WHISPER_MODEL_FILE_ACCURATE"
+      if [[ "$CHECK_ONLY" -eq 1 ]]; then
+        return 1
+      fi
+      echo "正在下载模型（large-v3 q5_0，首次下载较慢）..."
+      mkdir -p "$WHISPER_MODEL_DIR_DEFAULT"
+      tmp_file="${WHISPER_MODEL_FILE_ACCURATE}.partial.$$"
+      if ! curl -L --fail "$WHISPER_MODEL_URL_ACCURATE" -o "$tmp_file"; then
+        rm -f "$tmp_file"
+        echo "[FAIL] whisper accurate 模型下载失败" >&2
+        return 1
+      fi
+      mv "$tmp_file" "$WHISPER_MODEL_FILE_ACCURATE"
+      echo "[OK] whisper accurate 模型下载完成: $WHISPER_MODEL_FILE_ACCURATE"
+    fi
   fi
-  mv "$tmp_file" "$fast_model_path"
-  echo "[OK] whisper fast 模型下载完成: $fast_model_path"
+
   return 0
 }
 

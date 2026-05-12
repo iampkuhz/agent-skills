@@ -372,7 +372,7 @@ rm -f "$NETWORK_CACHE_FILE"
 LONG_VIDEO_FLAG="0"
 DURATION_SEC=""
 ESTIMATED_RISK="low"
-if [[ "$MODE" == "whisper" ]]; then
+if [[ "$MODE" == "whisper" || "$MODE" == "auto" ]]; then
   set +e
   DURATION_RAW="$(yt-dlp --socket-timeout 5 --skip-download --no-playlist --print "%(duration)s" "$URL" 2>/dev/null | head -n1)"
   set -e

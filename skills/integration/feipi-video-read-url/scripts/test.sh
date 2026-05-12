@@ -1055,6 +1055,28 @@ else
   stub_fail_msg "whisper-reuse-residual" "yt_dlp_common.sh 未找到复用已有转写结果的逻辑"
 fi
 
+
+# --- 测试 10：accurate 不复用 fast profile 结果 ---
+if rg -q "existing_profile.*==.*accurate" "$SKILL_DIR/scripts/lib/yt_dlp_common.sh"; then
+  stub_pass "accurate-no-reuse-fast"
+else
+  stub_fail_msg "accurate-no-reuse-fast" "yt_dlp_common.sh 未找到 accurate 不复用 fast 的保护逻辑"
+fi
+
+# --- 测试 11：install_deps.sh 默认不要求 accurate 模型 ---
+if rg -q "REQUIRE_ACCURATE=0" "$SKILL_DIR/scripts/install_deps.sh"; then
+  stub_pass "install-deps-fast-default"
+else
+  stub_fail_msg "install-deps-fast-default" "install_deps.sh 默认 REQUIRE_ACCURATE 不为 0"
+fi
+
+# --- 测试 12：长视频时长探测覆盖 auto 模式 ---
+if rg -q 'MODE.*==.*"whisper".*||.*MODE.*==.*"auto"' "$EXTRACT_SCRIPT"; then
+  stub_pass "duration-detect-auto"
+else
+  stub_fail_msg "duration-detect-auto" "extract_video_text.sh 时长探测未覆盖 auto 模式"
+fi
+
 rm -rf "$STUB_DIR"
 
 echo "测试汇总: total=$TOTAL pass=$PASSED fail=$FAILED"

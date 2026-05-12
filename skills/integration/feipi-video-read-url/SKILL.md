@@ -251,6 +251,11 @@ SKILL_DIR="/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/skills/integ
 bash "$SKILL_DIR/scripts/install_deps.sh" --check
 ```
 
+1b. 检查依赖（含 accurate 模型）：
+```bash
+bash "$SKILL_DIR/scripts/install_deps.sh" --check --accurate
+```
+
 2. 仅验证链接可读（不真实下载）：
 ```bash
 bash "$SKILL_DIR/scripts/download_video.sh" "<video_url>" "./tmp/video-read" dryrun

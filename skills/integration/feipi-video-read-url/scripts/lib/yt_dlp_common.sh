@@ -466,6 +466,10 @@ yt_common_run_whisper_mode_from_url() {
     return 1
   fi
 
+  # 写入 metadata 侧车文件，供后续复用判断。
+  local meta_file="${transcribe_audio_file%.whisper.wav}.meta"
+  printf "profile=%s\nmodel=%s\nlanguage=%s\n" "$used_profile" "$used_model" "$language" > "$meta_file"
+
   yt_common_subtitle_to_text "$srt_file" "$text_file"
   echo "requested_profile=$requested_profile"
   echo "profile=$used_profile"
