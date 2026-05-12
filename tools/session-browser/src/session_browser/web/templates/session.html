@@ -77,7 +77,7 @@
         {% endif %}
         {% if session.started_at %}
         <span class="meta-chip meta-chip--mono meta-chip--time"
-              title="Started: {{ session.started_at[:19].replace('T', ' ') }}&#10;Ended: {{ session.ended_at[:19].replace('T', ' ') }}&#10;Duration: {{ session.duration_seconds | format_duration }}">
+              title="Started: {{ session.started_at | local_time }}&#10;Ended: {{ session.ended_at | local_time }}&#10;Duration: {{ session.duration_seconds | format_duration }}">
             {{ session.started_at[:10] }} &#x00b7; {{ session.duration_seconds | format_duration }}
         </span>
         {% endif %}
@@ -483,7 +483,7 @@
                             <span class="badge badge-error">{{ round.tool_calls | selectattr('is_failed') | list | length }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-xs text-muted mono">{{ round.user_msg.timestamp[:19].replace('T', ' ') if round.user_msg.timestamp else '' }}</td>
+                        <td class="text-xs text-muted mono">{{ round.user_msg.timestamp | local_time if round.user_msg.timestamp else '' }}</td>
                     </tr>
                     <tr class="round-detail-row display-none" data-round-idx="{{ loop.index }}">
                         <td colspan="7" class="round-detail-cell">
@@ -496,7 +496,7 @@
                                             <div class="msg-label">
                                                 User
                                                 {% if round.user_msg.timestamp %}
-                                                <span class="msg-label__time">{{ round.user_msg.timestamp[:19].replace('T', ' ') }}</span>
+                                                <span class="msg-label__time">{{ round.user_msg.timestamp | local_time }}</span>
                                                 {% endif %}
                                             </div>
                                             <div class="msg-body">{{ round.user_msg.content_html | safe }}</div>
@@ -519,7 +519,7 @@
                                                     Context carried forward
                                                 {% endif %}
                                                 {% if interaction.timestamp %}
-                                                <span class="flow-arrow__time">{{ interaction.timestamp[:19].replace('T', ' ') }}</span>
+                                                <span class="flow-arrow__time">{{ interaction.timestamp | local_time }}</span>
                                                 {% endif %}
                                             </div>
                                             {% endif %}
@@ -539,7 +539,7 @@
                                                         {% endif %}
                                                     </span>
                                                     {% if interaction.timestamp %}
-                                                    <span class="llm-card__time" data-tooltip="LLM call sent at">{{ interaction.timestamp[:19].replace('T', ' ') }}</span>
+                                                    <span class="llm-card__time" data-tooltip="LLM call sent at">{{ interaction.timestamp | local_time }}</span>
                                                     {% endif %}
                                                     <span class="llm-card__chevron">&#8250;</span>
                                                 </div>
@@ -579,7 +579,7 @@
                                                                 <span class="tool-detail-card__chevron">&#8250;</span>
                                                                 <span class="badge badge-primary">{{ tc.name }}</span>
                                                                 {% if tc.timestamp %}
-                                                                <span class="tool-card__time" data-tooltip="Tool call started at">{{ tc.timestamp[:19].replace('T', ' ') }}</span>
+                                                                <span class="tool-card__time" data-tooltip="Tool call started at">{{ tc.timestamp | local_time }}</span>
                                                                 {% endif %}
                                                                 {% if tc.duration_ms > 0 %}
                                                                 <span class="tool-card__duration" data-tooltip="Tool execution duration">{{ (tc.duration_ms / 1000) | round(1) }}s</span>
@@ -634,7 +634,7 @@
                                                         <span>{{ interaction.output_tokens | format_number }} out</span>
                                                     </div>
                                                     {% if interaction.timestamp %}
-                                                    <span class="llm-card__time">{{ interaction.timestamp[:19].replace('T', ' ') }}</span>
+                                                    <span class="llm-card__time">{{ interaction.timestamp | local_time }}</span>
                                                     {% endif %}
                                                     <span class="llm-card__chevron">&#8250;</span>
                                                 </div>
@@ -656,7 +656,7 @@
                                                                 <span class="tool-detail-card__chevron">&#8250;</span>
                                                                 <span class="badge badge-muted">{{ tc.name }}</span>
                                                                 {% if tc.timestamp %}
-                                                                <span class="tool-card__time">{{ tc.timestamp[:19].replace('T', ' ') }}</span>
+                                                                <span class="tool-card__time">{{ tc.timestamp | local_time }}</span>
                                                                 {% endif %}
                                                                 {% if tc.duration_ms > 0 %}
                                                                 <span class="tool-card__duration">{{ (tc.duration_ms / 1000) | round(1) }}s</span>
@@ -715,7 +715,7 @@
                                                 <span class="tool-detail-card__chevron">&#8250;</span>
                                                 <span class="badge badge-primary">{{ tc.name }}</span>
                                                 {% if tc.timestamp %}
-                                                <span class="tool-card__time">{{ tc.timestamp[:19].replace('T', ' ') }}</span>
+                                                <span class="tool-card__time">{{ tc.timestamp | local_time }}</span>
                                                 {% endif %}
                                                 {% if tc.duration_ms > 0 %}
                                                 <span class="tool-card__duration">{{ (tc.duration_ms / 1000) | round(1) }}s</span>
@@ -964,7 +964,7 @@
                         <td class="text-xs mono truncate" data-tooltip="{{ call.response_full[:500] if call.response_full else '' }}">
                             {{ call.response_preview[:80] if call.response_preview else '—' }}
                         </td>
-                        <td class="text-xs text-muted mono">{{ call.timestamp[:19].replace('T', ' ') if call.timestamp else '' }}</td>
+                        <td class="text-xs text-muted mono">{{ call.timestamp | local_time if call.timestamp else '' }}</td>
                     </tr>
                     <tr class="llm-call-detail display-none">
                         <td colspan="11" style="padding:0; background:var(--bg);">

@@ -121,6 +121,9 @@ _template_env.filters["format_duration"] = lambda seconds: (
 _template_env.filters["relative_time"] = lambda iso_str: (
     _relative_time(iso_str)
 )
+_template_env.filters["local_time"] = lambda iso_str: (
+    _to_local_time(iso_str)
+)
 _template_env.filters["urlencode"] = urllib.parse.quote
 _template_env.filters["urldecode"] = urllib.parse.unquote
 _template_env.filters["markdown"] = _md_filter
@@ -209,6 +212,23 @@ def _relative_time(iso_str: str) -> str:
         return f"{minutes}m ago"
     except (ValueError, TypeError):
         return iso_str[:16]
+
+
+def _to_local_time(iso_str: str) -> str:
+    """Convert UTC ISO8601 timestamp to local-time display string.
+
+    E.g. \"2026-05-12T06:20:29+00:00\" -> \"2026-05-12 14:20:29\" (Beijing UTC+8).
+    If already in local time (has non-zero offset), just reformat.
+    """
+    if not iso_str:
+        return ""
+    from datetime import datetime, timezone
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        local_dt = dt.astimezone()
+        return local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return str(iso_str)[:19].replace("T", " ")
 
 
 def _build_rounds(

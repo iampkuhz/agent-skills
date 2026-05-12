@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Iterator
 
@@ -23,13 +24,38 @@ from session_browser.config import QODER_DATA_DIR
 from session_browser.domain.models import SessionSummary, ChatMessage, ToolCall
 from session_browser.domain.token_normalizer import normalize_tokens, TokenPrecision
 
+# Use local timezone offset for display
+_LOCAL_TZ = datetime.now(timezone.utc).astimezone().tzinfo
+_LOCAL_OFFSET = _LOCAL_TZ.utcoffset(datetime.now()) if _LOCAL_TZ else timedelta()
+
+
+def normalize_timestamp(ts) -> str:
+    """Convert timestamp (ISO8601 str or Unix int) to local-time ISO8601 str.
+
+    Qoder logs store timestamps as either ISO8601 strings (\"2026-05-12T06:20:29Z\")
+    or Unix integer seconds (1747040495). This function normalises both forms
+    into a local-time ISO8601 string so downstream display code is uniform.
+    """
+    if not ts:
+        return ""
+    dt = None
+    if isinstance(ts, (int, float)):
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone()
+    elif isinstance(ts, str):
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+        except (ValueError, TypeError):
+            return ""
+    if dt is None:
+        return ""
+    return dt.isoformat()
+
 
 def _ts_ms_to_iso(ts_ms: int | float) -> str:
-    """Convert millisecond timestamp to ISO8601 string."""
+    """Convert millisecond timestamp to local-time ISO8601 string."""
     if not ts_ms:
         return ""
-    from datetime import datetime, timezone
-    dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
+    dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).astimezone()
     return dt.isoformat()
 
 
@@ -374,12 +400,9 @@ def _build_summary_from_events(
                 user_count += 1
             ts_str = ev.get("timestamp", "")
             if ts_str and not first_ts:
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                    first_ts = int(dt.timestamp() * 1000)
-                except (ValueError, TypeError):
-                    pass
+                dt = normalize_timestamp(ts_str)
+                if dt:
+                    first_ts = int(datetime.fromisoformat(dt).timestamp() * 1000)
             # Extract title from first non-meta user message
             if not title and user_text:
                 title = _extract_readable_title(user_text)
@@ -398,12 +421,9 @@ def _build_summary_from_events(
 
         ts_str = ev.get("timestamp", "")
         if ts_str:
-            from datetime import datetime
-            try:
-                dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                last_ts = int(dt.timestamp() * 1000)
-            except (ValueError, TypeError):
-                pass
+            dt_local = normalize_timestamp(ts_str)
+            if dt_local:
+                last_ts = int(datetime.fromisoformat(dt_local).timestamp() * 1000)
 
     if not last_ts and first_ts:
         last_ts = first_ts
@@ -455,7 +475,7 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
             messages.append(ChatMessage(
                 role="user",
                 content=content,
-                timestamp=ts_str,
+                timestamp=normalize_timestamp(ts_str),
             ))
 
         elif etype == "assistant":
@@ -474,7 +494,7 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                 messages.append(ChatMessage(
                     role="assistant",
                     content="\n".join(text_parts),
-                    timestamp=rec.get("timestamp", ""),
+                    timestamp=normalize_timestamp(rec.get("timestamp", "")),
                     model=model,
                     tool_calls=tool_calls,
                     usage=usage if usage else None,
