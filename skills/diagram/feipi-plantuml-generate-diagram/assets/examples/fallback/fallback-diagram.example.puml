@@ -1,0 +1,16 @@
+@startuml
+title "通用示例图"
+
+skinparam nodesep 20
+skinparam ranksep 30
+
+participant "用户" as User
+participant "系统" as System
+database "存储" as Store
+
+User -> System: 发送请求
+System -> Store: 查询数据
+Store --> System: 返回结果
+System --> User: 返回响应
+
+@enduml

@@ -1,0 +1,14 @@
+diagram_id: fallback-example-01
+diagram_type: fallback
+title: "通用示例图"
+summary: "展示 fallback 模式下如何从自然语言生成 PlantUML 图"
+
+# Fallback 模式不需要 typed 字段
+# 用户可以用自然语言描述，模型自动识别最佳表达方式
+
+layout:
+  direction: top_to_bottom
+
+out_of_scope:
+  - 不要求 typed brief 字段
+  - 不执行覆盖校验

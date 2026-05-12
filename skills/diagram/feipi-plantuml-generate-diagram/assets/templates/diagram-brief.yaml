@@ -1,0 +1,22 @@
+# PlantUML 图需求模板
+#
+# 使用方式：
+# 1. 复制本文件，替换所有尖括号占位符。
+# 2. 设置 diagram_type 为对应图类型（architecture / sequence / class / ...）。
+# 3. 校验通过后，再根据 brief 生成 PlantUML。
+
+diagram_id: <diagram-id>
+diagram_type: <architecture|sequence|class|...>
+title: "<图标题>"
+summary: "<这张图要表达的核心内容>"
+
+# 以下为 typed profile 特定字段，按 diagram_type 填写
+# architecture: layers, components, flows
+# sequence: participants, groups, messages
+# 其他类型：参考各自 profile 模板
+
+layout:
+  direction: top_to_bottom
+
+out_of_scope:
+  - <明确不进入图中的内容>

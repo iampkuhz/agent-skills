@@ -1,0 +1,5 @@
+@startuml
+actor User
+component "Service" as svc
+User -> svc : request
+@enduml_invalid
