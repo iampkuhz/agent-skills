@@ -62,6 +62,25 @@ class TestMakeRoundTokenExtraction:
         r = _make_round(USER_MSG, _assistant_msg(usage={}), [], 1000, "qoder")
         assert r.total_tokens == 0
 
+    def test_qoder_estimated_usage(self):
+        """Qoder with estimated usage should extract tokens like Claude Code."""
+        estimated_usage = {
+            "input_tokens": 500,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated": True,
+            "estimation_method": "qoder-fast-bytes-v1",
+        }
+        r = _make_round(USER_MSG, _assistant_msg(usage=estimated_usage), [], 1000, "qoder")
+        assert r.total_tokens == 700  # 500 + 200 + 0 + 0
+        assert r.token_ratio == pytest.approx(700 / 1000)
+        # Cache fields should be 0 for estimated usage
+        assert r.input_tokens == 500
+        assert r.output_tokens == 200
+        assert r.cached_tokens == 0
+        assert r.cache_write_tokens == 0
+
     def test_claude_no_usage_dict(self):
         """Claude with no usage dict should have zero tokens."""
         r = _make_round(USER_MSG, _assistant_msg(usage=None), [], 1000, "claude_code")

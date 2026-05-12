@@ -128,6 +128,16 @@ localhost/feipi/session-browser:latest
 
 注意：Cache Read ≠ 输出缓存。`cache_read_input_tokens` 和 `cache_creation_input_tokens` 都是输入侧字段。
 
+### Qoder Token 估算
+
+Qoder 客户端日志不携带真实的 usage/token 统计。session-browser 会对每个 LLM call 做**本地快速估算**：
+
+- **估算方法**：`qoder-fast-bytes-v1` — 按 UTF-8 字节长度启发式（`tokens ≈ bytes / 3.5`），有 tiktoken 时优先使用 `cl100k_base`；单段文本上限 32KB，超出部分截断后计数。
+- **精度标记**：UI 中显示为 `estimated`（琥珀色），而非 `provider-reported`。
+- **上下文累积**：每轮 assistant 的 input_tokens = 当前可见上下文累积大小，后续轮次的 input_tokens 自然递增。
+- **Cache 字段**：Qoder 没有缓存指标，cache_read / cache_write 一律填 0，不做臆造。
+- **误差范围**：估算值不精确到 API 级别的 token 数，但足够用于趋势对比、热点轮次定位和相对大小比较。
+
 ## Claude Code 子 Agent 诊断
 
 Claude Code 的父会话文件只记录主会话的 `Agent` 工具调用；子 Agent 内部的真实工具循环会写到同级目录：
@@ -170,7 +180,8 @@ tools/session-browser/
 │       │   └── token_normalizer.py # Token 标准化器
 │       ├── sources/
 │       │   ├── claude.py           # Claude Code 解析器
-│       │   └── codex.py            # Codex 解析器
+│       │   ├── codex.py            # Codex 解析器
+│       │   └── qoder.py            # Qoder 解析器（含快速 token 估算）
 │       ├── index/
 │       │   ├── indexer.py          # SQLite 索引
 │       │   └── metrics.py          # 聚合统计
@@ -180,6 +191,8 @@ tools/session-browser/
 ├── tests/
 │   ├── fixtures/                   # 测试数据
 │   ├── test_token_normalizer.py    # Token 标准化测试
+│   ├── test_qoder_token_estimation.py  # Qoder token 估算测试
+│   ├── test_make_round.py          # Round 构建与 token 提取测试
 │   └── test_title_extraction.py    # 标题提取测试
 ```
 

@@ -31,13 +31,16 @@ def normalize_tokens(
 
     Args:
         usage: Raw usage dict from the provider.
-        provider: Provider hint ("anthropic", "openai", "codex", "qwen-anthropic-compatible").
+        provider: Provider hint ("anthropic", "openai", "codex", "qwen-anthropic-compatible", "qoder").
         model: Model string for provider inference.
 
     Returns:
         TokenBreakdown with canonical fields.
     """
     if not usage or not isinstance(usage, dict):
+        # Qoder with no usage is still "estimated" (not real data missing)
+        if provider == TokenProvider.QODER:
+            return TokenBreakdown(precision=TokenPrecision.ESTIMATED, provider=TokenProvider.QODER)
         return TokenBreakdown(precision=TokenPrecision.UNKNOWN)
 
     # Infer provider if not specified
@@ -50,6 +53,8 @@ def normalize_tokens(
         return _normalize_openai(usage)
     elif provider == TokenProvider.CODEX:
         return _normalize_codex(usage)
+    elif provider == TokenProvider.QODER:
+        return _normalize_qoder(usage)
 
     # Unknown provider — try generic extraction
     return _normalize_generic(usage)
@@ -186,6 +191,31 @@ def _normalize_codex(usage: dict) -> TokenBreakdown:
         provider=TokenProvider.CODEX,
         raw_fields={k: v for k, v in usage.items() if isinstance(v, (int, float))},
     )
+
+
+def _normalize_qoder(usage: dict) -> TokenBreakdown:
+    """Normalize Qoder usage.
+
+    Qoder does not report real usage; token counts are local estimates
+    computed via byte-length heuristic. All cache fields are 0.
+    Precision is always ESTIMATED.
+    """
+    input_tokens = _get_or_none(usage, "input_tokens")
+    output_tokens = _get_or_none(usage, "output_tokens")
+    cache_read = _get_or_none(usage, "cache_read_input_tokens")
+    cache_write = _get_or_none(usage, "cache_creation_input_tokens")
+
+    breakdown = TokenBreakdown(
+        input_fresh=input_tokens,
+        input_cache_read=cache_read,
+        input_cache_write=cache_write,
+        output_visible=output_tokens,
+        precision=TokenPrecision.ESTIMATED,
+        provider=TokenProvider.QODER,
+        raw_fields={k: v for k, v in usage.items() if isinstance(v, (int, float))},
+    )
+    breakdown.compute_totals()
+    return breakdown
 
 
 def _normalize_generic(usage: dict) -> TokenBreakdown:

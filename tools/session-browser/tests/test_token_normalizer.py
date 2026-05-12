@@ -150,6 +150,57 @@ class TestCodexNormalization:
         assert result.precision == TokenPrecision.UNKNOWN  # no data at all
 
 
+class TestQoderNormalization:
+    """Test Qoder usage normalization.
+
+    Qoder tokens are always ESTIMATED; cache fields are preserved as-is (usually 0).
+    """
+
+    def test_qoder_estimated_usage(self):
+        usage = {
+            "input_tokens": 500,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated": True,
+            "estimation_method": "qoder-fast-bytes-v1",
+        }
+        result = normalize_tokens(usage, provider=TokenProvider.QODER)
+
+        assert result.input_fresh == 500
+        assert result.output_visible == 200
+        assert result.input_cache_read == 0
+        assert result.input_cache_write == 0
+        assert result.total_input == 500
+        assert result.total_output == 200
+        assert result.precision == TokenPrecision.ESTIMATED
+        assert result.provider == TokenProvider.QODER
+
+    def test_qoder_missing_usage(self):
+        usage = {}
+        result = normalize_tokens(usage, provider=TokenProvider.QODER)
+
+        assert result.input_fresh is None
+        assert result.output_visible is None
+        assert result.precision == TokenPrecision.ESTIMATED
+        assert result.provider == TokenProvider.QODER
+
+    def test_qoder_estimated_flag_in_usage(self):
+        """Estimated flag from qoder.py should be preserved in raw_fields."""
+        usage = {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated": True,
+            "estimation_method": "qoder-fast-bytes-v1",
+        }
+        result = normalize_tokens(usage, provider=TokenProvider.QODER)
+
+        assert result.precision == TokenPrecision.ESTIMATED
+        assert "estimated" in result.raw_fields
+
+
 class TestMissingAndUnknownFields:
     """Test handling of missing and unknown fields."""
 

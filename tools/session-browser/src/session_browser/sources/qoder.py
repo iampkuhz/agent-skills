@@ -16,17 +16,45 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 
 from session_browser.config import QODER_DATA_DIR
 from session_browser.domain.models import SessionSummary, ChatMessage, ToolCall
-from session_browser.domain.token_normalizer import normalize_tokens, TokenPrecision
+from session_browser.domain.token_normalizer import normalize_tokens, TokenPrecision, TokenProvider
 
-# Use local timezone offset for display
-_LOCAL_TZ = datetime.now(timezone.utc).astimezone().tzinfo
-_LOCAL_OFFSET = _LOCAL_TZ.utcoffset(datetime.now()) if _LOCAL_TZ else timedelta()
+
+# ─── Token estimation (Qoder does not log usage) ──────────────────────────
+#
+# Qoder 估算固定走 byte-level 启发式，避免 tiktoken encode 的额外开销。
+# tiktoken 不在此模块引入，留给非 qoder provider 或未来精确模式使用。
+
+# Max text length to scan for token estimation (32KB). Beyond this, text is
+# truncated before counting to keep estimation fast.
+_ESTIMATE_TEXT_CAP = 32 * 1024
+
+
+def _cap_text(s: str) -> str:
+    """Truncate text to _ESTIMATE_TEXT_CAP bytes for fast estimation."""
+    if not s:
+        return ""
+    byte_len = len(s.encode("utf-8"))
+    if byte_len <= _ESTIMATE_TEXT_CAP:
+        return s
+    # Truncate by characters to stay under cap.
+    avg_bytes = byte_len / len(s)
+    safe_chars = int(_ESTIMATE_TEXT_CAP / avg_bytes)
+    truncated = s[:safe_chars]
+    while len(truncated.encode("utf-8")) > _ESTIMATE_TEXT_CAP and len(truncated) > 0:
+        truncated = truncated[:-100]
+    return truncated
+
+
+def _count_tokens(s: str) -> int:
+    """Byte-length heuristic for Chinese/English/code mix."""
+    capped = _cap_text(s or "")
+    return max(1, int(len(capped.encode("utf-8")) / 3.5))
 
 
 def normalize_timestamp(ts) -> str:
@@ -267,6 +295,112 @@ def _tool_result_looks_failed(result_content) -> bool:
     return any(marker in text for marker in failure_markers)
 
 
+def _extract_event_text(ev: dict) -> tuple[str, str]:
+    """Extract (category, text) from a Qoder event.
+
+    Categories: "user_prompt", "tool_result", "assistant_text", "assistant_tool_call".
+    """
+    typ = ev.get("type")
+    msg = ev.get("message") or {}
+    content = msg.get("content")
+
+    if typ == "user":
+        if ev.get("isMeta") is True:
+            return None, ""
+        if isinstance(content, str):
+            return "user_prompt", content
+        if isinstance(content, list):
+            parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text = item.get("text", "")
+                    if text and "Caveat: The messages below were generated" not in text:
+                        parts.append(text)
+            if parts:
+                return "user_prompt", "\n".join(parts)
+            # tool_result content goes back as input on next turn
+            tr_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "tool_result":
+                    tr_parts.append(str(item.get("content", "")))
+            if tr_parts:
+                return "tool_result", "\n".join(tr_parts)
+
+    if typ == "assistant":
+        if isinstance(content, list):
+            text_parts = []
+            tool_parts = []
+            for item in content:
+                if isinstance(item, dict):
+                    if item.get("type") == "text":
+                        text_parts.append(item.get("text", ""))
+                    elif item.get("type") == "tool_use":
+                        tool_parts.append(json.dumps(item, ensure_ascii=False))
+            if tool_parts and not text_parts:
+                return "assistant_tool_call", "\n".join(tool_parts)
+            if text_parts or tool_parts:
+                return "assistant_text", "\n".join(text_parts + tool_parts)
+
+    return None, ""
+
+
+def _estimate_tokens_from_events(events: list[dict]):
+    """Roughly estimate input/output tokens for a Qoder session.
+
+    Qoder does not expose per-call usage in its event logs.  This function
+    walks events in order, accumulates visible context tokens, and for each
+    assistant logical message (grouped by message id) treats the current
+    visible-context size as the estimated input and the message's own token
+    count as the estimated output.
+
+    Caveats:
+    - Ignores system prompt tokens (always present in real API calls).
+    - Assumes no context-window truncation / compression.
+    - Tool results are added to visible context as-is.
+
+    Returns (input_tokens, output_tokens, has_estimated) where has_estimated
+    is False when real usage data was found in events (so estimation is skipped).
+    """
+    # First pass: check whether any event already carries usage dict
+    has_real_usage = False
+    for ev in events:
+        if ev.get("type") == "assistant":
+            usage = (ev.get("message") or {}).get("usage")
+            if isinstance(usage, dict) and usage.get("input_tokens"):
+                has_real_usage = True
+                break
+
+    if has_real_usage:
+        return 0, 0, False
+
+    visible_context_tokens = 0
+    estimated_input = 0
+    estimated_output = 0
+    seen_keys: set[str] = set()
+
+    for ev in events:
+        cat, text = _extract_event_text(ev)
+        if not cat:
+            continue
+
+        tok = _count_tokens(text)
+
+        if cat.startswith("assistant"):
+            key = _assistant_message_key(ev)
+            if key not in seen_keys:
+                # First fragment: capture visible context as input
+                seen_keys.add(key)
+                estimated_input += visible_context_tokens
+                estimated_output += tok
+            else:
+                # Subsequent fragments: accumulate output only
+                estimated_output += tok
+
+        visible_context_tokens += tok
+
+    return estimated_input, estimated_output, True
+
+
 # ─── Session scanning ─────────────────────────────────────────────────────
 
 
@@ -391,6 +525,15 @@ def _build_summary_from_events(
         if not model and rec.get("model"):
             model = rec.get("model", "")
 
+    # Fallback: Qoder may not report usage — estimate from event text.
+    # Use per-message estimates to ensure session summary matches LLM Calls detail.
+    est_input, est_output, has_estimated = _estimate_tokens_from_events(events)
+    if has_estimated and input_tokens == 0 and output_tokens == 0:
+        input_tokens = est_input
+        output_tokens = est_output
+        # Qoder has no cache metrics; do not fabricate cache values.
+        cache_write_tokens = 0
+
     for ev in events:
         etype = ev.get("type", "")
 
@@ -459,10 +602,26 @@ def _build_summary_from_events(
 
 
 def _extract_messages(events: list[dict]) -> list[ChatMessage]:
-    """Extract user and assistant chat messages from Qoder events."""
+    """Extract user and assistant chat messages from Qoder events.
+
+    When Qoder does not report real usage, per-message token counts are
+    estimated by walking events in order and accumulating visible context.
+    """
     messages = []
     assistant_by_id = {rec["id"]: rec for rec in _assistant_records(events)}
     emitted_assistant_ids: set[str] = set()
+
+    # Pre-pass: check if real usage exists; if not, compute per-message estimates
+    has_real_usage = False
+    for rec in assistant_by_id.values():
+        if rec.get("usage") and rec["usage"].get("input_tokens"):
+            has_real_usage = True
+            break
+
+    est_input_map: dict[str, int] = {}
+    est_output_map: dict[str, int] = {}
+    if not has_real_usage:
+        _fill_estimates(events, assistant_by_id, est_input_map, est_output_map)
 
     for ev in events:
         etype = ev.get("type", "")
@@ -489,7 +648,26 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
             usage = rec.get("usage", {})
             model = rec.get("model", "")
             if text_parts or tool_calls:
-                token_bd = normalize_tokens(usage, model=model) if usage else None
+                # Use real usage if present, otherwise fall back to estimates
+                if usage and usage.get("input_tokens"):
+                    final_usage = usage
+                elif not has_real_usage and key in est_input_map:
+                    final_usage = {
+                        "input_tokens": est_input_map[key],
+                        "output_tokens": est_output_map.get(key, 0),
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                        "estimated": True,
+                        "estimation_method": "qoder-fast-bytes-v1",
+                    }
+                else:
+                    final_usage = None
+
+                token_bd = normalize_tokens(final_usage, model=model) if final_usage else None
+                # Override precision and provider for estimated usage
+                if final_usage and final_usage.get("estimated") and token_bd:
+                    token_bd.precision = TokenPrecision.ESTIMATED
+                    token_bd.provider = TokenProvider.QODER
 
                 messages.append(ChatMessage(
                     role="assistant",
@@ -497,12 +675,44 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                     timestamp=normalize_timestamp(rec.get("timestamp", "")),
                     model=model,
                     tool_calls=tool_calls,
-                    usage=usage if usage else None,
+                    usage=final_usage,
                     token_breakdown=token_bd,
                     llm_call_id=rec.get("id", ""),
                 ))
 
     return messages
+
+
+def _fill_estimates(
+    events: list[dict],
+    assistant_by_id: dict,
+    est_input_map: dict,
+    est_output_map: dict,
+) -> None:
+    """Walk events and populate est_input_map / est_output_map by message key.
+
+    Each assistant output's estimated input = current visible-context tokens;
+    estimated output = accumulated text/tool tokens across all fragments of
+    the same message id.
+    """
+    visible_context = 0
+    for ev in events:
+        cat, text = _extract_event_text(ev)
+        if not cat:
+            continue
+
+        tok = _count_tokens(text)
+
+        if cat.startswith("assistant"):
+            key = _assistant_message_key(ev)
+            # Only set input on first encounter; accumulate output across fragments
+            if key not in est_input_map:
+                est_input_map[key] = visible_context
+                est_output_map[key] = tok
+            else:
+                est_output_map[key] = est_output_map.get(key, 0) + tok
+
+        visible_context += tok
 
 
 def _extract_tool_calls(
