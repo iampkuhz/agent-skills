@@ -69,7 +69,6 @@ YT_CLIENT_TRIED=()
 YT_BOT_HIT=0
 YT_AUTH_RETRY_NOAUTH=0
 YT_AUTH_RETRY_WITH_AUTH=0
-WHISPER_AUTO_ACCURATE_MAX_SEC=480
 YT_CONNECT_TEST_URL="https://www.youtube.com/generate_204"
 YT_CONNECT_TIMEOUT_SEC=8
 YT_PROXY_SCHEME_DEFAULT="http"
@@ -78,6 +77,7 @@ YT_PROXY_PORT_DEFAULT="7890"
 YT_DLP_NETWORK_ARGS=()
 ACTIVE_PROXY_URL=""
 YT_NETWORK_ROUTE="direct"
+NETWORK_READY_FILE="${AGENT_VIDEO_NETWORK_CACHE_FILE:-$OUT_DIR/.network-ready}"
 
 if [[ -z "$URL" ]]; then
   echo "用法: bash scripts/download_youtube.sh <url> [output_dir] [video|audio|dryrun|subtitle|whisper] [auto|fast|accurate]" >&2
@@ -303,6 +303,18 @@ print_proxy_port_guidance() {
 ensure_youtube_network_ready() {
   local fallback_proxy proxy_port
 
+  # 同一次 extract 中若已有其他模式完成过网络探测，复用结果。
+  if [[ -n "$NETWORK_READY_FILE" && -f "$NETWORK_READY_FILE" ]]; then
+    YT_NETWORK_ROUTE="$(cat "$NETWORK_READY_FILE")"
+    # 若缓存指示走代理，需重新启用 proxy args（进程间不共享数组）。
+    if [[ "$YT_NETWORK_ROUTE" == "proxy" ]]; then
+      local proxy_url
+      proxy_url="$(build_proxy_url)"
+      enable_proxy_for_yt_dlp "$proxy_url"
+    fi
+    return 0
+  fi
+
   proxy_port="${AGENT_VIDEO_PROXY_PORT:-$YT_PROXY_PORT_DEFAULT}"
   fallback_proxy="$(build_proxy_url)"
 
@@ -311,6 +323,7 @@ ensure_youtube_network_ready() {
     if probe_youtube_connectivity "$fallback_proxy"; then
       enable_proxy_for_yt_dlp "$fallback_proxy"
       echo "已启用代理下载: $fallback_proxy" >&2
+      echo "$YT_NETWORK_ROUTE" > "$NETWORK_READY_FILE"
       return 0
     fi
     echo "代理可用但访问 YouTube 失败，回退直连探测。" >&2
@@ -318,6 +331,7 @@ ensure_youtube_network_ready() {
 
   if probe_youtube_connectivity; then
     YT_NETWORK_ROUTE="direct"
+    echo "$YT_NETWORK_ROUTE" > "$NETWORK_READY_FILE"
     return 0
   fi
 
@@ -325,6 +339,7 @@ ensure_youtube_network_ready() {
   if probe_youtube_connectivity "$fallback_proxy"; then
     enable_proxy_for_yt_dlp "$fallback_proxy"
     echo "已启用代理下载: $fallback_proxy" >&2
+    echo "$YT_NETWORK_ROUTE" > "$NETWORK_READY_FILE"
     return 0
   fi
 
@@ -393,7 +408,9 @@ yt_common_on_error() {
   fi
 
   # 认证降级 + tuned 重试都失败后，若属于可重试下载错误，遍历剩余 client 尝试。
-  if is_retryable_youtube_download_error "$err_file"; then
+  # 仅 whisper 模式（需要真实下载音频）才触发 client fallback；
+  # subtitle 模式下字幕缺失不应触发 client 遍历，避免无效重试增加耗时。
+  if [[ "$MODE" == "whisper" ]] && is_retryable_youtube_download_error "$err_file"; then
     if run_with_client_fallbacks "$err_file" "$@"; then
       return 0
     fi
@@ -458,29 +475,14 @@ run_whisper_mode() {
 
   resolve_whisper_profile_auto() {
     local requested="$1"
-    local duration_raw duration_int
 
-    if [[ "$requested" != "auto" ]]; then
-      echo "$requested|explicit"
+    if [[ "$requested" == "accurate" ]]; then
+      echo "accurate|explicit_accurate"
       return 0
     fi
 
-    set +e
-    duration_raw="$(yt-dlp "${YT_DLP_NETWORK_ARGS[@]}" --skip-download --no-playlist --print "%(duration)s" "$URL" 2>/dev/null | head -n1)"
-    set -e
-
-    if [[ "$duration_raw" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-      duration_int="${duration_raw%.*}"
-      if (( duration_int <= WHISPER_AUTO_ACCURATE_MAX_SEC )); then
-        echo "accurate|auto_duration_short_${duration_int}s"
-      else
-        echo "fast|auto_duration_long_${duration_int}s"
-      fi
-      return 0
-    fi
-
-    # 无法获取时长时默认快档，优先保障速度。
-    echo "fast|auto_duration_unknown_default_fast"
+    # auto 和 fast 都解析为 fast，不再因为视频时长短自动切 accurate。
+    echo "fast|auto_default_fast"
   }
 
   profile_pair="$(resolve_whisper_profile_auto "$WHISPER_PROFILE")"

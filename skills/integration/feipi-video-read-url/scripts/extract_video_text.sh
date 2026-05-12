@@ -16,6 +16,8 @@ OUT_ROOT_DIR="./tmp/video-text"
 RUN_DIR=""
 MODE="auto"
 AUTH_PRESENT="0"
+MAX_MODE_CALLS=4
+MODE_CALL_COUNT=0
 
 usage() {
   echo "用法: bash scripts/extract_video_text.sh <url> [output_root_dir] [auto|subtitle|whisper] [--instruction \"文本\"] [--quality auto|fast|accurate] [--check-deps]" >&2
@@ -362,11 +364,43 @@ fi
 mkdir -p "$RUN_DIR"
 LOG_DIR="$RUN_DIR/logs"
 mkdir -p "$LOG_DIR"
+NETWORK_CACHE_FILE="$LOG_DIR/network-ready"
+rm -f "$NETWORK_CACHE_FILE"
+
+# 长视频保护：检测视频时长，输出风险提示。
+# 仅做信息提示，不阻断执行；用户显式指定 accurate 仍可按设计执行。
+LONG_VIDEO_FLAG="0"
+DURATION_SEC=""
+ESTIMATED_RISK="low"
+if [[ "$MODE" == "whisper" ]]; then
+  set +e
+  DURATION_RAW="$(yt-dlp --socket-timeout 5 --skip-download --no-playlist --print "%(duration)s" "$URL" 2>/dev/null | head -n1)"
+  set -e
+  if [[ "$DURATION_RAW" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    DURATION_SEC="${DURATION_RAW%.*}"
+    if [[ "$DURATION_SEC" -gt 3600 ]]; then
+      LONG_VIDEO_FLAG="1"
+      ESTIMATED_RISK="high"
+      echo "警告：视频时长 ${DURATION_SEC} 秒（>60 分钟），whisper 转写可能耗时较长。" >&2
+    elif [[ "$DURATION_SEC" -gt 1800 ]]; then
+      LONG_VIDEO_FLAG="1"
+      ESTIMATED_RISK="medium"
+      echo "提示：视频时长 ${DURATION_SEC} 秒（>30 分钟），whisper 转写可能需要较长时间。" >&2
+    fi
+  fi
+fi
 
 run_mode() {
   local mode="$1"
   local auth_mode="${2:-auth}"
   local marker log_file newest_txt
+
+  MODE_CALL_COUNT=$((MODE_CALL_COUNT + 1))
+  if [[ "$MODE_CALL_COUNT" -gt "$MAX_MODE_CALLS" ]]; then
+    echo "已达到最大来源脚本调用次数（$MAX_MODE_CALLS），停止重试。" >&2
+    return 1
+  fi
+  echo "第 $MODE_CALL_COUNT 次来源脚本调用: mode=$mode auth=$auth_mode" >&2
 
   if [[ "$auth_mode" == "no_auth" ]]; then
     log_file="$LOG_DIR/${SOURCE}-${mode}-noauth.log"
@@ -378,15 +412,15 @@ run_mode() {
   set +e
   if [[ "$mode" == "whisper" ]]; then
     if [[ "$auth_mode" == "no_auth" && "$SOURCE" == "youtube" ]]; then
-      env AGENT_CHROME_PROFILE= AGENT_YOUTUBE_COOKIE_FILE= bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" "$WHISPER_PROFILE" >"$log_file" 2>&1
+      env AGENT_VIDEO_NETWORK_CACHE_FILE="$NETWORK_CACHE_FILE" AGENT_CHROME_PROFILE= AGENT_YOUTUBE_COOKIE_FILE= bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" "$WHISPER_PROFILE" >"$log_file" 2>&1
     else
-      bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" "$WHISPER_PROFILE" >"$log_file" 2>&1
+      env AGENT_VIDEO_NETWORK_CACHE_FILE="$NETWORK_CACHE_FILE" bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" "$WHISPER_PROFILE" >"$log_file" 2>&1
     fi
   else
     if [[ "$auth_mode" == "no_auth" && "$SOURCE" == "youtube" ]]; then
-      env AGENT_CHROME_PROFILE= AGENT_YOUTUBE_COOKIE_FILE= bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" >"$log_file" 2>&1
+      env AGENT_VIDEO_NETWORK_CACHE_FILE="$NETWORK_CACHE_FILE" AGENT_CHROME_PROFILE= AGENT_YOUTUBE_COOKIE_FILE= bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" >"$log_file" 2>&1
     else
-      bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" >"$log_file" 2>&1
+      env AGENT_VIDEO_NETWORK_CACHE_FILE="$NETWORK_CACHE_FILE" bash "$SOURCE_SCRIPT" "$URL" "$RUN_DIR" "$mode" >"$log_file" 2>&1
     fi
   fi
   local code=$?
@@ -424,6 +458,8 @@ run_mode_with_fallback() {
     return 0
   fi
 
+  # 仅在日志中存在明确认证/风控信号时才尝试无 Cookie 重试，
+  # 避免无字幕、语言不匹配等非认证错误触发双跑。
   if [[ "$SOURCE" == "youtube" && "$AUTH_PRESENT" -eq 1 ]]; then
     if log_indicates_auth_issue "$auth_log_file"; then
       echo "检测到认证或风控相关失败，尝试无 Cookie 重试: mode=$mode" >&2
@@ -431,7 +467,7 @@ run_mode_with_fallback() {
         return 0
       fi
     else
-      echo "未检测到认证或 Cookie 相关失败，跳过无 Cookie 重试: mode=$mode log=$auth_log_file" >&2
+      echo "未检测到认证或 Cookie 相关失败，跳过无 Cookie 重试: mode=$mode" >&2
     fi
   fi
 
@@ -484,3 +520,9 @@ echo "log_dir=$LOG_DIR"
 echo "strategy=$STRATEGY"
 echo "whisper_profile=$WHISPER_PROFILE"
 echo "selection_reason=$PROFILE_REASON"
+echo "mode_calls=$MODE_CALL_COUNT"
+if [[ -n "$DURATION_SEC" ]]; then
+  echo "duration_sec=$DURATION_SEC"
+fi
+echo "long_video=$LONG_VIDEO_FLAG"
+echo "estimated_risk=$ESTIMATED_RISK"

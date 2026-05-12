@@ -1,5 +1,8 @@
 # 变更记录
 
+## 2026-05-12
+- `feipi-plantuml-generate-diagram` v1：新增 PlantUML 通用作图统一入口；支持 fallback 模式、类型路由、架构图/时序图 typed profile；保留旧 skill 作为兼容入口。
+
 ## 2026-04-06
 - `feipi-skill-govern` v2：升级命名真源、收口安装包装器并移除临时治理产物。
 - `feipi-video-read-url` v1：合并视频链路并内聚脚本。

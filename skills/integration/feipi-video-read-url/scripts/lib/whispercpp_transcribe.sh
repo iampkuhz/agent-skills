@@ -8,10 +8,10 @@ set -euo pipefail
 #
 # 说明：
 # - 支持质量档位：
-#   - accurate: 质量优先（large-v3 q5_0）
+#   - accurate: 质量优先（large-v3 q5_0），需显式指定
 #   - fast: 速度优先（优先使用 turbo/small/base）
-#   - auto: 默认退化为 accurate（保持旧行为兼容）
-# - 先尝试 Metal（GPU），失败自动回退 CPU
+#   - auto: 默认速度优先，解析为 fast
+# - 先尝试 Metal（GPU）；仅初始化阶段失败时自动回退 CPU
 # - 输出文件：<output_prefix>.srt
 
 AUDIO_FILE="${1:-}"
@@ -27,8 +27,8 @@ WHISPER_MODEL_URL_FAST_SUGGEST="https://huggingface.co/ggerganov/whisper.cpp/res
 WHISPER_THREADS_ACCURATE=4
 WHISPER_THREADS_FAST_MAX=8
 WHISPER_PROCESSORS=1
-WHISPER_BEAM_SIZE_ACCURATE=8
-WHISPER_BEST_OF_ACCURATE=8
+WHISPER_BEAM_SIZE_ACCURATE=3
+WHISPER_BEST_OF_ACCURATE=3
 WHISPER_BEAM_SIZE_FAST=2
 WHISPER_BEST_OF_FAST=2
 WHISPER_METAL_CACHE_TTL_SEC=3600
@@ -156,7 +156,7 @@ clamp_threads() {
 
 resolve_effective_profile() {
   if [[ "$REQUESTED_PROFILE" == "auto" ]]; then
-    echo "accurate"
+    echo "fast"
     return 0
   fi
   echo "$REQUESTED_PROFILE"
@@ -188,20 +188,14 @@ fi
 
 EFFECTIVE_PROFILE="$(resolve_effective_profile)"
 WHISPER_MODEL_FILE=""
-FALLBACK_REASON=""
 
 if [[ "$EFFECTIVE_PROFILE" == "fast" ]]; then
   WHISPER_MODEL_FILE="$(resolve_fast_model_file || true)"
   if [[ -z "$WHISPER_MODEL_FILE" ]]; then
-    if [[ -f "$WHISPER_MODEL_FILE_ACCURATE" ]]; then
-      WHISPER_MODEL_FILE="$WHISPER_MODEL_FILE_ACCURATE"
-      EFFECTIVE_PROFILE="accurate"
-      FALLBACK_REASON="fast_model_missing_use_accurate"
-    else
-      echo "缺少 fast 档模型（未检测到 turbo/small/base），且 accurate 模型也不存在。" >&2
-      print_setup_guidance
-      exit 1
-    fi
+    echo "缺少 fast 档模型（未检测到 turbo/small/base）。" >&2
+    echo "请勿静默回退到 accurate 模型，以避免意外触发高耗时转写。" >&2
+    echo "请先执行: bash scripts/install_deps.sh 下载所需模型。" >&2
+    exit 1
   fi
 else
   WHISPER_MODEL_FILE="$WHISPER_MODEL_FILE_ACCURATE"
@@ -249,6 +243,7 @@ WHISPER_ARGS=(
 USED_DEVICE="metal"
 METAL_REASON=""
 RUN_CODE=1
+METAL_EARLY_FAIL=1  # 1=允许 CPU fallback, 0=已开始转写，禁止完整重跑
 
 if metal_cache_is_fresh; then
   METAL_REASON="cached_unavailable"
@@ -263,7 +258,13 @@ else
 
   if [[ $RUN_CODE -eq 0 && -f "$SRT_FILE" ]]; then
     clear_metal_unavailable_cache
+    METAL_EARLY_FAIL=1
   else
+    # 只要 Metal 日志已经出现转写时间戳，就认为进入实质性转写阶段。
+    # 此后失败不自动 CPU 重跑，避免长视频被完整执行第二遍。
+    if grep -qE '^\[[0-9]{2}:[0-9]{2}(:[0-9]{2})?\.[0-9]{3} --> [0-9]{2}:[0-9]{2}(:[0-9]{2})?\.[0-9]{3}\]' "$METAL_LOG" 2>/dev/null; then
+      METAL_EARLY_FAIL=0
+    fi
     if [[ $RUN_CODE -ge 128 ]]; then
       METAL_REASON="metal_process_crashed"
       record_metal_unavailable "$METAL_REASON"
@@ -279,6 +280,11 @@ else
 fi
 
 if [[ $RUN_CODE -ne 0 || ! -f "$SRT_FILE" ]]; then
+  if [[ "$METAL_EARLY_FAIL" -eq 0 ]]; then
+    echo "Metal 已开始转写但中途失败，不自动回退 CPU 重跑（避免长视频完整重复）。" >&2
+    echo "请检查 Metal/GPU 环境或显式指定 fast 档位重试。" >&2
+    exit 1
+  fi
   echo "Metal 转写失败，回退 CPU 转写。" >&2
   rm -f "$SRT_FILE"
   USED_DEVICE="cpu"
@@ -292,9 +298,6 @@ fi
 
 echo "requested_profile=$REQUESTED_PROFILE"
 echo "profile=$EFFECTIVE_PROFILE"
-if [[ -n "$FALLBACK_REASON" ]]; then
-  echo "profile_fallback=$FALLBACK_REASON"
-fi
 echo "device=$USED_DEVICE"
 if [[ -n "$METAL_REASON" ]]; then
   echo "metal_reason=$METAL_REASON"

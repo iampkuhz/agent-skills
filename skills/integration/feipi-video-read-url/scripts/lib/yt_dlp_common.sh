@@ -158,10 +158,11 @@ yt_common_mode_whisper_audio() {
 
 yt_common_mode_whisper_audio_with_format_fallback() {
   local url="$1"
+  # 最多 2 次 format 尝试：优先低码率音频，再回退 18（通常含音频的 mp4）。
+  # 不再尝试第 3 种 "best"，以避免重复下载增加耗时。
   local -a format_variants=(
     "bestaudio[abr<=96]/bestaudio"
     "18"
-    "best"
   )
   local format_var log_file
 
@@ -318,8 +319,75 @@ yt_common_run_whisper_mode_from_url() {
     return 1
   fi
 
+  # 残留产物处理：若已存在完整的 whisper 转写结果，检查 metadata 侧车
+  # 文件再决定是否复用，避免 accurate 请求静默复用 fast 结果。
+  local existing_wav existing_srt existing_meta existing_profile existing_model
+  existing_wav="$(find "$out_dir" -maxdepth 1 -name '*.whisper.wav' -type f 2>/dev/null | sort | tail -n1 || true)"
+  if [[ -n "$existing_wav" && -f "$existing_wav" ]]; then
+    existing_srt="${existing_wav%.whisper.wav}.srt"
+    existing_meta="${existing_wav%.whisper.wav}.meta"
+    if [[ -f "$existing_srt" ]]; then
+      existing_profile=""
+      existing_model=""
+      if [[ -f "$existing_meta" ]]; then
+        existing_profile="$(sed -n 's/^profile=//p' "$existing_meta" | tail -n1)"
+        existing_model="$(sed -n 's/^model=//p' "$existing_meta" | tail -n1)"
+      fi
+
+      # accurate 请求必须复用来源匹配的结果；若 meta 缺失或不匹配，不复用。
+      # fast 请求可以复用任意来源的结果（降级可接受）。
+      if [[ "$whisper_profile" == "accurate" ]]; then
+        if [[ "$existing_profile" == "accurate" ]]; then
+          base="$(basename "${existing_wav%.whisper.wav}")"
+          output_prefix="$out_dir/$base"
+          text_file="$output_prefix.txt"
+          if [[ ! -f "$text_file" ]]; then
+            yt_common_subtitle_to_text "$existing_srt" "$text_file"
+          fi
+          echo "复用已有 accurate whisper 转写结果: wav=$existing_wav, model=${existing_model:-unknown}" >&2
+          echo "requested_profile=$whisper_profile"
+          echo "profile=reused"
+          echo "model=${existing_model:-reused}"
+          echo "device=reused"
+          echo "audio_file=reused"
+          echo "transcribe_audio_file=$existing_wav"
+          echo "text_file=$text_file"
+          return 0
+        else
+          echo "准确模式请求，但已有转写为 ${existing_profile:-未知} 模式，不复用: $existing_srt" >&2
+        fi
+      else
+        base="$(basename "${existing_wav%.whisper.wav}")"
+        output_prefix="$out_dir/$base"
+        text_file="$output_prefix.txt"
+        if [[ ! -f "$text_file" ]]; then
+          yt_common_subtitle_to_text "$existing_srt" "$text_file"
+        fi
+        echo "复用已有 whisper 转写结果（fast）: wav=$existing_wav, model=${existing_model:-unknown}" >&2
+        echo "requested_profile=$whisper_profile"
+        echo "profile=reused"
+        echo "model=${existing_model:-reused}"
+        echo "device=reused"
+        echo "audio_file=reused"
+        echo "transcribe_audio_file=$existing_wav"
+        echo "text_file=$text_file"
+        return 0
+      fi
+    fi
+  fi
+
+  # 仅清理孤立的 .whisper.wav（无匹配 .srt），这些是中断残留。
+  local orphan
+  while IFS= read -r -d '' orphan; do
+    if [[ ! -f "${orphan%.whisper.wav}.srt" ]]; then
+      echo "清理残留的孤立 WAV 文件: $orphan" >&2
+      rm -f "$orphan"
+    fi
+  done < <(find "$out_dir" -maxdepth 1 -name '*.whisper.wav' -type f -print0 2>/dev/null)
+
   marker="$(mktemp "$out_dir/.audio-marker.XXXXXX")"
   audio_download_log="$(mktemp "$out_dir/.audio-download-log.XXXXXX")"
+
   if ! "$audio_download_fn" "$url" >"$audio_download_log" 2>&1; then
     cat "$audio_download_log" >&2
     rm -f "$audio_download_log"

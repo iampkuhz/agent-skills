@@ -8,6 +8,10 @@ logs/
 **/logs/**
 /tools/night-runner/
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Node dependencies (skill-local and repo-level)
 node_modules/
 

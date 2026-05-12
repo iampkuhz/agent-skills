@@ -104,7 +104,14 @@ description: 用于按用户意图下载、提取或总结视频网站 URL，统
 - 背景内容必须以视频外公开资料为主，不以转写复述冒充背景。
 - 如需引用视频内容，仅作为“关联说明”或“对照观点”，不得替代外部背景。
 - 未明确要求相关新闻时，优先历史背景、制度沿革、术语解释、官方基础文件、研究资料，不主动搜索相关新闻。
-- 明确要求“相关新闻/最新进展/现状”时，才允许补充时效性材料，并在来源中写清日期。
+- 明确要求”相关新闻/最新进展/现状”时，才允许补充时效性材料，并在来源中写清日期。
+
+8. 单命令执行契约（强制）
+- 执行方只运行一个阻塞式入口命令（`extract_video_text.sh` 或 `download_video.sh`），等待命令退出。
+- 禁止额外启动 `Wait for whisper srt completion`、`tail -f`、轮询 `.srt` 或其他产物文件、重复后台 monitor。
+- 脚本标准输出已包含 `run_dir`、`mode`、`text_path`、`log_dir`、`whisper_profile`、`duration_sec`、`long_video`、`estimated_risk` 等字段，执行方可据此判断完成状态。
+- 长视频保护：whisper 模式会输出 `duration_sec`、`long_video` 和 `estimated_risk`，执行方可据此预估耗时，不做交互式确认。用户显式传 `accurate` 仍可按设计执行。
+- 中断后残留的 `.whisper.wav` + `.srt` 会被自动复用，不会触发重复下载或重复转写。执行方不要删除 run_dir 下已有的媒体文件，除非是本次 run 明确的临时文件。
 
 ## 来源支持与扩展边界
 
@@ -152,12 +159,22 @@ description: 用于按用户意图下载、提取或总结视频网站 URL，统
 ## 自动选档规则
 
 1. 默认策略（`--quality auto`）
-- 指令明确要求高质量（如“高质量/高精度/准确/逐字”）时，选择 `accurate`。
-- 其他情况默认选择 `fast`。
+- 默认和 `auto` 都解析为 `fast`，速度优先。
+- 只有用户显式指定 `accurate`、`--quality accurate`、或使用高质量关键词（高质量/高精度/准确/逐字等）时，才使用 `accurate`。
+- 不再因为视频时长（如短于 480 秒）自动切到 `accurate`。
 
 2. `mode=auto` 的执行顺序
 - `accurate`：先 `whisper`，失败再回退 `subtitle`。
 - `fast`：先 `subtitle`，失败再回退 `whisper`。
+
+3. fast 模型缺失不静默降级
+- fast 模型缺失时直接失败，提示用户执行 `scripts/install_deps.sh`，不静默回退 accurate。
+- accurate 模型缺失时同样失败并提示安装。
+
+4. accurate 资源参数
+- `accurate` 使用 beam_size=3、best_of=3、threads=4（经 clamp 后不超过物理核心）。
+- 相比旧版 beam=8/best_of=8，资源消耗显著降低，适用于需要较高转写质量的场景。
+- `fast` 使用 beam_size=2、best_of=2、threads=8（经 clamp），优先保障速度。
 
 3. 观测字段
 - `extract_video_text.sh` 输出中包含：

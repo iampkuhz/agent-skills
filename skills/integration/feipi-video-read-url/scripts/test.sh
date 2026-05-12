@@ -443,7 +443,164 @@ else
   stub_fail_msg "retryable-429" "429 未被识别为可重试错误"
 fi
 
-# --- 测试 1：client fallback 顺序验证 ---
+# --- 离线 stub 测试：档位语义验证（不依赖真实网络/whisper） ---
+
+# 测试 6：whispercpp_transcribe.sh 的 auto 解析为 fast（非 accurate）
+# 直接读取脚本中的 resolve_effective_profile 逻辑。
+TRANSCRIBE_SCRIPT="$SCRIPT_DIR/lib/whispercpp_transcribe.sh"
+if rg -q 'resolve_effective_profile' "$TRANSCRIBE_SCRIPT"; then
+  # 检查 auto → fast 而非 auto → accurate
+  auto_resolve_block="$(awk '/^resolve_effective_profile\(\)/,/^}/' "$TRANSCRIBE_SCRIPT")"
+  if printf "%s\n" "$auto_resolve_block" | grep -q 'echo "fast"'; then
+    stub_pass "whisper-auto-resolves-to-fast"
+  else
+    stub_fail_msg "whisper-auto-resolves-to-fast" "resolve_effective_profile 未返回 fast"
+  fi
+else
+  stub_fail_msg "whisper-auto-resolves-to-fast" "找不到 resolve_effective_profile 函数"
+fi
+
+# 测试 7：禁止 fast 静默退 accurate
+if rg -q 'fast_model_missing_use_accurate' "$TRANSCRIBE_SCRIPT"; then
+  stub_fail_msg "no-fast-to-accurate-fallback" "仍存在 fast_model_missing_use_accurate 静默回退"
+else
+  stub_pass "no-fast-to-accurate-fallback"
+fi
+
+# 测试 8：download_youtube.sh 的 auto 不再因为时长切 accurate
+YOUTUBE_SCRIPT="$SCRIPT_DIR/download_youtube.sh"
+if rg -q 'auto_duration_short' "$YOUTUBE_SCRIPT"; then
+  stub_fail_msg "yt-no-duration-accurate" "download_youtube.sh 仍存在 auto_duration_short 逻辑"
+else
+  stub_pass "yt-no-duration-accurate"
+fi
+
+# 测试 9：download_bilibili.sh 的 auto 不再因为时长切 accurate
+BILIBILI_SCRIPT="$SCRIPT_DIR/download_bilibili.sh"
+if rg -q 'auto_duration_short' "$BILIBILI_SCRIPT"; then
+  stub_fail_msg "bili-no-duration-accurate" "download_bilibili.sh 仍存在 auto_duration_short 逻辑"
+else
+  stub_pass "bili-no-duration-accurate"
+fi
+
+# 测试 10：accurate 参数不是极端配置（beam≤3, best_of≤3）
+accurate_beam="$(sed -n 's/^WHISPER_BEAM_SIZE_ACCURATE=//p' "$TRANSCRIBE_SCRIPT")"
+accurate_best_of="$(sed -n 's/^WHISPER_BEST_OF_ACCURATE=//p' "$TRANSCRIBE_SCRIPT")"
+if [[ "$accurate_beam" -le 3 && "$accurate_best_of" -le 3 ]]; then
+  stub_pass "accurate-params-bounded"
+else
+  stub_fail_msg "accurate-params-bounded" "beam=$accurate_beam, best_of=$accurate_best_of，预期均≤3"
+fi
+
+# 测试 11：Metal 失败后已开始转写不自动 CPU 重跑
+if rg -q 'METAL_EARLY_FAIL' "$TRANSCRIBE_SCRIPT"; then
+  stub_pass "metal-no-cpu-after-transcription"
+else
+  stub_fail_msg "metal-no-cpu-after-transcription" "缺少 Metal 已开始转写不 CPU 重跑的保护"
+fi
+
+# --- 测试 11（增强）：重试链预算验证 ---
+
+# 测试 11a：无字幕日志不触发认证重试
+write_mock_log "err-no-subtitles" "There are no subtitles for the requested languages
+[SubtitlesConvertor] There aren't any subtitles to convert"
+if is_challenge_error "$STUB_DIR/err-no-subtitles.log"; then
+  stub_fail_msg "no-subtitle-not-challenge" "无字幕被误判为 challenge 错误"
+else
+  if is_retryable_youtube_download_error "$STUB_DIR/err-no-subtitles.log"; then
+    stub_fail_msg "no-subtitle-not-retryable" "无字幕被误判为可重试下载错误"
+  else
+    stub_pass "no-subtitle-not-retryable"
+  fi
+fi
+
+# 测试 11b：仅 403/429 触发 retry policy，普通错误不触发
+write_mock_log "err-network-timeout" "ERROR: Unable to download webpage: Connection timed out"
+if is_retryable_youtube_download_error "$STUB_DIR/err-network-timeout.log"; then
+  stub_fail_msg "timeout-not-retryable" "网络超时被误判为可重试错误"
+else
+  stub_pass "timeout-not-retryable"
+fi
+
+# 测试 11c：format fallback 最多 2 个 format_variants
+YT_COMMON_LIB="$SCRIPT_DIR/lib/yt_dlp_common.sh"
+format_count="$(rg 'format_variants=' "$YT_COMMON_LIB" | wc -l | tr -d ' ')"
+if [[ "$format_count" -le 2 && "$format_count" -gt 0 ]]; then
+  stub_pass "format-fallback-max-2"
+else
+  stub_fail_msg "format-fallback-max-2" "format_variants 声明 $format_count 次，预期 1~2"
+fi
+
+# 测试 11d：extract_video_text.sh 的 MAX_MODE_CALLS 存在
+EXTRACT_SCRIPT="$SCRIPT_DIR/extract_video_text.sh"
+if rg -q 'MAX_MODE_CALLS=[0-9]+' "$EXTRACT_SCRIPT"; then
+  max_calls="$(sed -n 's/^MAX_MODE_CALLS=//p' "$EXTRACT_SCRIPT" | head -n1)"
+  if [[ "$max_calls" -le 4 ]]; then
+    stub_pass "extract-max-mode-calls"
+  else
+    stub_fail_msg "extract-max-mode-calls" "MAX_MODE_CALLS=$max_calls，预期≤4"
+  fi
+else
+  stub_fail_msg "extract-max-mode-calls" "未找到 MAX_MODE_CALLS 常量"
+fi
+
+# 测试 11e：网络探测状态文件缓存逻辑存在
+if rg -q '\.network-ready' "$YOUTUBE_SCRIPT" && rg -q '\.network-ready' "$BILIBILI_SCRIPT"; then
+  stub_pass "network-probe-cache"
+else
+  stub_fail_msg "network-probe-cache" "缺少 .network-ready 缓存逻辑"
+fi
+
+# 测试 11f：client fallback 仅在 whisper 模式触发
+if rg -q 'MODE.*==.*whisper.*is_retryable' "$YOUTUBE_SCRIPT"; then
+  stub_pass "client-fallback-whisper-only"
+else
+  stub_fail_msg "client-fallback-whisper-only" "client fallback 未限制仅在 whisper 模式触发"
+fi
+
+# --- 测试 12（增强）：Agent 执行契约验证 ---
+
+# 测试 12a：SKILL.md 包含禁止额外 .srt 轮询的约束
+if rg -qi 'srt.*轮询|轮询.*srt|tail.*srt|后台.*srt|额外.*轮询|不要额外启动.*轮询' "$SKILL_DIR/SKILL.md"; then
+  stub_pass "skill-no-srt-polling"
+else
+  stub_fail_msg "skill-no-srt-polling" "SKILL.md 缺少禁止额外 .srt 轮询的约束"
+fi
+
+# 测试 12b：agents/openai.yaml 包含单命令阻塞执行约束
+if rg -qi '单前台.*阻塞|阻塞.*命令|不要.*轮询|不.*额外.*轮询|只运行.*阻塞' "$SKILL_DIR/agents/openai.yaml"; then
+  stub_pass "openai-single-command"
+else
+  stub_fail_msg "openai-single-command" "agents/openai.yaml 缺少单命令阻塞执行约束"
+fi
+
+# 测试 12c：输出包含关键状态字段
+for field in run_dir mode text_path log_dir whisper_profile; do
+  if ! rg -q "^echo \"$field=" "$EXTRACT_SCRIPT"; then
+    stub_fail_msg "extract-output-fields" "extract_video_text.sh 未输出 $field 字段"
+    break
+  fi
+done
+# 如果上面没有 break，说明所有字段都存在
+if [[ $? -eq 0 ]]; then
+  stub_pass "extract-output-fields"
+fi
+
+# 测试 12d：长视频保护输出
+if rg -q 'long_video=' "$EXTRACT_SCRIPT" && rg -q 'duration_sec=' "$EXTRACT_SCRIPT"; then
+  stub_pass "long-video-protection"
+else
+  stub_fail_msg "long-video-protection" "缺少 long_video 或 duration_sec 输出"
+fi
+
+# 测试 12e：残留 .whisper.wav 清理
+if rg -q 'whisper\.wav' "$YT_COMMON_LIB"; then
+  stub_pass "stale-wav-cleanup"
+else
+  stub_fail_msg "stale-wav-cleanup" "缺少残留 .whisper.wav 清理逻辑"
+fi
+
+# --- 测试 13：client fallback 顺序验证 ---
 # 加载公共 lib（yt_common_run_cmd 等需要 yt_dlp_common.sh）。
 source "$SCRIPT_DIR/lib/yt_dlp_common.sh"
 
@@ -848,6 +1005,54 @@ fi
 unalias yt-dlp 2>/dev/null || true
 if [[ -n "$YTDLP_SAVE" ]]; then
   export PATH="$(dirname "$YTDLP_SAVE"):$(echo "$PATH" | sed "s|$STUB_DIR:||g")"
+fi
+
+# ============================================================
+# Phase 04：Agent 执行契约测试
+# ============================================================
+
+# --- 测试 6：SKILL.md 包含禁止额外 .srt 轮询的约束 ---
+SKILL_MD="$SKILL_DIR/SKILL.md"
+if rg -q '禁止额外.*轮询.*\.srt|禁止.*Wait for whisper srt|禁止.*tail.*-f|禁止额外启动.*轮询' "$SKILL_MD"; then
+  stub_pass "skill-prohibits-srt-polling"
+else
+  stub_fail_msg "skill-prohibits-srt-polling" "SKILL.md 未找到禁止轮询 .srt 的约束"
+fi
+
+# --- 测试 7：agents/openai.yaml 包含单命令阻塞执行约束 ---
+AGENT_YAML="$SKILL_DIR/agents/openai.yaml"
+if rg -q '单前台阻塞|不要额外启动后台轮询|不要重复启动 monitor|只运行单前台阻塞命令' "$AGENT_YAML"; then
+  stub_pass "agent-single-command-contract"
+else
+  stub_fail_msg "agent-single-command-contract" "agents/openai.yaml 未找到单命令阻塞执行约束"
+fi
+
+# --- 测试 8：输出包含关键状态字段 ---
+EXTRACT_SCRIPT="$SKILL_DIR/scripts/extract_video_text.sh"
+STATUS_FIELDS_OK=1
+for field in "run_dir=" "mode=" "text_path=" "log_dir=" "whisper_profile=" "duration_sec=" "long_video=" "estimated_risk="; do
+  if ! rg -q "echo.*${field}" "$EXTRACT_SCRIPT"; then
+    STATUS_FIELDS_OK=0
+    stub_fail_msg "output-status-fields" "extract_video_text.sh 未输出字段: $field"
+    break
+  fi
+done
+if [[ "$STATUS_FIELDS_OK" -eq 1 ]]; then
+  stub_pass "output-status-fields"
+fi
+
+# --- 测试 9：残留 .whisper.wav 不会被误删 ---
+WHISPER_HELPER="$SKILL_DIR/scripts/lib/whispercpp_transcribe.sh"
+if rg -q 'rm -f.*out_dir.*\.whisper\.wav' "$SKILL_DIR/scripts/lib/yt_dlp_common.sh"; then
+  stub_fail_msg "no-aggressive-wav-cleanup" "yt_dlp_common.sh 仍存在通配符删除 .whisper.wav"
+else
+  stub_pass "no-aggressive-wav-cleanup"
+fi
+
+if rg -q '复用已有.*whisper.*转写结果|existing_wav.*existing_srt' "$SKILL_DIR/scripts/lib/yt_dlp_common.sh"; then
+  stub_pass "whisper-reuse-residual"
+else
+  stub_fail_msg "whisper-reuse-residual" "yt_dlp_common.sh 未找到复用已有转写结果的逻辑"
 fi
 
 rm -rf "$STUB_DIR"
