@@ -162,8 +162,9 @@ make session-browser-up VERSION=0.2.0
 | `feipi-skill-govern` | 创建、重构、自检和治理其他 skill | 统一命名、layer、模板、脚本与验证边界 |
 | `feipi-patent-generate-innovation-disclosure` | 把零散创新点整理成专利创新交底书 | 先补齐专利名与使用场景，再协同架构图/时序图 skill |
 | `feipi-video-read-url` | 按用户意图统一处理视频 URL | 覆盖 YouTube/Bilibili 的下载、转写、摘要和背景扩展 |
-| `feipi-plantuml-generate-architecture-diagram` | 根据 architecture-brief 生成 PlantUML 架构图 | 先校验 brief，再检查命名覆盖、布局和渲染 |
-| `feipi-plantuml-generate-sequence-diagram` | 根据 sequence-brief 生成 PlantUML 时序图 | 先校验 brief，再检查参与者覆盖、布局和渲染 |
+| `feipi-plantuml-generate-diagram` | PlantUML 通用作图主入口 | 支持 fallback 模式、架构图、时序图等 typed profile |
+| `feipi-plantuml-generate-architecture-diagram` | 根据 architecture-brief 生成 PlantUML 架构图 | 兼容入口，推荐优先使用 feipi-plantuml-generate-diagram |
+| `feipi-plantuml-generate-sequence-diagram` | 根据 sequence-brief 生成 PlantUML 时序图 | 兼容入口，推荐优先使用 feipi-plantuml-generate-diagram |
 
 **详情**：[Skills Overview](skills/)
 
