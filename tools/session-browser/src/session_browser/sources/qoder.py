@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Optional
@@ -404,10 +405,28 @@ def _estimate_tokens_from_events(events: list[dict]):
 # ─── Session scanning ─────────────────────────────────────────────────────
 
 
+def _url_decode_path(path: str) -> str:
+    """URL-decode a path string (e.g. 'Users%2Fzhehan%2F...' → 'Users/zhehan/...')."""
+    if not path:
+        return ""
+    return urllib.parse.unquote(path)
+
+
+def _extract_cwd_from_events(events: list[dict]) -> str:
+    """Extract the actual project working directory from Qoder events."""
+    for ev in events:
+        if ev.get("type") == "user":
+            cwd = ev.get("cwd", "")
+            if cwd:
+                return cwd
+    return ""
+
+
 def _discover_sessions() -> list[tuple[str, str, Path]]:
     """Walk ~/.qoder/projects/ and discover all session files.
 
     Returns list of (project_key, session_id, file_path).
+    project_key is URL-decoded from the directory name.
     """
     projects_dir = QODER_DATA_DIR / "projects"
     if not projects_dir.exists():
@@ -419,8 +438,9 @@ def _discover_sessions() -> list[tuple[str, str, Path]]:
             if fname.endswith(".jsonl"):
                 fpath = Path(root) / fname
                 session_id = fname[:-6]  # strip .jsonl
-                # project_key is the relative path from projects/
-                project_key = str(Path(root).relative_to(projects_dir))
+                # project_key is the URL-decoded relative path from projects/
+                raw_key = str(Path(root).relative_to(projects_dir))
+                project_key = _url_decode_path(raw_key)
                 results.append((project_key, session_id, fpath))
     return results
 
@@ -575,13 +595,16 @@ def _build_summary_from_events(
     if first_ts and last_ts:
         duration = (last_ts - first_ts) / 1000
 
-    project_name = PurePosixPath(project_key).name if project_key else "unknown"
+    # Use cwd from events as the primary project_key — it holds the actual
+    # filesystem path. Fall back to the directory-based project_key (URL-decoded).
+    actual_project = cwd if cwd else project_key
+    project_name = PurePosixPath(actual_project).name if actual_project else "unknown"
 
     return SessionSummary(
         agent="qoder",
         session_id=session_id,
         title=title,
-        project_key=project_key,
+        project_key=actual_project,
         project_name=project_name,
         cwd=cwd,
         started_at=_ts_ms_to_iso(first_ts) if first_ts else "",
