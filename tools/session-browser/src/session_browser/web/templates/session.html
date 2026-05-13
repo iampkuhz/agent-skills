@@ -50,6 +50,9 @@
 {% set agent_name = 'Claude' if session.agent == 'claude_code' else 'Qoder' if session.agent == 'qoder' else 'Codex' %}
 {% set agent_class = 'overview__agent-badge--claude' if session.agent == 'claude_code' else 'overview__agent-badge--qoder' if session.agent == 'qoder' else 'overview__agent-badge--codex' %}
 
+{# Qoder does not report real cache metrics — hide to avoid misleading display #}
+{% set supports_cache_tokens = session.agent != 'qoder' %}
+
 {% set fresh_pct = (session.input_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
 {% set cr_pct = (session.cached_input_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
 {% set cw_pct = (session.cached_output_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
@@ -139,18 +142,30 @@
             <div class="metric-card metric-card--compact">
                 <div class="metric-label">LLM Input</div>
                 <div class="metric-value">{{ llm_total_input | format_number }}</div>
+                {% if supports_cache_tokens %}
                 <div class="metric-sub">{{ llm_total_cr | format_number }} cache read</div>
+                {% endif %}
             </div>
             <div class="metric-card metric-card--compact">
                 <div class="metric-label">LLM Output</div>
                 <div class="metric-value">{{ llm_total_output | format_number }}</div>
+                {% if supports_cache_tokens %}
                 <div class="metric-sub">{{ llm_total_cw | format_number }} cache write</div>
+                {% endif %}
             </div>
+            {% if supports_cache_tokens %}
             <div class="metric-card metric-card--compact">
                 <div class="metric-label">Cache Hit Rate</div>
                 <div class="metric-value">{{ cache_reuse }}%</div>
                 <div class="metric-sub">{{ cache_reuse | round(0) | int }}% reuse</div>
             </div>
+            {% else %}
+            <div class="metric-card metric-card--compact">
+                <div class="metric-label">Token Estimate</div>
+                <div class="metric-value">{{ (llm_total_input + llm_total_output) | format_number }}</div>
+                <div class="metric-sub">Estimated (no provider metrics)</div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -207,6 +222,7 @@
                         stroke="var(--token-input-fresh)"
                         stroke-dasharray="{{ ((fresh_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="0" />
+                    {% if supports_cache_tokens %}
                     <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
                         stroke="var(--token-cache-read)"
                         stroke-dasharray="{{ ((cr_pct / 100) * c) | round(1) }} {{ c }}"
@@ -215,10 +231,18 @@
                         stroke="var(--token-cache-write)"
                         stroke-dasharray="{{ ((cw_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="{{ -((fresh_pct + cr_pct) / 100) * c }}" />
+                    {% endif %}
+                    {% if supports_cache_tokens %}
                     <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
                         stroke="var(--token-output-visible)"
                         stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
                         stroke-dashoffset="{{ -((fresh_pct + cr_pct + cw_pct) / 100) * c }}" />
+                    {% else %}
+                    <circle class="token-donut__seg" cx="70" cy="70" r="{{ r }}"
+                        stroke="var(--token-output-visible)"
+                        stroke-dasharray="{{ ((out_pct / 100) * c) | round(1) }} {{ c }}"
+                        stroke-dashoffset="{{ -(fresh_pct / 100) * c }}" />
+                    {% endif %}
                 {% endif %}
                 <text x="70" y="65" text-anchor="middle" class="token-donut__center-value">{{ session_grand_total | format_number_short }}</text>
                 <text x="70" y="82" text-anchor="middle" class="token-donut__center-label">total tokens</text>
@@ -231,6 +255,7 @@
                 <span class="token-mix__val">{{ session.input_tokens | format_number }}</span>
                 <span class="token-mix__pct">{{ fresh_pct }}%</span>
             </div>
+            {% if supports_cache_tokens %}
             <div class="token-mix__row">
                 <span class="token-mix__dot token-mix__dot--cr"></span>
                 <span class="token-mix__name">Cache Read</span>
@@ -243,6 +268,7 @@
                 <span class="token-mix__val">{{ session.cached_output_tokens | format_number }}</span>
                 <span class="token-mix__pct">{{ cw_pct }}%</span>
             </div>
+            {% endif %}
             <div class="token-mix__row">
                 <span class="token-mix__dot token-mix__dot--out"></span>
                 <span class="token-mix__name">Output</span>
@@ -285,13 +311,17 @@
                         {% set bar_w = max(600 / spark_data2 | length - 1, 2) %}
                         {% set x_left = x - bar_w / 2 %}
                         {% set fresh_h = (d.fresh / max_rt2 * 90) if max_rt2 > 0 else 0 %}
+                        {% set out_h = (d.out / max_rt2 * 90) if max_rt2 > 0 else 0 %}
+                        {% if supports_cache_tokens %}
                         {% set cr_h = (d.cr / max_rt2 * 90) if max_rt2 > 0 else 0 %}
                         {% set cw_h = (d.cw / max_rt2 * 90) if max_rt2 > 0 else 0 %}
-                        {% set out_h = (d.out / max_rt2 * 90) if max_rt2 > 0 else 0 %}
+                        {% endif %}
                         <rect class="round-bar__seg round-bar__seg--fresh" x="{{ x_left }}" y="{{ 90 - fresh_h }}" width="{{ bar_w }}" height="{{ fresh_h }}" />
+                        {% if supports_cache_tokens %}
                         <rect class="round-bar__seg round-bar__seg--cr" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h }}" width="{{ bar_w }}" height="{{ cr_h }}" />
                         <rect class="round-bar__seg round-bar__seg--cw" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h }}" width="{{ bar_w }}" height="{{ cw_h }}" />
-                        <rect class="round-bar__seg round-bar__seg--out" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h - out_h }}" width="{{ bar_w }}" height="{{ out_h }}" />
+                        {% endif %}
+                        <rect class="round-bar__seg round-bar__seg--out" x="{{ x_left }}" y="{{ 90 - fresh_h - cr_h - cw_h - out_h if supports_cache_tokens else 90 - fresh_h - out_h }}" width="{{ bar_w }}" height="{{ out_h }}" />
                     {% endfor %}
                     {% for d in spark_data2 %}
                         {% set x = ((d.idx - 1) / (spark_data2 | length - 1 if spark_data2 | length > 1 else 1)) * 600 %}
@@ -302,8 +332,10 @@
                 </svg>
                 <div class="chart-legend">
                     <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--fresh"></span> Fresh</span>
+                    {% if supports_cache_tokens %}
                     <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--cr"></span> Cache R</span>
                     <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--cw"></span> Cache W</span>
+                    {% endif %}
                     <span class="chart-legend__item"><span class="chart-legend__dot chart-legend__dot--out"></span> Output</span>
                 </div>
             {% endif %}
@@ -424,10 +456,11 @@
                                 <div class="round-token-bar-scale" style="width:{{ bar_scale | round(1) }}%">
                                     <div class="round-token-bar">
                                         {% if rt > 0 %}
-                                        {# Proportional widths based on this round's breakdown #}
                                         <div class="round-token-bar__fresh" style="width:{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
+                                        {% if supports_cache_tokens %}
                                         <div class="round-token-bar__cache-read" style="width:{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
                                         <div class="round-token-bar__cache-write" style="width:{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
+                                        {% endif %}
                                         <div class="round-token-bar__output" style="width:{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
                                         {% endif %}
                                     </div>
@@ -441,6 +474,7 @@
                                         <span class="token-bar-tooltip__pct">{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
                                         <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
                                     </div>
+                                    {% if supports_cache_tokens %}
                                     <div class="token-bar-tooltip__row">
                                         <span class="token-bar-tooltip__dot token-bar-tooltip__dot--cr"></span>
                                         <span class="token-bar-tooltip__name">Cache Read</span>
@@ -455,6 +489,7 @@
                                         <span class="token-bar-tooltip__pct">{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
                                         <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
                                     </div>
+                                    {% endif %}
                                     <div class="token-bar-tooltip__row">
                                         <span class="token-bar-tooltip__dot token-bar-tooltip__dot--out"></span>
                                         <span class="token-bar-tooltip__name">Output</span>
@@ -599,6 +634,8 @@
                                                                 {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
                                                                 {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
                                                                 {% else %}<span class="badge badge-error">failed</span>{% endif %}
+                                                                {% elif tc.has_nonzero_exit %}
+                                                                <span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>
                                                                 {% else %}
                                                                 <span class="badge badge-success">ok</span>
                                                                 {% endif %}
@@ -674,6 +711,8 @@
                                                                 {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
                                                                 {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
                                                                 {% else %}<span class="badge badge-error">failed</span>{% endif %}
+                                                                {% elif tc.has_nonzero_exit %}
+                                                                <span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>
                                                                 {% else %}
                                                                 <span class="badge badge-success">ok</span>
                                                                 {% endif %}
@@ -743,6 +782,8 @@
                                                 {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
                                                 {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
                                                 {% else %}<span class="badge badge-error">failed</span>{% endif %}
+                                                {% elif tc.has_nonzero_exit %}
+                                                <span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>
                                                 {% else %}
                                                 <span class="badge badge-success">ok</span>
                                                 {% endif %}
@@ -822,7 +863,7 @@
                     {% endif %}
                 {% endfor %}
                 {% for tool_name, count in ns3.failed_counts | dictsort(by='value', reverse=True) %}
-                <div class="tool-hotspot__item tool-hotpot__item--error">
+                <div class="tool-hotspot__item tool-hotspot__item--error">
                     <span class="tool-hotspot__name tool-hotspot__name--error">{{ tool_name }}</span>
                     <div class="tool-hotspot__bar-wrap">
                         <div class="tool-hotspot__bar tool-hotspot__bar--error" style="width:{{ (count / (failed_tools_list | length) * 100) | round(0) }}%"></div>
@@ -847,10 +888,15 @@
                         <span class="top-round__idx mono text-xs">#{{ loop.index }}</span>
                         <span class="top-round__val mono">{{ rt | format_number }}</span>
                         <div class="top-round__bar">
+                            {% if supports_cache_tokens %}
                             <div class="top-round__bar-fill top-round__bar--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
                             <div class="top-round__bar--cr" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
                             <div class="top-round__bar--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
                             <div class="top-round__bar--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                            {% else %}
+                            <div class="top-round__bar-fill top-round__bar--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                            <div class="top-round__bar--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
+                            {% endif %}
                         </div>
                         <span class="top-round__tools text-muted text-xs">{{ round.tool_calls | length }}t</span>
                     </div>
@@ -919,7 +965,7 @@
     <!-- LLM calls table -->
     {% if llm_calls %}
     <div class="card">
-        <div class="card-title">LLM Calls Detail ({{ llm_calls | length }} total · {{ main_calls_list | length }} main + {{ sub_calls_list | length }} subagent)</div>
+        <div class="card-title" data-tooltip="Main call typically corresponds to one round; subagent calls are nested under the parent round and do not form separate session-level rounds.">LLM Calls Detail ({{ llm_calls | length }} total · {{ main_calls_list | length }} main + {{ sub_calls_list | length }} subagent)</div>
         <div class="profile-table-wrap">
             <div class="table-wrap">
             <table>
@@ -930,8 +976,10 @@
                         <th>Scope</th>
                         <th>Model</th>
                         <th class="numeric">Input</th>
+                        {% if supports_cache_tokens %}
                         <th class="numeric">Cache R</th>
                         <th class="numeric">Cache W</th>
+                        {% endif %}
                         <th class="numeric">Output</th>
                         <th class="numeric">Tools</th>
                         <th>Preview</th>
@@ -957,8 +1005,10 @@
                             </span>
                         </td>
                         <td class="numeric mono text-xs">{{ call.input_tokens | format_number }}</td>
+                        {% if supports_cache_tokens %}
                         <td class="numeric mono text-xs">{{ call.cache_read_tokens | format_number }}</td>
                         <td class="numeric mono text-xs">{{ call.cache_write_tokens | format_number }}</td>
+                        {% endif %}
                         <td class="numeric mono text-xs">{{ call.output_tokens | format_number }}</td>
                         <td class="numeric mono text-xs">{{ call.tool_call_count }}</td>
                         <td class="text-xs mono truncate" data-tooltip="{{ call.response_full[:500] if call.response_full else '' }}">
@@ -967,11 +1017,29 @@
                         <td class="text-xs text-muted mono">{{ call.timestamp | local_time if call.timestamp else '' }}</td>
                     </tr>
                     <tr class="llm-call-detail display-none">
-                        <td colspan="11" style="padding:0; background:var(--bg);">
-                            <div style="padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <td colspan="{{ 11 if supports_cache_tokens else 9 }}" style="padding:0; background:var(--bg);">
+                            <div style="padding:12px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                                <div>
+                                    <strong class="text-xs">Request Context:</strong>
+                                    <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ call.request_full[:1000] if call.request_full else (call.prompt_preview if call.prompt_preview else '—') }}</pre>
+                                    {% if call.request_full | length > 1000 or (not call.request_full and call.prompt_preview) %}
+                                    <button class="show-more" onclick="event.stopPropagation();" data-content-modal="LLM Call #{{ loop.index }} · Request">
+                                        <template>{{ call.request_full if call.request_full else call.prompt_preview }}</template>
+                                        <template>{{ (call.request_full if call.request_full else call.prompt_preview) | markdown | safe }}</template>
+                                        Open
+                                    </button>
+                                    {% endif %}
+                                </div>
                                 <div>
                                     <strong class="text-xs">Response:</strong>
                                     <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ call.response_full[:1000] if call.response_full else '—' }}</pre>
+                                    {% if call.response_full %}
+                                    <button class="show-more" onclick="event.stopPropagation();" data-content-modal="LLM Call #{{ loop.index }} · Response">
+                                        <template>{{ call.response_full }}</template>
+                                        <template>{{ call.response_full | markdown | safe }}</template>
+                                        Open
+                                    </button>
+                                    {% endif %}
                                 </div>
                                 {% if call.tool_calls %}
                                 <div>
@@ -982,11 +1050,16 @@
                                             <span class="tool-tree__name">{{ tc.name }}</span>
                                             <span class="tool-tree__detail">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
                                             <span class="tool-tree__status">
-                                                {% if tc.is_failed %}{% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>{% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>{% else %}<span class="badge badge-error">failed</span>{% endif %}{% else %}<span class="badge badge-success">ok</span>{% endif %}
+                                                {% if tc.is_failed %}{% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>{% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>{% else %}<span class="badge badge-error">failed</span>{% endif %}{% elif tc.has_nonzero_exit %}<span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>{% else %}<span class="badge badge-success">ok</span>{% endif %}
                                             </span>
                                         </div>
                                         {% endfor %}
                                     </div>
+                                </div>
+                                {% else %}
+                                <div>
+                                    <strong class="text-xs">Tool Calls:</strong>
+                                    <div class="text-muted text-xs" style="margin-top:4px">No tools called</div>
                                 </div>
                                 {% endif %}
                             </div>
@@ -1013,9 +1086,9 @@
   "ended_at": "{{ session.ended_at }}",
   "duration_seconds": {{ session.duration_seconds }},
   "input_tokens": {{ session.input_tokens }},
-  "output_tokens": {{ session.output_tokens }},
+  "output_tokens": {{ session.output_tokens }}{% if supports_cache_tokens %},
   "cached_input_tokens": {{ session.cached_input_tokens }},
-  "cached_output_tokens": {{ session.cached_output_tokens }}
+  "cached_output_tokens": {{ session.cached_output_tokens }}{% endif %}
 }</pre>
     </details>
 </template>
@@ -1051,8 +1124,10 @@
             tooltip.innerHTML =
                 '<div style="font-weight:bold;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.15)">Round #' + roundIdx + ': ' + fmt(total) + ' tokens</div>' +
                 '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-input-fresh);margin-right:4px"></span>Fresh: <b>' + fmt(fresh) + '</b></div>' +
+                {% if supports_cache_tokens %}
                 '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-cache-read);margin-right:4px"></span>Cache R: <b>' + fmt(cr) + '</b></div>' +
                 '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-cache-write);margin-right:4px"></span>Cache W: <b>' + fmt(cw) + '</b></div>' +
+                {% endif %}
                 '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--token-output-visible);margin-right:4px"></span>Output: <b>' + fmt(out) + '</b></div>';
             tooltip.style.display = 'block';
         }

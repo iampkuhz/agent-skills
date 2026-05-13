@@ -1215,8 +1215,18 @@ a.link-muted:hover { color: var(--accent); }
 /* ─── Hotspots grid ─── */
 .hotspots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-md);
+}
+@media (max-width: 900px) {
+    .hotspots-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 600px) {
+    .hotspots-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* ─── Top rounds list ─── */
@@ -1243,6 +1253,7 @@ a.link-muted:hover { color: var(--accent); }
 }
 .top-round__bar {
     flex: 1;
+    min-width: 0;
     display: flex;
     height: 5px;
     background: var(--border-light);
@@ -2165,6 +2176,7 @@ tr.row--anomaly {
 .tool-hotspot__name--error { color: var(--status-error); }
 .tool-hotspot__bar-wrap {
     flex: 1;
+    min-width: 0;
     height: 6px;
     background: var(--border-light);
     border-radius: 3px;

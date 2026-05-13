@@ -26,6 +26,29 @@ from session_browser.domain.models import SessionSummary, ChatMessage, ToolCall
 from session_browser.domain.token_normalizer import normalize_tokens, TokenPrecision, TokenProvider
 
 
+# ─── Interval merging (shared with Claude) ──────────────────────────────
+
+
+def _merge_intervals(intervals: list[tuple[int, int]], max_gap_ms: int = 300_000) -> int:
+    """Merge overlapping intervals and return total merged duration in milliseconds.
+
+    Filters out individual intervals longer than max_gap_ms (likely idle time).
+    """
+    if not intervals:
+        return 0
+    intervals = [(s, e) for s, e in intervals if (e - s) <= max_gap_ms]
+    if not intervals:
+        return 0
+    intervals.sort()
+    merged = [intervals[0]]
+    for s, e in intervals[1:]:
+        if s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return sum(e - s for s, e in merged)
+
+
 # ─── Token estimation (Qoder does not log usage) ──────────────────────────
 #
 # Qoder 估算固定走 byte-level 启发式，避免 tiktoken encode 的额外开销。
@@ -284,17 +307,79 @@ def _stringify_tool_result(result_content) -> str:
     return str(result_content)
 
 
-def _tool_result_looks_failed(result_content) -> bool:
-    """Heuristic for failed tool/model results."""
+def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
+    """Heuristic for **tool runtime failure** in Qoder logs.
+
+    Mirrors the Claude parser's conservative approach: only detect failures
+    where the tool itself could not execute. Does NOT treat command output
+    containing error keywords or nonzero exit codes as tool failures.
+
+    For Read/Write/Edit/Glob/Grep/LS tools, also detects file-level errors
+    (file does not exist, permission denied, etc.).
+    """
     text = _stringify_tool_result(result_content).lower()
     if not text:
         return False
-    failure_markers = [
-        "api error", "tool_use_error", "user rejected", "cancelled",
-        "failed", "error:", "exit code", "key_model_access_denied",
-        "rate limit", "timeout", "overloaded",
+
+    # For Read/Write/Edit/Glob/Grep/LS tools, detect file-level errors
+    if tool_name in ("Read", "Write", "Edit", "Glob", "Grep", "LS"):
+        first_line = text.split("\n", 1)[0].strip()
+        if first_line.startswith((
+            "file does not exist",
+            "permission denied",
+            "no such file",
+            "directory not found",
+            "path not found",
+            "cannot read",
+            "not a directory",
+            "too many levels of symbolic links",
+            "input/output error",
+            "is a directory",
+        )):
+            return True
+        return False
+
+    # ── Tool runtime error markers (anchored at line start) ─────
+    # These indicate the tool could not execute, not that it ran and
+    # produced an error result.
+    line_markers = [
+        "api error",
+        "tool_use_error",
+        "key_model_access_denied",
+        "rate limit exceeded",
+        "user rejected",
+        "request cancelled",
+        "permission denied",       # bash: ./deploy.sh: Permission denied
+        "fatal:",                  # git errors: fatal: not a git repository
     ]
-    return any(marker in text for marker in failure_markers)
+    for marker in line_markers:
+        if text.startswith(marker):
+            return True
+        for line in text.split("\n"):
+            stripped = line.strip().lstrip("$# ").strip()
+            if stripped.startswith(marker):
+                return True
+            # Also match after shell error prefix: "bash: cmd: ..."
+            parts = stripped.split(": ")
+            if len(parts) > 1:
+                last_part = parts[-1].strip()
+                if last_part.startswith(marker):
+                    return True
+
+    # ── "command not found" at line start or after shell prefix ──
+    if re.search(r"(?:^|\n)\s*command not found", text, re.MULTILINE):
+        return True
+    for line in text.split("\n"):
+        stripped = line.strip()
+        m = re.match(r"^(?:ba)?sh:\s+.*:\s+command not found", stripped)
+        if m:
+            return True
+
+    # ── "timeout" at line start ──────────────────────────────────
+    if re.search(r"(?:^|\n)\s*timeout\b", text, re.MULTILINE):
+        return True
+
+    return False
 
 
 def _extract_event_text(ev: dict) -> tuple[str, str]:
@@ -513,7 +598,13 @@ def _build_summary_from_events(
     session_id: str,
     project_key: str,
 ) -> SessionSummary:
-    """Build SessionSummary from parsed Qoder events."""
+    """Build SessionSummary from parsed Qoder events.
+
+    Computes timeline-based execution times:
+    - model_execution_seconds: merged LLM response intervals (user msg → assistant msg)
+    - tool_execution_seconds: merged tool intervals (tool_use → tool_result),
+      with parallel overlaps merged
+    """
     from pathlib import PurePosixPath
 
     user_count = 0
@@ -555,18 +646,27 @@ def _build_summary_from_events(
         # Qoder has no cache metrics; do not fabricate cache values.
         cache_write_tokens = 0
 
+    # ─── Collect timestamps for interval calculation ───
+    user_event_timestamps: list[int] = []
+    assistant_event_timestamps: list[int] = []
+    tool_use_map: dict[str, int] = {}       # tool_use_id -> start_ts_ms
+    tool_result_map: dict[str, int] = {}    # tool_use_id -> end_ts_ms
+
     for ev in events:
         etype = ev.get("type", "")
+        ts_str = ev.get("timestamp", "")
+        ts_ms = 0
+        if ts_str:
+            dt_local = normalize_timestamp(ts_str)
+            if dt_local:
+                ts_ms = int(datetime.fromisoformat(dt_local).timestamp() * 1000)
 
         if etype == "user":
             user_text = _extract_user_text(ev)
             if user_text:
                 user_count += 1
-            ts_str = ev.get("timestamp", "")
-            if ts_str and not first_ts:
-                dt = normalize_timestamp(ts_str)
-                if dt:
-                    first_ts = int(datetime.fromisoformat(dt).timestamp() * 1000)
+            if ts_ms and not first_ts:
+                first_ts = ts_ms
             # Extract title from first non-meta user message
             if not title and user_text:
                 title = _extract_readable_title(user_text)
@@ -582,12 +682,25 @@ def _build_summary_from_events(
                     if isinstance(item, dict) and item.get("type") == "tool_result":
                         if item.get("is_error") is True or _tool_result_looks_failed(item.get("content", "")):
                             failed_tool_count += 1
+                        tuid = item.get("tool_use_id", "")
+                        if tuid and ts_ms:
+                            tool_result_map[tuid] = ts_ms
+            if ts_ms:
+                user_event_timestamps.append(ts_ms)
 
-        ts_str = ev.get("timestamp", "")
-        if ts_str:
-            dt_local = normalize_timestamp(ts_str)
-            if dt_local:
-                last_ts = int(datetime.fromisoformat(dt_local).timestamp() * 1000)
+        elif etype == "assistant" and ev.get("message", {}).get("type") == "message":
+            if ts_ms:
+                assistant_event_timestamps.append(ts_ms)
+            msg = ev.get("message", {})
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "tool_use":
+                        if ts_ms:
+                            tool_use_map[item["id"]] = ts_ms
+
+        if ts_ms:
+            last_ts = ts_ms
 
     if not last_ts and first_ts:
         last_ts = first_ts
@@ -595,6 +708,25 @@ def _build_summary_from_events(
     duration = 0
     if first_ts and last_ts:
         duration = (last_ts - first_ts) / 1000
+
+    # ─── Model execution: LLM response intervals (user → next assistant) ───
+    llm_intervals: list[tuple[int, int]] = []
+    sorted_user_ts = sorted(user_event_timestamps)
+    sorted_assistant_ts = sorted(assistant_event_timestamps)
+    for u_ts in sorted_user_ts:
+        for a_ts in sorted_assistant_ts:
+            if a_ts > u_ts:
+                llm_intervals.append((u_ts, a_ts))
+                break
+
+    # ─── Tool execution: tool_use → tool_result intervals ───
+    tool_intervals: list[tuple[int, int]] = []
+    for tool_id, use_ts in tool_use_map.items():
+        if tool_id in tool_result_map:
+            tool_intervals.append((use_ts, tool_result_map[tool_id]))
+
+    model_execution_seconds = _merge_intervals(llm_intervals) / 1000.0
+    tool_execution_seconds = _merge_intervals(tool_intervals) / 1000.0
 
     # Use cwd from events as the primary project_key — it holds the actual
     # filesystem path. Fall back to the directory-based project_key (URL-decoded).
@@ -611,6 +743,8 @@ def _build_summary_from_events(
         started_at=_ts_ms_to_iso(first_ts) if first_ts else "",
         ended_at=_ts_ms_to_iso(last_ts) if last_ts else "",
         duration_seconds=round(duration, 1),
+        model_execution_seconds=round(model_execution_seconds, 1),
+        tool_execution_seconds=round(tool_execution_seconds, 1),
         model=model,
         git_branch=git_branch,
         source=source,
@@ -630,6 +764,9 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
 
     When Qoder does not report real usage, per-message token counts are
     estimated by walking events in order and accumulating visible context.
+
+    Tracks pending request parts (human text + tool_result text) between
+    user events and writes them to the next assistant message's request_full.
     """
     messages = []
     assistant_by_id = {rec["id"]: rec for rec in _assistant_records(events)}
@@ -647,14 +784,35 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
     if not has_real_usage:
         _fill_estimates(events, assistant_by_id, est_input_map, est_output_map)
 
+    # Collect pending request context between user events and the next
+    # assistant message.
+    pending_request_parts: list[str] = []
+
     for ev in events:
         etype = ev.get("type", "")
 
         if etype == "user":
             content = _extract_user_text(ev)
+            ts_str = ev.get("timestamp", "")
+
+            # Collect tool_result text for request context
+            msg = ev.get("message", {})
+            if isinstance(msg, dict) and isinstance(msg.get("content"), list):
+                for item in msg["content"]:
+                    if isinstance(item, dict) and item.get("type") == "tool_result":
+                        tuid = item.get("tool_use_id", "")
+                        result_text = _stringify_tool_result(item.get("content", ""))
+                        part = f"Tool result for {tuid}:\n{result_text}" if tuid else result_text
+                        if item.get("is_error") is True:
+                            part += "\nTool result error: true"
+                        if part:
+                            pending_request_parts.append(part)
+
+            if content:
+                pending_request_parts.append(content)
+
             if not content:
                 continue
-            ts_str = ev.get("timestamp", "")
             messages.append(ChatMessage(
                 role="user",
                 content=content,
@@ -693,6 +851,9 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                     token_bd.precision = TokenPrecision.ESTIMATED
                     token_bd.provider = TokenProvider.QODER
 
+                request_full = "\n\n".join(p for p in pending_request_parts if p)
+                pending_request_parts = []
+
                 messages.append(ChatMessage(
                     role="assistant",
                     content="\n".join(text_parts),
@@ -702,6 +863,7 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                     usage=final_usage,
                     token_breakdown=token_bd,
                     llm_call_id=rec.get("id", ""),
+                    request_full=request_full,
                 ))
 
     return messages
@@ -743,11 +905,16 @@ def _extract_tool_calls(
     events: list[dict],
     messages: list[ChatMessage],
 ) -> list[ToolCall]:
-    """Extract tool call records from assistant messages."""
+    """Extract tool call records from assistant messages.
+
+    Also populates ToolCall.duration_ms from tool_use/tool_result timestamps.
+    """
     tool_calls = []
 
     # Build a map of tool_use_id → tool_result for status/result display
-    tool_results = {}
+    # and tool_use_id → result timestamp for duration_ms calculation
+    tool_results: dict[str, dict] = {}
+    tool_result_timestamps: dict[str, int] = {}  # tool_use_id -> end_ts_ms
     for ev in events:
         if ev.get("type") != "user":
             continue
@@ -762,26 +929,29 @@ def _extract_tool_calls(
                     result_content = item.get("content", "")
 
                     is_error = item.get("is_error") is True
-                    exit_code = None
                     result_text = _stringify_tool_result(result_content)
-                    error_msg = result_text[:500] if is_error else ""
 
-                    if _tool_result_looks_failed(result_text):
-                        is_error = True
+                    exit_code = None
                     exit_match = re.search(r"exit code[:\s]*(\d+)", result_text, re.IGNORECASE)
                     if exit_match:
                         exit_code = int(exit_match.group(1))
-                        if exit_code != 0:
-                            is_error = True
-                    if is_error and not error_msg:
-                        error_msg = result_text[:500]
 
+                    # Store raw result content; apply heuristic later when we
+                    # know the tool name from assistant messages.
                     tool_results[tool_use_id] = {
-                        "is_error": is_error,
-                        "exit_code": exit_code,
-                        "error_message": error_msg,
-                        "result": result_text[:2000],
+                        "is_error_raw": is_error,
+                        "result_text": result_text,
+                        "exit_code_raw": exit_code,
                     }
+
+                    # Capture result timestamp for duration_ms
+                    ts_str = ev.get("timestamp", "")
+                    if ts_str and tool_use_id:
+                        dt_local = normalize_timestamp(ts_str)
+                        if dt_local:
+                            tool_result_timestamps[tool_use_id] = int(
+                                datetime.fromisoformat(dt_local).timestamp() * 1000
+                            )
 
     # Extract tool calls from assistant messages
     for msg in messages:
@@ -793,16 +963,19 @@ def _extract_tool_calls(
             params = tc.get("parameters", {})
 
             result_info = tool_results.get(tool_use_id, {})
-            status = "completed"
-            exit_code = None
-            error_msg = ""
-            result = ""
+            is_error = result_info.get("is_error_raw", False)
+            result_text = result_info.get("result_text", "")
+
+            # Apply heuristic now that we know the tool name
+            if _tool_result_looks_failed(result_text, tool_name=name):
+                is_error = True
+
+            exit_code = result_info.get("exit_code_raw")
+
+            status = "error" if is_error else "completed"
+            error_msg = result_text[:500] if is_error else ""
+            result = result_text[:2000]
             files_touched = []
-            if result_info:
-                status = "error" if result_info.get("is_error") else "completed"
-                exit_code = result_info.get("exit_code")
-                error_msg = result_info.get("error_message", "")
-                result = result_info.get("result", "")
 
             file_path = (
                 params.get("file_path", "")
@@ -810,6 +983,19 @@ def _extract_tool_calls(
             )
             if file_path:
                 files_touched.append(file_path)
+
+            # Compute duration_ms from tool_use timestamp (from msg) and
+            # tool_result timestamp (captured above)
+            duration_ms = 0.0
+            if tool_use_id and tool_use_id in tool_result_timestamps:
+                ts_str = msg.timestamp
+                if ts_str:
+                    dt_local = normalize_timestamp(ts_str)
+                    if dt_local:
+                        use_ts_ms = int(datetime.fromisoformat(dt_local).timestamp() * 1000)
+                        result_ts_ms = tool_result_timestamps[tool_use_id]
+                        if result_ts_ms >= use_ts_ms:
+                            duration_ms = float(result_ts_ms - use_ts_ms)
 
             tool_calls.append(ToolCall(
                 name=name,
@@ -821,6 +1007,7 @@ def _extract_tool_calls(
                 files_touched=files_touched,
                 timestamp=msg.timestamp,
                 tool_use_id=tool_use_id,
+                duration_ms=duration_ms,
             ))
 
     return tool_calls

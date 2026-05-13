@@ -443,6 +443,9 @@ def _build_llm_calls(
                 msg, round_tools, prior_tools, round_obj, messages, call_index
             )
 
+        request_full = msg.request_full
+        request_preview = request_full[:200] if request_full else prompt_hint
+
         llm_call = LLMCall(
             id=msg.llm_call_id,
             model=msg.model,
@@ -458,6 +461,8 @@ def _build_llm_calls(
             cache_read_tokens=usage.get("cache_read_input_tokens", 0),
             cache_write_tokens=usage.get("cache_creation_input_tokens", 0),
             prompt_preview=prompt_hint,
+            request_preview=request_preview,
+            request_full=request_full,
             response_preview=msg.content[:200],
             response_full=msg.content,
             tool_calls=[tc for tc in round_tools if tc.scope == "main"],

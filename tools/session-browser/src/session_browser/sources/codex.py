@@ -313,8 +313,11 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
     """Extract user and agent messages from Codex events.
 
     Uses event_msg with type=user_message and type=agent_message.
+    Tracks pending request parts for subsequent assistant messages.
     """
     messages = []
+    pending_request_parts: list[str] = []
+
     for ev in events:
         etype = ev.get("type", "")
         payload = ev.get("payload", {})
@@ -326,9 +329,12 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                 content = payload.get("message", "")
                 if isinstance(content, list):
                     content = "\n".join(str(c) for c in content)
+                content_str = str(content)
+                if content_str:
+                    pending_request_parts.append(content_str)
                 messages.append(ChatMessage(
                     role="user",
-                    content=str(content),
+                    content=content_str,
                     timestamp=ts,
                 ))
             elif msg_type == "agent_message":
@@ -338,10 +344,13 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                 if isinstance(content, list):
                     content = "\n".join(str(c) for c in content)
                 if phase in ("commentary", "final"):
+                    request_full = "\n\n".join(p for p in pending_request_parts if p)
+                    pending_request_parts = []
                     messages.append(ChatMessage(
                         role="assistant",
                         content=str(content),
                         timestamp=ts,
+                        request_full=request_full,
                     ))
 
     return messages

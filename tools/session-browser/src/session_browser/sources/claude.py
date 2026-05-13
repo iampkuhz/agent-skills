@@ -594,24 +594,50 @@ def _merge_intervals(intervals: list[tuple[int, int]], max_gap_ms: int = 300_000
 
 
 def _extract_messages(events: list[dict]) -> list[ChatMessage]:
-    """Extract user and assistant chat messages from Claude events."""
+    """Extract user and assistant chat messages from Claude events.
+
+    Tracks pending request parts (human text + tool_result text) between
+    user events and writes them to the next assistant message's request_full.
+    """
     messages = []
     assistant_by_id = {rec["id"]: rec for rec in _assistant_records(events)}
     emitted_assistant_ids: set[str] = set()
+
+    # Collect pending request context between user events and the next
+    # assistant message.  This captures both human text and tool_result
+    # text that become part of the API request preceding an assistant reply.
+    pending_request_parts: list[str] = []
 
     for ev in events:
         etype = ev.get("type", "")
 
         if etype == "user":
             content = _extract_user_text(ev)
-            if not content:
-                continue
             ts_str = ev.get("timestamp", "")
-            messages.append(ChatMessage(
-                role="user",
-                content=content,
-                timestamp=ts_str,
-            ))
+
+            # Collect tool_result text for request context
+            msg = ev.get("message", {})
+            if isinstance(msg, dict) and isinstance(msg.get("content"), list):
+                for item in msg["content"]:
+                    if isinstance(item, dict) and item.get("type") == "tool_result":
+                        tuid = item.get("tool_use_id", "")
+                        result_text = _stringify_tool_result(item.get("content", ""))
+                        part = f"Tool result for {tuid}:\n{result_text}" if tuid else result_text
+                        if item.get("is_error") is True:
+                            part += "\nTool result error: true"
+                        if part:
+                            pending_request_parts.append(part)
+
+            # Human user text
+            if content:
+                pending_request_parts.append(content)
+
+            if content:
+                messages.append(ChatMessage(
+                    role="user",
+                    content=content,
+                    timestamp=ts_str,
+                ))
 
         elif etype == "assistant":
             key = _assistant_message_key(ev)
@@ -626,6 +652,9 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
             if text_parts or tool_calls:
                 token_bd = normalize_tokens(usage, model=model) if usage else None
 
+                request_full = "\n\n".join(p for p in pending_request_parts if p)
+                pending_request_parts = []
+
                 messages.append(ChatMessage(
                     role="assistant",
                     content="\n".join(text_parts),
@@ -635,6 +664,7 @@ def _extract_messages(events: list[dict]) -> list[ChatMessage]:
                     usage=usage if usage else None,
                     token_breakdown=token_bd,
                     llm_call_id=rec.get("id", ""),
+                    request_full=request_full,
                 ))
 
     return messages
@@ -663,13 +693,19 @@ def _stringify_tool_result(result_content) -> str:
 
 
 def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
-    """Heuristic for failed tool/model results in Claude logs.
+    """Heuristic for **tool runtime failure** in Claude logs.
 
-    Uses strict anchoring to avoid false positives from:
-    - CSS class/variable names (text-error, --status-error)
-    - HTML/template diffs (">failed</span>", "badge-error")
-    - Grep/diff/cat output containing error keywords as data
-    - Source code that references error strings
+    Only detects failures where the tool itself could not execute:
+    - API / model access errors
+    - User rejection of tool use
+    - Request / timeout failures
+    - Shell can't run the command (command not found)
+    - File-level errors for Read/Write/etc. (file doesn't exist, permission denied)
+
+    Does NOT treat these as tool failures:
+    - Nonzero exit codes (command ran but returned an error status)
+    - Lint / test / build errors (tool ran successfully, result has error text)
+    - Source code, logs, or HTML containing error keywords
     """
     text = _stringify_tool_result(result_content).lower()
     if not text:
@@ -697,31 +733,21 @@ def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
             return True
         return False
 
-    # For Bash/Agent and others: all markers require line-start anchoring.
-    # Bash output often contains error keywords as DATA (diff context,
-    # grep hits, cat output, source code) — substring matching causes
-    # rampant false positives. Only match when the keyword IS the error
-    # message, not when it's embedded in other content.
+    # For Bash/Agent and others: detect **tool runtime errors**, not
+    # command output that happens to contain error keywords.
 
-    # ── All markers: line-start or CLI error prefix ──────────────
-    # Match only when the marker appears at the start of the text or
-    # at the start of a line (after optional whitespace/CLI prefixes).
-    # This covers real CLI errors like:
-    #   "Exit code 1" / "fatal: ..." / "API Error: 401"
-    # while skipping diff/grep output where these appear as data.
-    # Also checks after shell prefixes like "bash: " / "sh: ".
+    # ── Tool runtime error markers (anchored at line start) ─────
+    # These indicate the tool could not execute, not that it executed
+    # and produced an error result (like lint failures, test failures).
     line_markers = [
-        "exit code",
         "api error",
         "tool_use_error",
         "key_model_access_denied",
         "rate limit exceeded",
         "user rejected",
         "request cancelled",
-        "cancelled",
-        "overloaded",
-        "fatal:",
-        "command not found",
+        "permission denied",       # bash: ./deploy.sh: Permission denied
+        "fatal:",                  # git errors: fatal: not a git repository
     ]
     for marker in line_markers:
         if text.startswith(marker):
@@ -738,19 +764,21 @@ def _tool_result_looks_failed(result_content, tool_name: str = "") -> bool:
                 if last_part.startswith(marker):
                     return True
 
-    # ── "failed" as standalone word at line start ─────────────────
-    # Real test runner output: "FAILED tests/test_x.py"
-    # Skip when preceded by HTML boundaries, quotes, spaces, code.
-    if re.search(r"(?:^|\n)\s*failed(?![a-z0-9_\-])", text, re.MULTILINE):
+    # ── "command not found" at line start or after shell prefix ──
+    # Real shell error: the tool couldn't run the command.
+    # Match: "command not found" at line start, or "bash: xyz: command not found"
+    if re.search(r"(?:^|\n)\s*command not found", text, re.MULTILINE):
         return True
-
-    # ── "error:" as error message prefix at line start ────────────
-    # Real CLI errors: "error: file not found", "ERROR: test failed"
-    if re.search(r"(?:^|\n)\s*[A-Za-z]*error:", text, re.MULTILINE):
-        return True
+    for line in text.split("\n"):
+        stripped = line.strip()
+        # "bash: xyz: command not found" or "sh: xyz: command not found"
+        m = re.match(r"^(?:ba)?sh:\s+.*:\s+command not found", stripped)
+        if m:
+            return True
 
     # ── "timeout" as standalone word at line start ────────────────
-    if re.search(r"(?:^|\n)\s*timeout(?![a-z0-9\-])", text, re.MULTILINE):
+    # Tool execution timed out at the runtime level.
+    if re.search(r"(?:^|\n)\s*timeout\b", text, re.MULTILINE):
         return True
 
     return False
@@ -961,8 +989,9 @@ def _extract_tool_calls(
             exit_match = re.search(r"exit code[:\s]*(\d+)", result_text, re.IGNORECASE)
             if exit_match:
                 exit_code = int(exit_match.group(1))
-                if exit_code != 0:
-                    is_error = True
+                # Do NOT set is_error from nonzero exit_code.
+                # exit_code records the command's return status, which may be
+                # business logic (e.g. rg found no matches), not a tool failure.
 
             error_msg = result_text[:500] if is_error else ""
 

@@ -136,6 +136,7 @@ class ChatMessage:
     token_breakdown: Optional[TokenBreakdown] = None  # per-message token breakdown
     llm_call_id: str = ""  # provider/Claude message id, one logical LLM call
     llm_status: str = "ok"  # "ok" | "error"
+    request_full: str = ""  # logged request context preceding this assistant response
 
 
 @dataclass
@@ -165,7 +166,18 @@ class ToolCall:
 
     @property
     def is_failed(self) -> bool:
-        return self.status == "error" or (self.exit_code is not None and self.exit_code != 0)
+        """Tool call itself failed (runtime error, API error, user rejection, etc.).
+
+        A nonzero exit_code from Bash does NOT mean the tool call failed —
+        it just records the command's return code, which may be business
+        logic (e.g. rg found no matches, grep returned 1, test failed).
+        """
+        return self.status == "error"
+
+    @property
+    def has_nonzero_exit(self) -> bool:
+        """Command returned a nonzero exit code, regardless of tool status."""
+        return self.exit_code is not None and self.exit_code != 0
 
 
 @dataclass
@@ -186,6 +198,8 @@ class LLMCall:
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
     prompt_preview: str = ""         # first ~200 chars of prompt context
+    request_preview: str = ""        # first ~200 chars of logged request
+    request_full: str = ""           # full logged request context
     response_preview: str = ""       # first ~200 chars of response
     response_full: str = ""          # full response text (for expand)
     tool_calls: list["ToolCall"] = field(default_factory=list)
