@@ -59,17 +59,18 @@ def _count_tokens(s: str) -> int:
 
 
 def normalize_timestamp(ts) -> str:
-    """Convert timestamp (ISO8601 str or Unix int) to local-time ISO8601 str.
+    """Convert timestamp (ISO8601 str or Unix int/float) to local-time ISO8601 str.
 
-    Qoder logs store timestamps as either ISO8601 strings (\"2026-05-12T06:20:29Z\")
-    or Unix integer seconds (1747040495). This function normalises both forms
-    into a local-time ISO8601 string so downstream display code is uniform.
+    Handles ISO8601 strings, Unix seconds (int/float), and Unix milliseconds
+    (large ints > 1e12).
     """
     if not ts:
         return ""
     dt = None
     if isinstance(ts, (int, float)):
-        dt = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone()
+        # Detect millisecond timestamps (> 1e12) and convert to seconds
+        actual_ts = ts / 1000 if ts > 1e12 else ts
+        dt = datetime.fromtimestamp(actual_ts, tz=timezone.utc).astimezone()
     elif isinstance(ts, str):
         try:
             dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
