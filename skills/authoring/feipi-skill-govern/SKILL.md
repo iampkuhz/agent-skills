@@ -1,6 +1,6 @@
 ---
 name: feipi-skill-govern
-description: 用于治理 repo 内 skill 的命名、触发、执行、模板、脚本与验证边界；在创建、重构、自检或审计 skill 时使用。
+description: 用于治理 repo 内 skill 的命名、触发、执行、模板、脚本与验证边界；在创建、重构、自检或审计 skill 时使用。若任务是普通业务执行而非 skill 工程，不要误用本 skill。
 ---
 
 # Skill 工程治理（中文）
@@ -100,13 +100,24 @@ description: 用于治理 repo 内 skill 的命名、触发、执行、模板、
 ## 资源导航
 
 - `references/naming-conventions.md`：命名规范 v2 与命名决策顺序。
-- `references/skill-layering-policy.md`：layer 的职责、边界与禁忌。
+- `references/skill-layering-policy.md`：layer 的职责、边界与禁忌（含目录判定）。
 - `references/workflow.md`：执行顺序、边界、失败处理、验证矩阵。
-- `references/governance-process.md`：Step 1 / Step 1.5 / Step 2 / Step 3 的治理流程。
-- `references/governance-artifacts.md`：临时治理产物的落位规则与字段说明。
+- `references/governance-process.md`：Step 1 / Step 1.5 / Step 2 / Step 3 的治理流程（含产物落位）。
+- `references/version-changelog-policy.md`：版本号递增与 CHANGELOG 极简记录规则。
 - `references/quality-checklist.md`：交付前核查清单。
 - `references/reassessment-backlog.md`：既有治理结论待重审清单。
-- 其他规则见 `references/repo-constraints.md`、`references/changelog-policy.md`、`references/version-policy.md`、`references/anti-patterns.md`。
+- 其他规则见 `references/repo-constraints.md`、`references/frontmatter-policy.md`、`references/anti-patterns.md`。
+
+## 语言与中文要求
+
+- `SKILL.md` 的 `description` 与正文使用中文。
+- `agents/openai.yaml` 的 `display_name`、`short_description`、`default_prompt` 使用中文。
+- `references/` 默认中文；脚本与配置注释统一中文。
+- 技术术语可保留英文，但需附中文解释。详见 `rules/global/language.md`。
+
+## 历史来源说明
+
+当前规则真源以仓库 `AGENTS.md` 与本 skill 自身文档、脚本、模板为准。历史参考资料（OpenAI skill-creator、Claude Code Best Practices、`feipi-gen-skills` 旧规则）只提供背景，不替代当前规则真源。若旧文档仍提到 `feipi-gen-skills`、action-first 命名或历史 rename 结论，以本 skill 当前 v2 规则为准。
 
 ## 主入口与包装器
 

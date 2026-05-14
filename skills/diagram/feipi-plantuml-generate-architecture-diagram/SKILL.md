@@ -1,6 +1,6 @@
 ---
 name: feipi-plantuml-generate-architecture-diagram
-description: 用于根据 architecture-brief 模板生成并校验 PlantUML 架构图；在用户要交付可渲染、可覆盖核对的架构图时使用。
+description: 用于根据 architecture-brief 模板生成并校验 PlantUML 架构图；此为兼容入口，推荐使用 feipi-plantuml-generate-diagram 作为 PlantUML 作图主入口；在用户明确要求使用本 skill 时触发。
 ---
 
 # PlantUML 架构图生成与校验

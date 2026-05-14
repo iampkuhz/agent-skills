@@ -1,6 +1,6 @@
 ---
 name: feipi-plantuml-generate-diagram
-description: PlantUML 通用作图入口；支持架构图、时序图及未指定类型的 fallback 模式；在用户要求用 PlantUML 画图时触发。
+description: PlantUML 通用作图入口；在用户要求用 PlantUML 画图时触发，自动路由到架构图/时序图等类型；若用户明确指定使用 feipi-plantuml-generate-architecture-diagram 或 feipi-plantuml-generate-sequence-diagram，优先路由到对应 skill。
 ---
 
 # PlantUML 通用作图生成与校验

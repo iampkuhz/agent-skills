@@ -1,6 +1,6 @@
 ---
 name: feipi-video-read-url
-description: 用于按用户意图下载、提取或总结视频网站 URL，统一覆盖 dryrun、音视频提取、字幕或 whisper 转写、摘要和背景扩展，并为后续新增视频站点预留统一适配入口。
+description: 用于按用户意图处理视频网站 URL（如 YouTube、Bilibili），覆盖下载、音视频提取、字幕转写、摘要和背景扩展；在用户提供视频 URL 需要处理时触发。若用户处理的是本地文件或非视频 URL，不要误用本 skill。
 ---
 
 # 视频 URL 读取与总结（中文）
@@ -243,7 +243,7 @@ description: 用于按用户意图下载、提取或总结视频网站 URL，统
 
 执行前可先设置：
 ```bash
-SKILL_DIR="/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/skills/integration/feipi-video-read-url"
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ```
 
 1. 检查依赖：
