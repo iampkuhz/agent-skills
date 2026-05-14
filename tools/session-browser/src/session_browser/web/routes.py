@@ -495,6 +495,10 @@ def _build_llm_calls(
                 continue
             usage = msg.usage or {}
 
+            request_full = msg.request_full if msg.request_full else ""
+            request_preview = request_full[:200] if request_full else ""
+            response_preview = msg.content[:200] if msg.content else ""
+
             llm_calls.append(LLMCall(
                 id=msg.llm_call_id,
                 model=msg.model,
@@ -510,7 +514,9 @@ def _build_llm_calls(
                 cache_read_tokens=usage.get("cache_read_input_tokens", 0),
                 cache_write_tokens=usage.get("cache_creation_input_tokens", 0),
                 prompt_preview=f"Subagent turn ({msg.content[:80]})" if msg.content else "Subagent turn",
-                response_preview=msg.content[:200],
+                request_preview=request_preview,
+                request_full=request_full,
+                response_preview=response_preview,
                 response_full=msg.content,
                 tool_calls=[],
                 tool_call_count=0,
@@ -554,9 +560,14 @@ def _build_subagent_interactions(
         total_cw = sum(c.cache_write_tokens for c in sub_calls)
 
         response = ""
+        request_full = ""
         for c in reversed(sub_calls):
             if c.response_full:
                 response = c.response_full
+                break
+        for c in sub_calls:
+            if c.request_full:
+                request_full = c.request_full
                 break
 
         sub_tools = [tc for tc in tool_calls if tc.subagent_id == agent_id]
@@ -576,6 +587,8 @@ def _build_subagent_interactions(
             cache_read_tokens=total_cr,
             cache_write_tokens=total_cw,
             prompt_preview="",
+            request_preview=request_full[:200] if request_full else "",
+            request_full=request_full,
             response_preview=response[:200],
             response_full=response,
             tool_calls=sub_tools,

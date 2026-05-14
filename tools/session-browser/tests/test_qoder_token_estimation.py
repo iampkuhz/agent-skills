@@ -24,6 +24,7 @@ from session_browser.sources.qoder import (
     _extract_messages,
     _assistant_records,
     _build_summary_from_events,
+    _extract_tool_calls,
 )
 
 
@@ -34,7 +35,7 @@ def _make_event(typ: str, message: dict, **extra) -> dict:
     return ev
 
 
-def _assistant_event(text: str = "", tool_use: dict | None = None, usage: dict | None = None, msg_id: str = "msg-1") -> dict:
+def _assistant_event(text: str = "", tool_use: dict | None = None, usage: dict | None = None, msg_id: str = "msg-1", timestamp: str = "") -> dict:
     """Build an assistant event with optional text, tool_use, and usage."""
     content = []
     if text:
@@ -44,12 +45,15 @@ def _assistant_event(text: str = "", tool_use: dict | None = None, usage: dict |
     msg = {"id": msg_id, "content": content}
     if usage:
         msg["usage"] = usage
-    return _make_event("assistant", msg)
+    return _make_event("assistant", msg, **({"timestamp": timestamp} if timestamp else {}))
 
 
-def _user_event(text: str = "") -> dict:
+def _user_event(text: str = "", content_override=None, **extra) -> dict:
     """Build a user event."""
-    return _make_event("user", {"content": text})
+    msg = {"content": content_override if content_override is not None else text}
+    ev = _make_event("user", msg)
+    ev.update(extra)
+    return ev
 
 
 # ─── Test: text cap ──────────────────────────────────────────────────────
@@ -361,3 +365,100 @@ class TestExtractMessagesEstimatedUsage:
         first_output = assistant_msgs[0].usage["output_tokens"]
         second_input = assistant_msgs[1].usage["input_tokens"]
         assert second_input >= first_input + first_output
+
+
+# ─── Test: Qoder tool execution time ─────────────────────────────────────
+
+
+class TestToolExecutionTime:
+    def test_non_overlapping_tools(self):
+        """Two sequential tool calls: tool_execution_seconds should be sum of durations."""
+        events = [
+            _user_event("hello", timestamp="2025-01-01T00:00:00.000Z"),
+            _assistant_event(
+                text="using tools", msg_id="msg-1",
+                tool_use={"type": "tool_use", "id": "tu-1", "name": "Read"},
+                timestamp="2025-01-01T00:00:01.000Z",
+            ),
+            _user_event("", content_override=[
+                {"type": "tool_result", "tool_use_id": "tu-1", "content": "file content"}
+            ], timestamp="2025-01-01T00:00:11.000Z"),
+            _assistant_event(
+                text="using tools", msg_id="msg-2",
+                tool_use={"type": "tool_use", "id": "tu-2", "name": "Bash"},
+                timestamp="2025-01-01T00:00:12.000Z",
+            ),
+            _user_event("", content_override=[
+                {"type": "tool_result", "tool_use_id": "tu-2", "content": "output"}
+            ], timestamp="2025-01-01T00:00:22.000Z"),
+        ]
+
+        summary = _build_summary_from_events(events, "sess-1", "/tmp")
+        # Each tool ran 10s, sequential -> 20s total
+        assert summary.tool_execution_seconds == 20.0, (
+            f"Expected 20s but got {summary.tool_execution_seconds}"
+        )
+
+    def test_overlapping_tools_merged(self):
+        """Two overlapping tool calls: tool_execution_seconds should be merged wall-clock time."""
+        events = [
+            _user_event("hello", timestamp="2025-01-01T00:00:00.000Z"),
+            _assistant_event(
+                text="using tools", msg_id="msg-1",
+                tool_use={"type": "tool_use", "id": "tu-1", "name": "Read"},
+                timestamp="2025-01-01T00:00:01.000Z",
+            ),
+            _assistant_event(
+                text="using tools", msg_id="msg-1",
+                tool_use={"type": "tool_use", "id": "tu-2", "name": "Bash"},
+                timestamp="2025-01-01T00:00:03.000Z",
+            ),
+            _user_event("", content_override=[
+                {"type": "tool_result", "tool_use_id": "tu-1", "content": "content A"}
+            ], timestamp="2025-01-01T00:00:11.000Z"),
+            _user_event("", content_override=[
+                {"type": "tool_result", "tool_use_id": "tu-2", "content": "content B"}
+            ], timestamp="2025-01-01T00:00:08.000Z"),
+        ]
+
+        summary = _build_summary_from_events(events, "sess-1", "/tmp")
+        # tu-1: 1s -> 11s (10s), tu-2: 3s -> 8s (5s)
+        # Overlap: [1,11] and [3,8] -> merged = [1,11] = 10s (not 15s)
+        assert summary.tool_execution_seconds == 10.0, (
+            f"Expected 10s (merged) but got {summary.tool_execution_seconds}"
+        )
+
+    def test_no_tool_results_gives_zero(self):
+        """Assistant with tool_use but no tool_result should not fabricate intervals."""
+        events = [
+            _user_event("hello", timestamp="2025-01-01T00:00:00.000Z"),
+            _assistant_event(
+                text="using tools", msg_id="msg-1",
+                tool_use={"type": "tool_use", "id": "tu-1", "name": "Read"},
+                timestamp="2025-01-01T00:00:01.000Z",
+            ),
+        ]
+
+        summary = _build_summary_from_events(events, "sess-1", "/tmp")
+        assert summary.tool_execution_seconds == 0.0
+
+    def test_tool_call_duration_ms(self):
+        """ToolCall.duration_ms should be computed from tool_use/tool_result timestamps."""
+        events = [
+            _user_event("hello", timestamp="2025-01-01T00:00:00.000Z"),
+            _assistant_event(
+                text="using tool", msg_id="msg-1",
+                tool_use={"type": "tool_use", "id": "tu-1", "name": "Bash"},
+                timestamp="2025-01-01T00:00:01.000Z",
+            ),
+            _user_event("", content_override=[
+                {"type": "tool_result", "tool_use_id": "tu-1", "content": "output"}
+            ], timestamp="2025-01-01T00:00:11.000Z"),
+        ]
+
+        messages = _extract_messages(events)
+        tool_calls = _extract_tool_calls(events, messages)
+        assert len(tool_calls) == 1
+        assert tool_calls[0].duration_ms == 10000, (
+            f"Expected 10000ms but got {tool_calls[0].duration_ms}"
+        )

@@ -1022,23 +1022,39 @@
                                 <div>
                                     <strong class="text-xs">Request Context:</strong>
                                     <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ call.request_full[:1000] if call.request_full else (call.prompt_preview if call.prompt_preview else '—') }}</pre>
-                                    {% if call.request_full | length > 1000 or (not call.request_full and call.prompt_preview) %}
-                                    <button class="show-more" onclick="event.stopPropagation();" data-content-modal="LLM Call #{{ loop.index }} · Request">
-                                        <template>{{ call.request_full if call.request_full else call.prompt_preview }}</template>
-                                        <template>{{ (call.request_full if call.request_full else call.prompt_preview) | markdown | safe }}</template>
+                                    {% if call.request_full or call.prompt_preview %}
+                                    {% set req_raw_id = 'profile-call-' ~ loop.index ~ '-request-raw' %}
+                                    {% set req_md_id = 'profile-call-' ~ loop.index ~ '-request-md' %}
+                                    <button
+                                        type="button"
+                                        class="content-open-btn show-more"
+                                        data-content-modal="LLM Call #{{ loop.index }} · Request"
+                                        data-raw-template-id="{{ req_raw_id }}"
+                                        data-md-template-id="{{ req_md_id }}"
+                                    >
                                         Open
                                     </button>
+                                    <template id="{{ req_raw_id }}">{{ call.request_full if call.request_full else call.prompt_preview }}</template>
+                                    <template id="{{ req_md_id }}">{{ (call.request_full if call.request_full else call.prompt_preview) | markdown | safe }}</template>
                                     {% endif %}
                                 </div>
                                 <div>
                                     <strong class="text-xs">Response:</strong>
                                     <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ call.response_full[:1000] if call.response_full else '—' }}</pre>
                                     {% if call.response_full %}
-                                    <button class="show-more" onclick="event.stopPropagation();" data-content-modal="LLM Call #{{ loop.index }} · Response">
-                                        <template>{{ call.response_full }}</template>
-                                        <template>{{ call.response_full | markdown | safe }}</template>
+                                    {% set res_raw_id = 'profile-call-' ~ loop.index ~ '-response-raw' %}
+                                    {% set res_md_id = 'profile-call-' ~ loop.index ~ '-response-md' %}
+                                    <button
+                                        type="button"
+                                        class="content-open-btn show-more"
+                                        data-content-modal="LLM Call #{{ loop.index }} · Response"
+                                        data-raw-template-id="{{ res_raw_id }}"
+                                        data-md-template-id="{{ res_md_id }}"
+                                    >
                                         Open
                                     </button>
+                                    <template id="{{ res_raw_id }}">{{ call.response_full }}</template>
+                                    <template id="{{ res_md_id }}">{{ call.response_full | markdown | safe }}</template>
                                     {% endif %}
                                 </div>
                                 {% if call.tool_calls %}
@@ -1312,31 +1328,96 @@
     };
 
     /* ─── Content modal ──────────────────────────────────── */
+    function _getTemplateTextById(id) {
+        if (!id) return '';
+        var tpl = document.getElementById(id);
+        if (!tpl) return '';
+        if ('content' in tpl) return tpl.content.textContent || '';
+        return tpl.textContent || '';
+    }
+
+    function _getTemplateHtmlById(id) {
+        if (!id) return '';
+        var tpl = document.getElementById(id);
+        if (!tpl) return '';
+        if ('content' in tpl) {
+            var div = document.createElement('div');
+            div.appendChild(tpl.content.cloneNode(true));
+            return div.innerHTML;
+        }
+        return tpl.innerHTML || tpl.textContent || '';
+    }
+
+    function _getNestedTemplateContent(btn, index) {
+        var templates = btn.querySelectorAll('template');
+        var tpl = templates[index];
+        if (!tpl) return null;
+        if ('content' in tpl) {
+            var frag = tpl.content.cloneNode(true);
+            var div = document.createElement('div');
+            while (frag.firstChild) {
+                div.appendChild(frag.firstChild);
+            }
+            return { textContent: frag.textContent, innerHTML: div.innerHTML };
+        }
+        return { textContent: tpl.textContent, innerHTML: tpl.innerHTML };
+    }
+
     window.openContentModal = function(btn) {
         var modal = document.getElementById('content-modal');
-        if (!modal) return;
+        if (!modal) {
+            console.warn('openContentModal: content-modal element not found');
+            return;
+        }
         var titleEl = modal.querySelector('.content-modal__title');
         if (titleEl) titleEl.textContent = btn.getAttribute('data-content-modal') || 'Content';
 
-        var templates = btn.querySelectorAll('template');
-        var rawTpl = templates[0];
-        var mdTpl = templates[1];
-
         var rawPre = modal.querySelector('.content-modal__raw pre');
         var mdContent = modal.querySelector('.content-modal__markdown');
-        if (rawTpl && rawPre) {
-            var rawClone = rawTpl.content.cloneNode(true);
-            rawPre.textContent = rawClone.textContent;
-        }
-        if (mdTpl && mdContent) {
-            // DocumentFragment has no innerHTML — serialize via temp div
-            var mdClone = mdTpl.content.cloneNode(true);
-            var tmpDiv = document.createElement('div');
-            while (mdClone.firstChild) {
-                tmpDiv.appendChild(mdClone.firstChild);
+
+        // Prefer new data-*-template-id structure
+        var rawId = btn.getAttribute('data-raw-template-id');
+        var mdId = btn.getAttribute('data-md-template-id');
+
+        var rawText = _getTemplateTextById(rawId);
+        var mdHtml = _getTemplateHtmlById(mdId);
+
+        // Fallback to old nested-template structure (Conversation / Timeline buttons)
+        if (!rawText && !mdHtml) {
+            var rawNested = _getNestedTemplateContent(btn, 0);
+            var mdNested = _getNestedTemplateContent(btn, 1);
+            if (rawNested) {
+                rawText = rawNested.textContent || '';
             }
-            mdContent.innerHTML = tmpDiv.innerHTML;
+            if (mdNested) {
+                mdHtml = mdNested.innerHTML || '';
+            }
         }
+
+        // Final fallback: use raw text for both if only one is available
+        if (!rawText && !mdHtml) {
+            var fallbackRaw = btn.getAttribute('data-raw') || '';
+            if (fallbackRaw) {
+                rawText = fallbackRaw;
+                // Escape raw text for markdown display
+                mdHtml = '<pre>' + fallbackRaw
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    + '</pre>';
+            }
+        }
+
+        // If we still have nothing, show a clear fallback message
+        if (!rawText && !mdHtml) {
+            var fallbackMsg = '(No content available)';
+            rawText = fallbackMsg;
+            mdHtml = '<p>' + fallbackMsg + '</p>';
+            console.warn('openContentModal: no template content found for button', btn);
+        }
+
+        if (rawPre) rawPre.textContent = rawText;
+        if (mdContent) mdContent.innerHTML = mdHtml;
 
         // Reset to Markdown tab
         var tabs = modal.querySelectorAll('.content-modal__tab-btn');
@@ -1351,6 +1432,10 @@
 
         modal.classList.add('visible');
         document.body.style.overflow = 'hidden';
+
+        // Focus the panel for accessibility
+        var panel = modal.querySelector('.content-modal__panel');
+        if (panel) panel.focus();
     };
 
     window.closeContentModal = function() {

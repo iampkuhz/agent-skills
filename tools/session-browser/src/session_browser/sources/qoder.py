@@ -688,7 +688,7 @@ def _build_summary_from_events(
             if ts_ms:
                 user_event_timestamps.append(ts_ms)
 
-        elif etype == "assistant" and ev.get("message", {}).get("type") == "message":
+        elif etype == "assistant" and isinstance(ev.get("message"), dict):
             if ts_ms:
                 assistant_event_timestamps.append(ts_ms)
             msg = ev.get("message", {})
