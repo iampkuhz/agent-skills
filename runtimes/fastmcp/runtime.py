@@ -109,7 +109,7 @@ def create_mcp(name: str) -> FastMCP:
 
     用法：
         from runtimes.fastmcp.runtime import create_mcp
-        mcp = create_mcp("searxng-mcp")
+        mcp = create_mcp("my-mcp-service")
     """
     return FastMCP(name)
 
@@ -120,7 +120,7 @@ def run_service(name: str, server_module: str) -> None:
 
     用法：
         from runtimes.fastmcp.runtime import run_service
-        run_service("searxng-mcp", "src.server")
+        run_service("my-mcp-service", "src.server")
     """
     runtime = MCPRuntime(name=name, server_module=server_module)
     runtime.run()
@@ -131,11 +131,11 @@ def main():
     """命令行入口
 
     用法：
-        python -m runtimes.fastmcp.runtime searxng-mcp src.server
+        python -m runtimes.fastmcp.runtime my-mcp-service src.server
     """
     if len(sys.argv) < 3:
         print("Usage: python -m runtimes.fastmcp.runtime <service-name> <server-module>")
-        print("Example: python -m runtimes.fastmcp.runtime searxng-mcp src.server")
+        print("Example: python -m runtimes.fastmcp.runtime my-mcp-service src.server")
         sys.exit(1)
 
     service_name = sys.argv[1]

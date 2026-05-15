@@ -120,5 +120,5 @@ FastMCP server 定义，职责：
 
 ## 参考
 
-- `tools/search/searxng-mcp/` - 完整示例
+- `tools/search/searxng-mcp/` - 完整示例 [已退役，目录已移除]
 - `runtimes/fastmcp/README.md` - Runtime 说明
