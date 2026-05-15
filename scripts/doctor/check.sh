@@ -97,7 +97,7 @@ echo ""
 echo "服务目录："
 check_dir "tools/search/searxng" "SearXNG"
 check_dir "tools/gateway/litellm" "LiteLLM"
-check_dir "tools/search/searxng-mcp" "SearXNG MCP"
+# searxng-mcp 已退役（tools/search/searxng-mcp/ 于 2026-05 移除）
 
 # ===== 检查文件权限 =====
 
@@ -119,7 +119,7 @@ check_executable "scripts/bootstrap/setup.sh"
 check_executable "scripts/doctor/check.sh"
 check_executable "tools/search/searxng/scripts/searxng.sh"
 check_executable "tools/gateway/litellm/scripts/litellm.sh"
-check_executable "tools/search/searxng-mcp/scripts/run.sh"
+# searxng-mcp/scripts/run.sh 已随服务退役移除
 
 # ===== 总结 =====
 

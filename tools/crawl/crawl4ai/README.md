@@ -347,25 +347,9 @@ tools/crawl/crawl4ai/
 
 ---
 
-## 与 searxng-mcp 的协同
+## 与 searxng-mcp 的协同 [已退役]
 
-| 服务 | 职责 | 输入 | 输出 |
-|------|------|------|------|
-| `searxng-mcp` | **搜索** - 发现相关 URL | 搜索关键词 | URL 列表 + 摘要 |
-| `crawl4ai` (MCP) | **提取** - 抓取页面内容 | 具体 URL | Markdown/HTML/截图等 |
-
-**协同使用示例：**
-
-```
-1. 使用 searxng-mcp 搜索 "Python 异步编程教程"
-   → 返回 10 个相关 URL
-
-2. 选择最有价值的 URL
-
-3. 使用 crawl4ai MCP 工具提取内容
-   /md https://example.com/tutorial
-   → 返回清理后的 Markdown 内容
-```
+> SearXNG MCP 服务（`tools/search/searxng-mcp/`）已于 2026-05 移除。以下协同说明仅作历史参考。当前网页搜索能力已统一由 Crawl4AI 提供。
 
 ---
 
@@ -374,4 +358,4 @@ tools/crawl/crawl4ai/
 - [Crawl4AI GitHub](https://github.com/unclecode/crawl4ai)
 - [Crawl4AI 官方文档](https://docs.crawl4ai.com/)
 - `tools/search/searxng/` - 搜索引擎参考
-- `tools/search/searxng-mcp/` - MCP 服务参考
+- `tools/search/searxng-mcp/` - MCP 服务参考 [已退役]

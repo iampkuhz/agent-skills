@@ -81,12 +81,8 @@ else
     echo "⚠️  LiteLLM 配置不存在"
 fi
 
-# SearXNG MCP
-if [[ -f "$REPO_ROOT/tools/search/searxng-mcp/pyproject.toml" ]]; then
-    echo "✅ SearXNG MCP 配置存在"
-else
-    echo "⚠️  SearXNG MCP 配置不存在"
-fi
+# SearXNG MCP [已退役]
+# tools/search/searxng-mcp/ 于 2026-05 移除，不再检查
 
 echo ""
 echo "✅ 初始化检查完成"
@@ -104,5 +100,6 @@ echo "3. 安装 skills："
 echo "   make install-links"
 echo ""
 echo "4. 运行 MCP 服务："
-echo "   make searxng-mcp-run"
+echo "   [已退役] SearXNG MCP 服务（tools/search/searxng-mcp/）已移除"
+echo "   如需网页搜索能力，请使用 Crawl4AI MCP（tools/crawl/crawl4ai/）"
 echo ""

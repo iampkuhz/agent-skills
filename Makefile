@@ -17,14 +17,13 @@ RESOLVED_PROJECT := $(or $(PROJECT),$(DIR))
 
 # Services
 SEARXNG_DIR := tools/search/searxng
-SEARXNG_MCP_DIR := tools/search/searxng-mcp
 LITELLM_DIR := tools/gateway/litellm
 SESSION_BROWSER_DIR := tools/session-browser
 
 .PHONY: help install install-links install-project
 .PHONY: searxng-up searxng-down searxng-restart searxng-logs
 .PHONY: litellm-up litellm-down litellm-restart litellm-logs
-.PHONY: searxng-mcp-run searxng-mcp-http searxng-mcp-test
+.PHONY: searxng-mcp-run searxng-mcp-http searxng-mcp-test  # [已退役]
 .PHONY: session-browser-deps session-browser-serve session-browser-dev session-browser-test session-browser-build session-browser-release
 .PHONY: session-browser-up session-browser-deploy session-browser-down session-browser-logs session-browser-status
 .PHONY: doctor setup
@@ -51,9 +50,9 @@ help:
 	@echo "  make litellm-restart     # 重启 LiteLLM"
 	@echo "  make litellm-logs        # 查看 LiteLLM 日志"
 	@echo ""
-	@echo "  make searxng-mcp-run     # 运行 SearXNG MCP 服务（Stdio 模式）"
-	@echo "  make searxng-mcp-http    # 运行 SearXNG MCP 服务（HTTP 模式）"
-	@echo "  make searxng-mcp-test    # 测试 SearXNG MCP 服务"
+	@echo "  make searxng-mcp-run     # [已退役] SearXNG MCP 服务已移除"
+	@echo "  make searxng-mcp-http    # [已退役] SearXNG MCP 服务已移除"
+	@echo "  make searxng-mcp-test    # [已退役] SearXNG MCP 服务已移除"
 	@echo ""
 	@echo "  make session-browser-deps    # 安装 session-browser 本地依赖"
 	@echo "  make session-browser-serve   # 本地前台启动 127.0.0.1:18999，独立测试索引"
@@ -133,20 +132,18 @@ litellm-restart:
 litellm-logs:
 	@cd $(LITELLM_DIR) && ./scripts/litellm.sh logs
 
-# ===== SearXNG MCP 服务 =====
+# SearXNG MCP 服务 [已退役]
+# tools/search/searxng-mcp/ 已于 2026-05 移除。以下 target 保留仅作提示。
 
 searxng-mcp-run:
-	@echo "🚀 运行 SearXNG MCP 服务（Stdio 模式）..."
-	@echo "📌 此模式用于 Claude Code MCP 集成"
-	@cd $(SEARXNG_MCP_DIR) && ./scripts/run.sh stdio
+	@echo "[已退役] SearXNG MCP 服务（tools/search/searxng-mcp/）已移除"
+	@echo "如需网页搜索能力，请使用 Crawl4AI MCP（tools/crawl/crawl4ai/）"
 
 searxng-mcp-http:
-	@echo "🚀 运行 SearXNG MCP 服务（HTTP 模式）..."
-	@cd $(SEARXNG_MCP_DIR) && ./scripts/run.sh http
+	@echo "[已退役] SearXNG MCP 服务（tools/search/searxng-mcp/）已移除"
 
 searxng-mcp-test:
-	@echo "🧪 测试 SearXNG MCP 服务..."
-	@cd $(SEARXNG_MCP_DIR) && ./scripts/run.sh test
+	@echo "[已退役] SearXNG MCP 服务（tools/search/searxng-mcp/）已移除"
 
 # ===== Session Browser =====
 
@@ -201,7 +198,7 @@ doctor:
 	@curl -s http://localhost:4000/health > /dev/null && echo "✅ 运行中" || echo "❌ 未运行"
 	@echo ""
 	@echo "SearXNG MCP:"
-	@echo "  需要手动测试（在 Claude Code 中调用）"
+	@echo "  [已退役] SearXNG MCP 服务（tools/search/searxng-mcp/）已移除"
 
 # ===== 模型管理 =====
 
