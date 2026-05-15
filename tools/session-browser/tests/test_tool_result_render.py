@@ -34,14 +34,15 @@ def test_render_tool_result_macro_produces_full_result():
 
 
 def test_all_tool_result_calls_use_macro():
-    """All tool result rendering should use the macro, not inline [:500]."""
+    """Tool result macro is defined; timeline detail uses timeline_node macro."""
     template_file = TEMPLATE_DIR / "session.html"
     source = template_file.read_text(encoding="utf-8")
 
-    # Count macro invocations
-    macro_calls = source.count("render_tool_result(tc.result)")
-    assert macro_calls >= 3, \
-        f"Expected at least 3 render_tool_result calls, found {macro_calls}"
+    # After Timeline tab refactoring, round detail uses timeline_node macro
+    # instead of inline render_tool_result calls. Verify the macro is still
+    # defined and no inline tc.result[:N] truncation remains.
+    macro_def = re.search(r'\{%\s*macro\s+render_tool_result\(result\)\s*%\}', source)
+    assert macro_def, "render_tool_result macro should still be defined"
 
     # Verify no remaining inline tool result truncation
     lines = source.splitlines()

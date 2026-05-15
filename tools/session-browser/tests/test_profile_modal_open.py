@@ -245,17 +245,14 @@ def test_conversation_buttons_still_use_nested_templates():
 
 
 def test_timeline_buttons_still_use_nested_templates():
-    """Timeline tab buttons must still have nested <template> for backward compat."""
+    """Timeline tab uses the timeline_node macro for round detail rendering."""
     source = _session_source()
 
-    # Timeline buttons use the same pattern in llm-card__response
-    timeline_m = re.search(
-        r'<button class="show-more" data-content-modal="Round #\{\{ round_index \}}.*?</button>',
-        source,
-        re.DOTALL,
-    )
-    assert timeline_m, "Timeline Open button not found"
-    btn_html = timeline_m.group()
-    assert "<template>" in btn_html, (
-        "Timeline button should still use nested templates for backward compat"
-    )
+    # After refactoring, timeline detail uses the timeline macro instead of
+    # inline buttons. Verify the macro is imported and used.
+    assert 'from "components/timeline.html" import timeline_node' in source, \
+        "Timeline tab should import timeline_node macro"
+    assert "build_timeline_nodes" in source, \
+        "Timeline tab should define build_timeline_nodes helper"
+    assert "timeline-structured" in source, \
+        "Timeline tab should contain timeline-structured container"

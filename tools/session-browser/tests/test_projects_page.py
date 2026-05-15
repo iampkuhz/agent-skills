@@ -135,4 +135,4 @@ class TestProjectsTemplateTitle:
             content = f.read()
         assert "justify-between" not in content
         # Should use a span for the count inline
-        assert 'class="card-title"' in content
+        assert 'class="card-title' in content

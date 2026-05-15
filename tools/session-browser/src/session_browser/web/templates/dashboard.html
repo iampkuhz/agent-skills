@@ -3,76 +3,60 @@
 
 {% block title %}Dashboard - Agent Run Profiler{% endblock %}
 
-{% block topbar %}
-<span class="topbar-title">Dashboard</span>
+{% block breadcrumb %}
+<span class="current">Dashboard</span>
 {% endblock %}
 
 {% block content %}
 
-<!-- Metric cards: 3 groups -->
-<div class="metric-section-label">Overview</div>
-<div class="metrics-grid metrics-grid--dashboard">
-    <div class="metric-card metric-card--compact" data-tooltip="Total indexed sessions across all projects">
-        <div class="metric-label">Sessions</div>
-        <div class="metric-value">{{ stats.total_sessions | format_number }}</div>
+<!-- Page header -->
+<div class="page-header">
+    <div class="page-header__top">
+        <div class="page-header__left">
+            <h1 class="page-header__title">Dashboard</h1>
+        </div>
+        <div class="page-header__actions">
+            <span class="text-muted text-xs">{{ stats.total_sessions | format_number }} sessions indexed</span>
+        </div>
     </div>
-    <div class="metric-card metric-card--compact" data-tooltip="Number of unique projects indexed">
-        <div class="metric-label">Projects</div>
-        <div class="metric-value">{{ stats.project_count }}</div>
-    </div>
-    <div class="metric-card metric-card--compact" data-tooltip="Unique agents / models">
-        <div class="metric-label">Agents/Models</div>
-        <div class="metric-value">{{ agent_dist | length }}<span class="metric-sub" style="width:auto; margin-left:4px">/ {{ model_dist | length }}</span></div>
+    <div class="page-header__filters">
+        <span class="page-header__filter">Projects: <strong>{{ stats.project_count }}</strong></span>
+        <span class="page-header__filter">Agents: <strong>{{ agent_dist | length }}</strong></span>
+        <span class="page-header__filter">Models: <strong>{{ model_dist | length }}</strong></span>
     </div>
 </div>
 
-<div class="metric-section-label">Token Load</div>
-<div class="metrics-grid metrics-grid--dashboard">
-    <div class="metric-card metric-card--compact" data-tooltip="Total input-side tokens (fresh + cache read + cache write)">
-        <div class="metric-label">Input-side</div>
-        <div class="metric-value">{{ (aggregate.input_side_total or 0) | format_number }}</div>
-        <div class="metric-sub">fresh + cache R/W</div>
-    </div>
-    <div class="metric-card metric-card--compact" data-tooltip="Cache reuse ratio: cache_read / input_side_total">
-        <div class="metric-label">Cache Reuse</div>
-        <div class="metric-value">
-            {% if aggregate.cache_reuse_ratio is not none %}
-            {{ (aggregate.cache_reuse_ratio * 100) | round(1) }}%
-            {% else %}—{% endif %}
+<!-- Metrics strip -->
+<div class="metrics-strip-card">
+    <div class="metrics-strip">
+        <div class="metrics-strip__item">
+            <span class="metrics-strip__label">Input Tokens</span>
+            <span class="metrics-strip__value metrics-strip__value--mono">{{ (aggregate.input_side_total or 0) | format_number }}</span>
         </div>
-        <div class="metric-sub">reuse ratio</div>
-    </div>
-    <div class="metric-card metric-card--compact" data-tooltip="Total output tokens across all sessions">
-        <div class="metric-label">Output</div>
-        <div class="metric-value">{{ (stats.total_output_tokens or 0) | format_number }}</div>
-        <div class="metric-sub">total output</div>
-    </div>
-</div>
-
-<div class="metric-section-label">Tool Health</div>
-<div class="metrics-grid metrics-grid--dashboard">
-    <div class="metric-card metric-card--compact" data-tooltip="Total tool invocations across all sessions">
-        <div class="metric-label">Tools</div>
-        <div class="metric-value">{{ stats.total_tool_calls | format_number }}</div>
-        {% if stats.total_failed_tools > 0 %}
-        <div class="metric-sub"><span class="badge badge-error">{{ stats.total_failed_tools }} failed</span></div>
-        {% else %}
-        <div class="metric-sub">all ok</div>
-        {% endif %}
-    </div>
-    <div class="metric-card metric-card--compact" data-tooltip="Tools per round: total_tools / total_rounds">
-        <div class="metric-label">Tools/R</div>
-        <div class="metric-value">
-            {% if aggregate.tools_per_round is not none %}
-            {{ aggregate.tools_per_round }}
-            {% else %}—{% endif %}
+        <div class="metrics-strip__item">
+            <span class="metrics-strip__label">Cache Reuse</span>
+            <span class="metrics-strip__value metrics-strip__value--mono">
+                {% if aggregate.cache_reuse_ratio is not none %}{{ (aggregate.cache_reuse_ratio * 100) | round(1) }}%{% else %}—{% endif %}
+            </span>
         </div>
-        <div class="metric-sub">per round</div>
-    </div>
-    <div class="metric-card metric-card--compact" data-tooltip="Total failed tool calls">
-        <div class="metric-label">Failed</div>
-        <div class="metric-value {% if stats.total_failed_tools > 0 %}highlight-error{% endif %}">{{ stats.total_failed_tools | format_number }}</div>
-        <div class="metric-sub">failed calls</div>
+        <div class="metrics-strip__item">
+            <span class="metrics-strip__label">Output Tokens</span>
+            <span class="metrics-strip__value metrics-strip__value--mono">{{ (stats.total_output_tokens or 0) | format_number }}</span>
+        </div>
+        <div class="metrics-strip__item">
+            <span class="metrics-strip__label">Tool Calls</span>
+            <span class="metrics-strip__value metrics-strip__value--mono">{{ stats.total_tool_calls | format_number }}</span>
+        </div>
+        <div class="metrics-strip__item">
+            <span class="metrics-strip__label">Tools/Round</span>
+            <span class="metrics-strip__value metrics-strip__value--mono">
+                {% if aggregate.tools_per_round is not none %}{{ aggregate.tools_per_round }}{% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="metrics-strip__item {% if stats.total_failed_tools > 0 %}metrics-strip__item--error{% endif %}">
+            <span class="metrics-strip__label">Failed</span>
+            <span class="metrics-strip__value metrics-strip__value--mono">{{ stats.total_failed_tools | format_number }}</span>
+        </div>
     </div>
 </div>
 
@@ -133,8 +117,8 @@
     <div class="card-title flex justify-between items-center">
         <span>Session Trend <span class="text-muted fw-400 normal-case no-tracking">(sessions per day by agent)</span></span>
         <div class="flex gap-1">
-            <button class="tab tab--chart active" data-days="30" onclick="updateChart(30)">30d</button>
-            <button class="tab tab--chart" data-days="7" onclick="updateChart(7)">7d</button>
+            <button class="tab tab--chart active" onclick="updateChart(30, this)">30d</button>
+            <button class="tab tab--chart" onclick="updateChart(7, this)">7d</button>
         </div>
     </div>
     {% if trend %}
@@ -250,11 +234,11 @@
                oninput="filterDashboardSessions()" />
     </div>
     <div class="table-wrap">
-        <table id="dashboard-sessions">
+        <table class="data-table" id="dashboard-sessions">
             <thead>
                 <tr>
                     <th></th>
-                    <th>Title</th>
+                    <th class="sortable">Title</th>
                     <th>Project</th>
                     <th>Model</th>
                     <th class="numeric">Input</th>
@@ -343,7 +327,7 @@
     var rawData = {{ trend | tojson }};
     var currentDays = 30;
 
-    window.updateChart = function(days) {
+    window.updateChart = function(days, btn) {
         currentDays = days;
         var data = rawData.slice(-days);
         if (!data.length) { container.innerHTML = '<p class="text-muted text-sm">No data</p>'; return; }
@@ -385,12 +369,14 @@
         svg += '</svg>';
         container.innerHTML = svg;
 
-        document.querySelectorAll('.tab--chart').forEach(function(btn) {
-            btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+        document.querySelectorAll('.tab--chart').forEach(function(b) {
+            b.classList.remove('active');
         });
+        if (btn) btn.classList.add('active');
     };
 
-    window.updateChart(30);
+    var initBtn = document.querySelector('.tab--chart.active');
+    window.updateChart(30, initBtn);
 
     /* ─── Dashboard project search ─────────────────────────────────── */
     window.filterDashboardProjects = function() {

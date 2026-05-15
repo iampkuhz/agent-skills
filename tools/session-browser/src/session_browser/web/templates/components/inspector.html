@@ -1,0 +1,50 @@
+{# ─── Inspector content template (rendered inside <aside class="inspector">) ─── #}
+<div class="inspector-body">
+  {% block inspector_header %}
+  <div class="inspector-header">
+    <h3 class="inspector-title" id="inspector-title">Details</h3>
+    {% block inspector_badges %}{% endblock %}
+  </div>
+  {% endblock %}
+
+  {% block inspector_sections %}
+  <!-- Metadata section -->
+  <section class="inspector-section" id="inspector-section-metadata">
+    <h4 class="inspector-section-title">Metadata</h4>
+    <div class="inspector-meta" id="inspector-metadata">
+      <div class="meta-item">
+        <span class="meta-label">Type</span>
+        <span class="meta-value" id="meta-type">—</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">ID</span>
+        <span class="meta-value mono" id="meta-id">—</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Summary section -->
+  <section class="inspector-section" id="inspector-section-summary">
+    <h4 class="inspector-section-title">Summary</h4>
+    <div class="inspector-summary" id="inspector-summary">
+      <p class="text-muted text-sm">No summary available.</p>
+    </div>
+  </section>
+
+  <!-- Related section -->
+  <section class="inspector-section" id="inspector-section-related">
+    <h4 class="inspector-section-title">Related</h4>
+    <div class="inspector-related" id="inspector-related">
+      <p class="text-muted text-sm">No related items.</p>
+    </div>
+  </section>
+
+  <!-- Viewer slot (for request/response/profile/timeline viewers) -->
+  <section class="inspector-section" id="inspector-section-viewer">
+    <h4 class="inspector-section-title">Viewer</h4>
+    <div class="inspector-viewer-slot" id="inspector-viewer-slot">
+      {# Viewer content injected here by business consumers #}
+    </div>
+  </section>
+  {% endblock %}
+</div>

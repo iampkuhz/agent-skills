@@ -3,14 +3,12 @@
 
 {% block title %}{{ project.project_name }} - Agent Run Profiler{% endblock %}
 
-{% block topbar %}
-<div class="topbar-breadcrumb">
-    <a href="/dashboard">Dashboard</a>
-    <span class="sep">/</span>
-    <a href="/projects">Projects</a>
-    <span class="sep">/</span>
-    <span class="current">{{ project.project_name }}</span>
-</div>
+{% block breadcrumb %}
+<a href="/dashboard">Dashboard</a>
+<span class="sep">/</span>
+<a href="/projects">Projects</a>
+<span class="sep">/</span>
+<span class="current">{{ project.project_name }}</span>
 {% endblock %}
 
 {% block content %}
@@ -19,15 +17,24 @@
 {% set p_cache_reuse = (project.total_cached_tokens / p_input_side * 100) | round(1) if p_input_side > 0 else 0 %}
 {% set p_tools_per_round = (project.total_tool_calls / project.total_assistant_messages) | round(1) if project.total_assistant_messages > 0 else 0 %}
 
-<!-- Compact header -->
-<h1 class="project-detail__title" data-tooltip="{{ project.project_key }}">{{ project.project_name }}</h1>
-<p class="project-detail__path mono">
-    <span class="path-text truncate" data-tooltip="{{ project.project_key }}">{{ project.project_key | relative_to_repo | truncate_path }}</span>
-    <button class="path-copy-btn" onclick="copyProjectPath(this, '{{ project.project_key }}')" title="Copy full path">⧉</button>
-</p>
+<!-- Page header -->
+<div class="page-header">
+    <div class="page-header__top">
+        <div class="page-header__left">
+            <a href="/projects" class="page-header__back" title="Back to Projects">&larr;</a>
+            <h1 class="page-header__title">{{ project.project_name }}</h1>
+        </div>
+        <div class="page-header__actions">
+        </div>
+    </div>
+    <p class="page-header__desc mono">
+        <span class="path-text truncate" data-tooltip="{{ project.project_key }}">{{ project.project_key | relative_to_repo | truncate_path }}</span>
+        <button class="path-copy-btn" onclick="copyProjectPath(this, '{{ project.project_key }}')" title="Copy full path">⧉</button>
+    </p>
+</div>
 
-<!-- Project stats -->
-<div class="metrics-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))">
+<!-- Project summary metrics -->
+<div class="metrics-grid metrics-grid--run-summary">
     <div class="metric-card metric-card--compact" data-tooltip="Total sessions in this project">
         <div class="metric-label">Sessions</div>
         <div class="metric-value">{{ project.total_sessions }}</div>
@@ -59,12 +66,12 @@
     </div>
 </div>
 
-<!-- Sessions -->
-<div class="card">
+<!-- Sessions table -->
+<div class="page-section">
     <div class="card-title">Sessions ({{ sessions | length }})</div>
     {% if sessions %}
     <div class="table-wrap">
-        <table>
+        <table id="project-sessions-table" class="data-table" data-table-enhanced>
             <thead>
                 <tr>
                     <th></th>
@@ -117,14 +124,5 @@
     <div class="empty-state">No sessions found for this project.</div>
     {% endif %}
 </div>
-
-<script>
-window.copyProjectPath = function(btn, path) {
-    navigator.clipboard.writeText(path).then(function() {
-        btn.textContent = '✓';
-        setTimeout(function() { btn.textContent = '⧉'; }, 1000);
-    });
-};
-</script>
 
 {% endblock %}

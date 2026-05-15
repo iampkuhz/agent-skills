@@ -3,20 +3,24 @@
 
 {% block title %}Sessions - Agent Run Profiler{% endblock %}
 
-{% block topbar %}
-<div class="topbar-breadcrumb">
-    <a href="/dashboard">Dashboard</a>
-    <span class="sep">/</span>
-    <span class="current">Sessions</span>
-</div>
-{% endblock %}
-
 {% block content %}
 
-<!-- Filters bar: two rows -->
-<div class="card sessions-filter" style="margin-bottom:12px; padding:10px 14px">
-    <div class="filter-row">
-        <input id="session-search" type="text" placeholder="Search title or session ID…"
+<!-- Page header -->
+<div class="page-header">
+    <div class="page-header__top">
+        <div class="page-header__left">
+            <h1 class="page-header__title">Sessions</h1>
+        </div>
+        <div class="page-header__actions">
+            <span class="text-muted text-xs" id="sessions-count-label">{{ total_count }} sessions</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filter row -->
+<div class="card" style="margin-bottom:12px; padding:10px 14px">
+    <div class="filter-bar">
+        <input id="session-search" type="text" placeholder="Search title or session ID..."
                class="filter-bar__input filter-bar__input--search" />
         <select id="filter-agent" class="filter-bar__select">
             <option value="">All Agents</option>
@@ -36,25 +40,6 @@
             <option value="{{ p }}">{{ p }}</option>
             {% endfor %}
         </select>
-    </div>
-    <div class="filter-row filter-row--secondary">
-        <input id="filter-date-start" type="date" class="filter-bar__input filter-bar__input--date" title="From date" />
-        <input id="filter-date-end" type="date" class="filter-bar__input filter-bar__input--date" title="To date" />
-        <input id="filter-token-min" type="number" placeholder="Min tokens" class="filter-bar__input filter-bar__input--token" min="0" />
-        <input id="filter-token-max" type="number" placeholder="Max tokens" class="filter-bar__input filter-bar__input--token" min="0" />
-        <label style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);white-space:nowrap;cursor:pointer">
-            <input id="filter-failed-only" type="checkbox" /> Failed only
-        </label>
-
-        <!-- Diagnostic filter -->
-        <select id="filter-anomaly" class="filter-bar__select filter-bar__select--warn">
-            <option value="">All Sessions</option>
-            <option value="has_anomalies">Has Anomalies</option>
-            <option value="long_duration">Long Duration Only</option>
-            <option value="failed">Failed Tools Only</option>
-            <option value="cache_write">Cache Write Hotspot Only</option>
-        </select>
-
         <select id="sort-by" class="filter-bar__select">
             <option value="ended_at">Sort: Last Active</option>
             <option value="total_tokens">Sort: Tokens</option>
@@ -68,23 +53,25 @@
 </div>
 
 <!-- Sessions table -->
-<div class="card">
-    <div class="card-title">All Sessions</div>
+<div class="page-section">
+    <div class="card-title">
+        All Sessions <span class="text-muted normal-case">(<span id="sessions-visible-count">{{ sessions | length }}</span>)</span>
+    </div>
     {% if sessions %}
     <div class="table-wrap">
-        <table id="sessions-table">
+        <table id="sessions-table" class="data-table" data-table-enhanced>
             <thead>
                 <tr>
-                    <th>Title</th>
+                    <th class="sortable">Title</th>
                     <th>Project</th>
                     <th>Agent</th>
                     <th>Model</th>
-                    <th class="numeric">Tokens</th>
+                    <th class="numeric sortable">Tokens</th>
                     <th class="numeric">Output</th>
-                    <th class="numeric">Tools</th>
-                    <th>Duration</th>
+                    <th class="numeric sortable">Tools</th>
+                    <th class="sortable">Duration</th>
                     <th>Anomaly</th>
-                    <th>Time</th>
+                    <th class="sortable">Time</th>
                 </tr>
             </thead>
             <tbody>
@@ -156,20 +143,38 @@
 </div>
 
 <script>
+/* ---------- Inspector demo ------------------------------------------ */
+window.openDemoInspector = function() {
+    if (typeof openInspector !== 'function') {
+        alert('Inspector JS 未加载');
+        return;
+    }
+    openInspector({
+        title: 'Demo Session',
+        metadata: {
+            'Type': { value: 'session' },
+            'Agent': { value: 'claude_code' },
+            'Model': { value: 'claude-sonnet-4-20250514' },
+            'Session ID': { value: 'demo-20250101-abc123', mono: true }
+        },
+        summary: '这是一条演示数据，用于验证 Inspector 面板的打开/关闭、滚动保持与 Esc 关闭功能。',
+        related: [
+            { label: '查看完整 Session', href: '/sessions/claude_code/demo-20250101-abc123' },
+            { label: '所属 Project', href: '/projects/demo-project' }
+        ],
+        viewerHtml: '<p class="text-muted text-xs">Viewer slot 预留区域，后续接入 request/response viewer。</p>'
+    });
+};
+
 (function() {
     var STORAGE_KEY = 'agent-run-profiler:sessions:filters';
 
-    /* ─── Apply all filters ──────────────────────────────────────── */
+    /* ---------- Apply all filters ----------------------------------- */
     function applyFilters() {
         var q = document.getElementById('session-search').value.toLowerCase().trim();
         var agent = document.getElementById('filter-agent').value;
         var model = document.getElementById('filter-model').value;
         var project = document.getElementById('filter-project').value;
-        var dateStart = document.getElementById('filter-date-start').value;
-        var dateEnd = document.getElementById('filter-date-end').value;
-        var tokenMin = parseInt(document.getElementById('filter-token-min').value) || 0;
-        var failedOnly = document.getElementById('filter-failed-only').checked;
-        var anomalyFilter = document.getElementById('filter-anomaly').value;
         var sortBy = document.getElementById('sort-by').value;
 
         var tbody = document.querySelector('#sessions-table tbody');
@@ -199,27 +204,8 @@
                     }
                 }
             }
-            if (dateStart && row.dataset.endedAt < dateStart) show = false;
-            if (dateEnd && row.dataset.endedAt > dateEnd + 'T23:59:59') show = false;
-            var tokenMax = parseInt(document.getElementById('filter-token-max').value) || 0;
-            if (tokenMin > 0) {
-                var total = parseInt(row.dataset.totalTokens) || 0;
-                if (total < tokenMin) show = false;
-            }
-            if (tokenMax > 0) {
-                var total2 = parseInt(row.dataset.totalTokens) || 0;
-                if (total2 > tokenMax) show = false;
-            }
-            if (failedOnly && parseInt(row.dataset.failedCount) === 0) show = false;
-
-            /* Anomaly filter */
-            if (anomalyFilter) {
-                var hasAnomalies = row.dataset.hasAnomalies === 'true';
-                var types = row.dataset.anomalyTypes || '';
-                if (anomalyFilter === 'has_anomalies' && !hasAnomalies) show = false;
-                if (anomalyFilter === 'long_duration' && types.indexOf('long_duration') === -1) show = false;
-                if (anomalyFilter === 'failed' && types.indexOf('failed_run') === -1) show = false;
-                if (anomalyFilter === 'cache_write' && types.indexOf('cache_write_spike') === -1) show = false;
+            if (q === '' && !agent && !model && !project) {
+                /* Show all rows when no filter is active */
             }
 
             row.style.display = show ? '' : 'none';
@@ -252,9 +238,11 @@
 
         visibleRows.forEach(function(r) { tbody.appendChild(r); });
 
-        /* Update count */
-        var counter = document.querySelector('.topbar-actions .text-muted');
-        if (counter) counter.textContent = visibleCount + ' of {{ total_count }} sessions';
+        /* Update counts */
+        var label = document.getElementById('sessions-count-label');
+        if (label) label.textContent = visibleCount + ' of {{ total_count }} sessions';
+        var countEl = document.getElementById('sessions-visible-count');
+        if (countEl) countEl.textContent = visibleCount;
 
         /* Empty state */
         var empty = document.getElementById('sessions-empty');
@@ -264,19 +252,13 @@
         saveFilters();
     }
 
-    /* ─── Save / restore filters ─────────────────────────────────── */
+    /* ---------- Save / restore filters -------------------------------- */
     function saveFilters() {
         var state = {
             q: document.getElementById('session-search').value,
             agent: document.getElementById('filter-agent').value,
             model: document.getElementById('filter-model').value,
             project: document.getElementById('filter-project').value,
-            dateStart: document.getElementById('filter-date-start').value,
-            dateEnd: document.getElementById('filter-date-end').value,
-            tokenMin: document.getElementById('filter-token-min').value,
-            tokenMax: document.getElementById('filter-token-max').value,
-            failedOnly: document.getElementById('filter-failed-only').checked,
-            anomalyFilter: document.getElementById('filter-anomaly').value,
             sortBy: document.getElementById('sort-by').value
         };
         arpStorage.set(STORAGE_KEY, state);
@@ -290,55 +272,35 @@
             'filter-agent': 'agent',
             'filter-model': 'model',
             'filter-project': 'project',
-            'filter-date-start': 'dateStart',
-            'filter-date-end': 'dateEnd',
-            'filter-token-min': 'tokenMin',
-            'filter-token-max': 'tokenMax',
-            'sort-by': 'sortBy',
-            'filter-anomaly': 'anomalyFilter'
+            'sort-by': 'sortBy'
         };
         for (var id in map) {
             var el = document.getElementById(id);
             if (el && saved[map[id]]) {
-                if (el.type === 'checkbox') {
-                    el.checked = saved[map[id]];
-                } else {
-                    el.value = saved[map[id]];
-                }
+                el.value = saved[map[id]];
             }
-        }
-        if (saved.failedOnly) {
-            document.getElementById('filter-failed-only').checked = true;
         }
     }
 
-    /* ─── Reset filters ──────────────────────────────────────────── */
+    /* ---------- Reset filters ----------------------------------------- */
     window.resetSessionFilters = function() {
         document.getElementById('session-search').value = '';
         document.getElementById('filter-agent').value = '';
         document.getElementById('filter-model').value = '';
         document.getElementById('filter-project').value = '';
-        document.getElementById('filter-date-start').value = '';
-        document.getElementById('filter-date-end').value = '';
-        document.getElementById('filter-token-min').value = '';
-        document.getElementById('filter-token-max').value = '';
-        document.getElementById('filter-failed-only').checked = false;
-        document.getElementById('filter-anomaly').value = '';
         document.getElementById('sort-by').value = 'ended_at';
         arpStorage.remove(STORAGE_KEY);
         applyFilters();
     };
 
-    /* ─── Bind events ────────────────────────────────────────────── */
+    /* ---------- Bind events ------------------------------------------- */
     var filterInputs = [
-        'session-search', 'filter-agent', 'filter-model', 'filter-project',
-        'filter-date-start', 'filter-date-end', 'filter-token-min', 'filter-token-max', 'filter-failed-only',
-        'filter-anomaly', 'sort-by'
+        'session-search', 'filter-agent', 'filter-model', 'filter-project', 'sort-by'
     ];
     filterInputs.forEach(function(id) {
         var el = document.getElementById(id);
         if (el) {
-            el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', applyFilters);
+            el.addEventListener('input', applyFilters);
         }
     });
 

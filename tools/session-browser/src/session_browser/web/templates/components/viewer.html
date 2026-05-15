@@ -1,0 +1,103 @@
+{# ─── Content Viewer Component ──────────────────────────────────────
+   Reusable viewer macro supporting markdown / raw / parts modes.
+   Designed for reuse in inspector, content modal, and inline contexts.
+
+   Parameters:
+     - content: raw text string to render
+     - mode: 'markdown' (default) | 'raw' | 'parts'
+     - title: optional header label
+     - id_suffix: optional unique suffix for DOM ids (needed when
+       multiple viewers exist on the same page)
+     - max_height: optional CSS max-height (default 'none')
+
+   Parts mode uses normalize_llm_content to split the input into
+   structured blocks (tool_result, file_code, file_markdown,
+   plain_text) and renders each with a type badge.
+────────────────────────────────────────────────────────────────────── #}
+
+{% macro viewer(content, mode='markdown', title='', id_suffix='', max_height='none') %}
+{% set uid = 'viewer' ~ (id_suffix or '') ~ '-' ~ (mode or 'md') %}
+
+<div class="viewer viewer--{{ mode }}" id="{{ uid }}">
+    {% if title %}
+    <div class="viewer__header">
+        <span class="viewer__title">{{ title }}</span>
+    </div>
+    {% endif %}
+
+    <div class="viewer__body" style="max-height:{{ max_height }};{% if max_height != 'none' %}overflow-y:auto;{% endif %}">
+
+        {# ── Markdown mode: single rendered HTML block ── #}
+        {% if mode == 'markdown' %}
+        <div class="viewer__markdown">{{ content | markdown | safe }}</div>
+
+        {# ── Raw mode: plain text / JSON pre block ── #}
+        {% elif mode == 'raw' %}
+        <div class="viewer__raw">
+            <pre class="viewer__raw-pre">{{ content }}</pre>
+        </div>
+
+        {# ── Parts mode: structured content blocks ── #}
+        {% elif mode == 'parts' %}
+        {# Prefer new normalizer if raw text available; fallback to legacy filter #}
+        {% if content and content is string %}
+        {% set blocks = content | parts_mode_from_raw %}
+        {% else %}
+        {% set blocks = content | normalize_llm_content %}
+        {% endif %}
+        {% if blocks | length == 0 %}
+        <div class="viewer__fallback">(No content available)</div>
+        {% else %}
+        {% for block in blocks %}
+        {% set block_kind = block.get('kind', 'unknown') %}
+        {% set block_title = block.get('title', '') %}
+        {% set block_lang = block.get('language', '') %}
+        {% set block_content = block.get('content', '') %}
+
+        <div class="viewer__part viewer__part--{{ block_kind }}">
+            {% if block_title or block_lang %}
+            <div class="viewer__part-header">
+                {% if block_kind == 'file_code' %}
+                <span class="viewer__part-type viewer__part-type--code" title="Code file"></span>
+                {% elif block_kind == 'file_markdown' %}
+                <span class="viewer__part-type viewer__part-type--md" title="Markdown file"></span>
+                {% elif block_kind == 'tool_result' %}
+                <span class="viewer__part-type viewer__part-type--tool" title="Tool result"></span>
+                {% elif block_kind == 'plain_text' %}
+                <span class="viewer__part-type viewer__part-type--text" title="Plain text"></span>
+                {% else %}
+                <span class="viewer__part-type viewer__part-type--unknown" title="Unknown"></span>
+                {% endif %}
+                {% if block_title %}
+                <span class="viewer__part-title">{{ block_title }}</span>
+                {% endif %}
+                {% if block_lang %}
+                <code class="viewer__lang-tag">{{ block_lang }}</code>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="viewer__part-content">
+                {# Code blocks: syntax-highlight placeholder #}
+                {% if block_kind == 'file_code' %}
+                <pre class="viewer__code-block"><code class="language-{{ block_lang }}">{{ block_content }}</code></pre>
+
+                {# Markdown / plain text: render through markdown filter #}
+                {% elif block_kind == 'file_markdown' or block_kind == 'plain_text' %}
+                <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+
+                {# Unknown / tool_result: render as markdown (handles formatting) #}
+                {% else %}
+                <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% else %}
+        <div class="viewer__fallback">(Unknown viewer mode: {{ mode }})</div>
+        {% endif %}
+
+    </div>
+</div>
+{% endmacro %}

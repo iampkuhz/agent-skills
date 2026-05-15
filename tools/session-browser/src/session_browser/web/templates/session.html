@@ -2,14 +2,12 @@
 
 {% block title %}{{ session.title[:80] or 'Untitled' }} - Agent Run Profiler{% endblock %}
 
-{% block topbar %}
-<div class="topbar-breadcrumb">
-    <a href="/dashboard">Dashboard</a>
-    <span class="sep">/</span>
-    <a href="/projects/{{ session.project_key | urlencode }}">{{ session.project_name }}</a>
-    <span class="sep">/</span>
-    <span class="current" data-tooltip="{{ session.title }}">{{ (session.title or 'Untitled')[:50] }}</span>
-</div>
+{% block breadcrumb %}
+<a href="/dashboard">Dashboard</a>
+<span class="sep">/</span>
+<a href="/projects/{{ session.project_key | urlencode }}">{{ session.project_name }}</a>
+<span class="sep">/</span>
+<span class="current" data-tooltip="{{ session.title }}">{{ (session.title or 'Untitled')[:50] }}</span>
 {% endblock %}
 
 {% block content %}
@@ -26,6 +24,111 @@
         <div class="tool-result-md">{{ result | markdown | safe }}</div>
     </div>
 </div>
+{% endmacro %}
+
+{# ── Build timeline node list for a single round ── #}
+{% macro build_timeline_nodes(round, round_index) %}
+    {# User message node #}
+    {% if round.user_msg.content %}
+    {{ timeline_node({
+        'type': 'message',
+        'time': round.user_msg.timestamp | local_time if round.user_msg.timestamp else '',
+        'summary': 'User: ' ~ (round.user_msg.content | striptags | truncate(120)),
+        'expanded': False,
+        'depth': 0,
+        'children': []
+    }) }}
+    {% endif %}
+
+    {# LLM interaction nodes #}
+    {% for interaction in round.interactions %}
+    {% set tool_children = [] %}
+    {% if interaction.tool_calls %}
+        {% for tc in interaction.tool_calls %}
+            {% set tc_summary = '' %}
+            {% if tc.name == 'Bash' %}
+                {% set tc_summary = tc.parameters.get('command', '')[:100] %}
+            {% elif tc.name == 'Agent' and tc.subagent_summary %}
+                {% set tc_summary = 'Subagent: ' ~ (tc.subagent_summary.description or tc.subagent_summary.agent_type) %}
+            {% elif tc.parameters.get('file_path') %}
+                {% set tc_summary = tc.parameters.file_path | relative_to_repo %}
+            {% else %}
+                {% set tc_summary = tc.parameters | tojson_repo | truncate(80) %}
+            {% endif %}
+            {{ timeline_node({
+                'type': 'error' if tc.is_failed else 'tool_call',
+                'time': tc.timestamp | local_time if tc.timestamp else '',
+                'summary': tc.name ~ ': ' ~ tc_summary,
+                'duration': (tc.duration_ms / 1000) | round(1) ~ 's' if tc.duration_ms > 0 else '',
+                'expanded': False,
+                'depth': 1,
+                'children': []
+            }) }}
+        {% endfor %}
+    {% endif %}
+
+    {% if interaction.scope == "main" %}
+    {{ timeline_node({
+        'type': 'llm_call',
+        'time': interaction.timestamp | local_time if interaction.timestamp else '',
+        'summary': 'Main: ' ~ interaction.model[:40],
+        'tokens': interaction.input_tokens + interaction.output_tokens,
+        'token_data': {
+            'fresh': interaction.input_tokens,
+            'cache_read': interaction.cache_read_tokens,
+            'cache_write': interaction.cache_write_tokens,
+            'output': interaction.output_tokens
+        },
+        'expanded': False,
+        'depth': 0,
+        'children': []
+    }) }}
+    {% elif interaction.scope == "subagent" %}
+    {{ timeline_node({
+        'type': 'llm_call',
+        'time': interaction.timestamp | local_time if interaction.timestamp else '',
+        'summary': 'Subagent via ' ~ interaction.parent_tool_name ~ ' (' ~ interaction.model[:40] ~ ')',
+        'tokens': interaction.output_tokens,
+        'expanded': False,
+        'depth': 0,
+        'children': []
+    }) }}
+    {% endif %}
+    {% endfor %}
+
+    {# Fallback: if no interactions, show assistant msg + tool calls directly #}
+    {% if not round.interactions %}
+    {% if round.assistant_msg.content %}
+    {{ timeline_node({
+        'type': 'message',
+        'summary': 'Assistant: ' ~ (round.assistant_msg.content | striptags | truncate(120)),
+        'expanded': False,
+        'depth': 0,
+        'children': []
+    }) }}
+    {% endif %}
+    {% if round.tool_calls %}
+    {% for tc in round.tool_calls %}
+        {% set tc_summary = '' %}
+        {% if tc.name == 'Bash' %}
+            {% set tc_summary = tc.parameters.get('command', '')[:100] %}
+        {% elif tc.parameters.get('file_path') %}
+            {% set tc_summary = tc.parameters.file_path | relative_to_repo %}
+        {% else %}
+            {% set tc_summary = tc.parameters | tojson_repo | truncate(80) %}
+        {% endif %}
+        {{ timeline_node({
+            'type': 'error' if tc.is_failed else 'tool_call',
+            'time': tc.timestamp | local_time if tc.timestamp else '',
+            'summary': tc.name ~ ': ' ~ tc_summary,
+            'duration': (tc.duration_ms / 1000) | round(1) ~ 's' if tc.duration_ms > 0 else '',
+            'expanded': False,
+            'depth': 0,
+            'children': []
+        }) }}
+    {% endfor %}
+    {% endif %}
+    {% endif %}
 {% endmacro %}
 
 <!-- Set session ID for localStorage persistence (used by base.html JS) -->
@@ -58,155 +161,80 @@
 {% set cw_pct = (session.cached_output_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
 {% set out_pct = (session.output_tokens / session_grand_total * 100) | round(1) if session_grand_total > 0 else 0 %}
 
-<!-- ── Unified Session Overview ──────────────────────────────────────── -->
-<div class="overview">
+{# ── Import reusable components ── #}
+{% from "components/page_header.html" import page_header %}
+{% from "components/metrics_strip.html" import metrics_strip, metric_item %}
+{% from "components/viewer.html" import viewer %}
+{% from "components/timeline.html" import timeline_node, timeline_node_content, timeline_container %}
 
-    <!-- 1. Identity: agent badge + title + model -->
-    <div class="overview__identity">
-        <span class="overview__agent-badge {{ agent_class }}">{{ agent_name }}</span>
-        <h1 class="overview__title" title="{{ session.title }}">{{ session.title[:140] or 'Untitled Session' }}</h1>
-        {% if session.model %}
-        <span class="overview__model" data-tooltip="{{ session.model }}">{{ session.model[:60] }}</span>
-        {% endif %}
-    </div>
+<!-- ── Page Header ─────────────────────────────────────────────── -->
+{{ page_header(
+    title=session.title[:140] or 'Untitled Session',
+    description=agent_name + ' · ' + (session.model[:60] if session.model else ''),
+    back_url="/projects/" + (session.project_key | urlencode),
+    actions_html='<span class="agent-badge ' + agent_class + '">' + agent_name + '</span>'
+) }}
 
-    <!-- 2. Metadata chips row -->
-    <div class="overview__meta">
-        <a href="/projects/{{ session.project_key | urlencode }}" class="meta-chip meta-chip--link" title="{{ session.project_key }}">
-            <span class="meta-chip__icon">&#x25ce;</span>{{ session.project_name }}
-        </a>
-        {% if session.git_branch and session.git_branch != 'main' %}
-        <span class="meta-chip meta-chip--mono" data-tooltip="Branch: {{ session.git_branch }}">{{ session.git_branch }}</span>
-        {% endif %}
-        {% if session.started_at %}
-        <span class="meta-chip meta-chip--mono meta-chip--time"
-              title="Started: {{ session.started_at | local_time }}&#10;Ended: {{ session.ended_at | local_time }}&#10;Duration: {{ session.duration_seconds | format_duration }}">
-            {{ session.started_at[:10] }} &#x00b7; {{ session.duration_seconds | format_duration }}
-        </span>
-        {% endif %}
-    </div>
-
-    <!-- 3. Anomaly banner -->
-    {% if has_anomalies %}
-    <div class="overview__anomaly anomaly-banner anomaly-banner--{{ session_anomalies.max_severity }}">
-        <span class="anomaly-banner__icon">!</span>
-        <div class="anomaly-banner__content">
-            <strong>{{ session_anomalies.anomalies | length }} anomaly detected</strong>
-            <span class="anomaly-banner__reasons">
-                {% for a in session_anomalies.anomalies %}
-                <span class="anomaly-badge {{ a.badge_class }}">{{ a.label }}</span>
-                {% endfor %}
-            </span>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- 4. Run Summary (full width within overview) -->
-    <div class="overview__run-summary">
-        <div class="run-summary-tiles metrics-grid metrics-grid--run-summary">
-            <div class="metric-card metric-card--compact">
-                <div class="metric-value">{{ session.duration_seconds | format_duration }}</div>
-                <div class="metric-label" data-tooltip="Wall-clock: first event to last event (includes idle wait)">Wall Duration</div>
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-value">{{ (session.model_execution_seconds if session.model_execution_seconds else 0) | format_duration }}</div>
-                <div class="metric-label" data-tooltip="Merged LLM response intervals (user msg → assistant msg), excluding idle wait">Model Exec</div>
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-value">{{ (session.tool_execution_seconds if session.tool_execution_seconds else 0) | format_duration }}</div>
-                <div class="metric-label" data-tooltip="Merged tool + subagent execution intervals (tool_use → tool_result), parallel overlaps merged">Tool Exec</div>
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-value">{{ rounds | length }}</div>
-                <div class="metric-label">Rounds</div>
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-value">{{ session.tool_call_count | format_number }}</div>
-                <div class="metric-label">Tool Calls</div>
-            </div>
-        </div>
-
-    <!-- LLM Metrics -->
-    <div class="section-group">
-        <div class="section-label">LLM</div>
-        <div class="metrics-grid metrics-grid--llm">
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">LLM Calls</div>
-                <div class="metric-value">{{ total_llm_calls | format_number }}</div>
-                {% if total_llm_errors > 0 %}
-                <div class="metric-sub"><span class="badge badge-error">{{ total_llm_errors }} error</span></div>
-                {% else %}
-                <div class="metric-sub">{{ main_calls_list | length }} main + {{ sub_calls_list | length }} sub</div>
-                {% endif %}
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">LLM Input</div>
-                <div class="metric-value">{{ llm_total_input | format_number }}</div>
-                {% if supports_cache_tokens %}
-                <div class="metric-sub">{{ llm_total_cr | format_number }} cache read</div>
-                {% endif %}
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">LLM Output</div>
-                <div class="metric-value">{{ llm_total_output | format_number }}</div>
-                {% if supports_cache_tokens %}
-                <div class="metric-sub">{{ llm_total_cw | format_number }} cache write</div>
-                {% endif %}
-            </div>
-            {% if supports_cache_tokens %}
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">Cache Hit Rate</div>
-                <div class="metric-value">{{ cache_reuse }}%</div>
-                <div class="metric-sub">{{ cache_reuse | round(0) | int }}% reuse</div>
-            </div>
-            {% else %}
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">Token Estimate</div>
-                <div class="metric-value">{{ (llm_total_input + llm_total_output) | format_number }}</div>
-                <div class="metric-sub">Estimated (no provider metrics)</div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Tools Metrics -->
-    <div class="section-group">
-        <div class="section-label">Tools</div>
-        <div class="metrics-grid metrics-grid--tools">
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">Tools/R</div>
-                <div class="metric-value">{{ tools_per_round }}</div>
-                <div class="metric-sub">per round</div>
-            </div>
-            <div class="metric-card metric-card--compact metric-card--error {{ 'metric-card--has-error' if session.failed_tool_count > 0 else '' }}">
-                <div class="metric-label">Failed Tools</div>
-                <div class="metric-value {{ 'text-error' if session.failed_tool_count > 0 else '' }}">{{ session.failed_tool_count }}</div>
-                <div class="metric-sub">total failures</div>
-            </div>
-            <div class="metric-card metric-card--compact">
-                <div class="metric-label">Top Tool</div>
-                {% if tool_calls %}
-                    {% set ns_tools = namespace(tool_counts={}) %}
-                    {% for tc in tool_calls %}
-                        {% if tc.name in ns_tools.tool_counts %}
-                            {% set _ = ns_tools.tool_counts.update({tc.name: ns_tools.tool_counts[tc.name] + 1}) %}
-                        {% else %}
-                            {% set _ = ns_tools.tool_counts.update({tc.name: 1}) %}
-                        {% endif %}
-                    {% endfor %}
-                    {% set top_tool = ns_tools.tool_counts | dictsort(by='value', reverse=true) | first %}
-                    <div class="metric-value mono text-sm">{{ top_tool[0] if top_tool else '—' }}</div>
-                    <div class="metric-sub">{{ top_tool[1] if top_tool else 0 }} calls / most used</div>
-                {% else %}
-                    <div class="metric-value">—</div>
-                    <div class="metric-sub">no tool calls</div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    </div>
-
+<!-- ── Metrics Strip ───────────────────────────────────────────── -->
+<div class="metrics-strip-card">
+{% call metrics_strip() %}
+  {{ metric_item("时长", session.duration_seconds | format_duration, mono=False) }}
+  {{ metric_item("轮次", rounds | length, mono=True) }}
+  {{ metric_item("LLM 调用", total_llm_calls | format_number, mono=True,
+      tooltip=main_calls_list | length ~ ' main + ' ~ sub_calls_list | length ~ ' sub') }}
+  {% if total_llm_errors > 0 %}
+  {{ metric_item("LLM 错误", total_llm_errors, mono=True, status="error") }}
+  {% endif %}
+  {% if supports_cache_tokens %}
+  {{ metric_item("缓存命中", cache_reuse ~ "%", mono=True,
+      tooltip="Cache reuse rate: " ~ cache_reuse ~ "%") }}
+  {% endif %}
+  {{ metric_item("总 Token", session_grand_total | format_number_short, mono=True) }}
+  {{ metric_item("工具调用", session.tool_call_count | format_number, mono=True) }}
+  {% if session.failed_tool_count > 0 %}
+  {{ metric_item("工具失败", session.failed_tool_count, mono=True, status="error") }}
+  {% endif %}
+{% endcall %}
 </div>
+
+<!-- ── Compact info bar: session ID + project + time ───────────── -->
+<div class="session-info-bar">
+    <span class="session-info-bar__project" title="{{ session.project_key }}">
+        <span class="session-info-bar__icon">&#x25ce;</span>{{ session.project_name }}
+    </span>
+    <span class="session-info-bar__id mono">
+        {{ session.session_id }}
+        <button class="copy-btn" onclick="arpCopy(this, '{{ session.session_id }}')" title="Copy session ID">&#x1f4cb;</button>
+    </span>
+    {% if session.git_branch and session.git_branch != 'main' %}
+    <span class="session-info-bar__branch mono" title="Branch: {{ session.git_branch }}">{{ session.git_branch }}</span>
+    {% endif %}
+    {% if session.started_at %}
+    <span class="session-info-bar__time mono"
+          title="Started: {{ session.started_at | local_time }}&#10;Ended: {{ session.ended_at | local_time }}&#10;Duration: {{ session.duration_seconds | format_duration }}">
+        {{ session.started_at[:10] }} · {{ session.duration_seconds | format_duration }}
+    </span>
+    {% endif %}
+    <button class="copy-btn" onclick="window.copyRawData()" title="Copy raw session data as JSON">Raw JSON</button>
+</div>
+
+<!-- Hidden raw JSON for copy action -->
+<pre id="raw-json" style="display:none">{{ session_data | safe_json_display }}</pre>
+
+<!-- ── Anomaly Alert (conditional) ─────────────────────────────── -->
+{% if has_anomalies %}
+<div class="anomaly-inline anomaly-banner anomaly-banner--{{ session_anomalies.max_severity }}">
+    <span class="anomaly-banner__icon">!</span>
+    <div class="anomaly-banner__content">
+        <strong>{{ session_anomalies.anomalies | length }} anomaly detected</strong>
+        <span class="anomaly-banner__reasons">
+            {% for a in session_anomalies.anomalies %}
+            <span class="anomaly-badge {{ a.badge_class }}">{{ a.label }}</span>
+            {% endfor %}
+        </span>
+    </div>
+</div>
+{% endif %}
 
 <!-- ── Token Charts Card (Token Mix + Tokens per Round, single full-width card) ── -->
 {% if rounds and rounds | length > 1 %}
@@ -362,20 +390,24 @@
         <div class="card-title">All Messages</div>
         <div class="msg-flow">
         {% for round in rounds %}
-        {% if round.user_msg.content_html %}
+        {% if round.user_msg.content %}
         <div class="msg msg--user mb-3">
             <div class="msg__meta">Round #{{ loop.index }} · User</div>
-            <div class="msg__body" data-expandable>{{ round.user_msg.content_html | safe }}</div>
-            {% if round.user_msg.content_html | length > 800 %}
+            <div class="msg__body" data-expandable>
+                {{ viewer(round.user_msg.content, mode='parts', id_suffix='conv-u' ~ loop.index) }}
+            </div>
+            {% if round.user_msg.content | length > 800 %}
             <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>Open</button>
             {% endif %}
         </div>
         {% endif %}
-        {% if round.assistant_msg.content_html %}
+        {% if round.assistant_msg.content %}
         <div class="msg msg--assistant mb-3">
             <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
-            <div class="msg__body" data-expandable>{{ round.assistant_msg.content_html | safe }}</div>
-            {% if round.assistant_msg.content_html | length > 800 %}
+            <div class="msg__body" data-expandable>
+                {{ viewer(round.assistant_msg.content, mode='parts', id_suffix='conv-a' ~ loop.index) }}
+            </div>
+            {% if round.assistant_msg.content | length > 800 %}
             <button class="show-more" data-content-modal="Round #{{ loop.index }} · Assistant"><template>{{ round.assistant_msg.content }}</template><template>{{ round.assistant_msg.content_html | safe }}</template>Open</button>
             {% endif %}
         </div>
@@ -388,12 +420,36 @@
 <!-- Tab: Timeline -->
 <div id="timeline" class="tab-content">
     <div class="card">
-        <div class="card-title">Conversation Flow ({{ rounds | length }})
-            <span class="ml-auto flex gap-2">
-                <button class="expand-all-btn" onclick="expandAllRounds()">Expand All</button>
-                <button class="expand-all-btn" onclick="collapseAllRounds()">Collapse All</button>
-            </span>
+        <div class="card-title">Conversation Flow ({{ rounds | length }})</div>
+
+        {# ── Timeline control bar ── #}
+        <div class="timeline-toolbar" role="toolbar" aria-label="Timeline controls">
+            <div class="timeline-toolbar__actions">
+                <button class="timeline-toolbar__btn" data-action="expand-all"
+                        onclick="TimelineCtrl.expandAll()">Expand All</button>
+                <button class="timeline-toolbar__btn" data-action="collapse-all"
+                        onclick="TimelineCtrl.collapseAll()">Collapse All</button>
+            </div>
+            <div class="timeline-toolbar__filters">
+                <button class="timeline-toolbar__filter" data-filter="all"
+                        onclick="TimelineCtrl.filter('all')">All</button>
+                <button class="timeline-toolbar__filter" data-filter="message"
+                        onclick="TimelineCtrl.filter('message')">Message</button>
+                <button class="timeline-toolbar__filter" data-filter="tool"
+                        onclick="TimelineCtrl.filter('tool')">Tool</button>
+                <button class="timeline-toolbar__filter" data-filter="error"
+                        onclick="TimelineCtrl.filter('error')">Error</button>
+            </div>
+            <div class="timeline-toolbar__jump">
+                <input type="text" class="timeline-toolbar__jump-input"
+                       id="timeline-jump-input"
+                       placeholder="Jump to node ID or round #…"
+                       onkeydown="TimelineCtrl.jumpOnKey(event)" />
+                <button class="timeline-toolbar__jump-btn"
+                        onclick="TimelineCtrl.jump()">Go</button>
+            </div>
         </div>
+
         {% if rounds %}
         <div class="table-wrap">
             <table class="round-summary-table">
@@ -525,286 +581,9 @@
                             <div class="round {{ 'has-failed' if has_failed_tools else '' }}">
                                 <div class="round-content">
                                     <div class="timeline">
-                                        {# User message #}
-                                        {% if round.user_msg.content %}
-                                        <div class="timeline__user-msg">
-                                            <div class="msg-label">
-                                                User
-                                                {% if round.user_msg.timestamp %}
-                                                <span class="msg-label__time">{{ round.user_msg.timestamp | local_time }}</span>
-                                                {% endif %}
-                                            </div>
-                                            <div class="msg-body">{{ round.user_msg.content_html | safe }}</div>
-                                            {% if round.user_msg.content_html | length > 600 %}
-                                            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>Open</button>
-                                            {% endif %}
+                                        <div class="timeline-structured" id="timeline-round-{{ loop.index }}">
+                                            {{ build_timeline_nodes(round, loop.index) }}
                                         </div>
-                                        {% endif %}
-
-                                        {# LLM interactions with flow arrows #}
-                                        {% set round_index = loop.index %}
-                                        {% for interaction in round.interactions %}
-                                            {% if not loop.first %}
-                                            <div class="timeline__flow-arrow">
-                                                {% if loop.previtem.tool_calls %}
-                                                    {{ loop.previtem.tool_calls | length }} tool result{{ 's' if loop.previtem.tool_calls | length != 1 }} returned
-                                                {% elif loop.previtem.scope == 'subagent' %}
-                                                    Subagent result returned
-                                                {% else %}
-                                                    Context carried forward
-                                                {% endif %}
-                                                {% if interaction.timestamp %}
-                                                <span class="flow-arrow__time">{{ interaction.timestamp | local_time }}</span>
-                                                {% endif %}
-                                            </div>
-                                            {% endif %}
-
-                                            {% if interaction.scope == "main" %}
-                                            <div class="llm-card llm-card--main">
-                                                <div class="llm-card__header" onclick="toggleLLMCard(this)">
-                                                    <span class="llm-card__scope llm-card__scope--main">Main</span>
-                                                    <span class="llm-card__model" data-tooltip="{{ interaction.model }}">{{ interaction.model[:40] }}</span>
-                                                    <span class="llm-card__tokens">
-                                                        {{ interaction.input_tokens | format_number }} in / {{ interaction.output_tokens | format_number }} out
-                                                        {% if interaction.cache_read_tokens > 0 %}
-                                                        <span class="badge badge-muted" data-tooltip="Cache read: {{ interaction.cache_read_tokens }}">CR {{ interaction.cache_read_tokens | format_number }}</span>
-                                                        {% endif %}
-                                                        {% if interaction.cache_write_tokens > 0 %}
-                                                        <span class="badge badge-muted" data-tooltip="Cache write: {{ interaction.cache_write_tokens }}">CW {{ interaction.cache_write_tokens | format_number }}</span>
-                                                        {% endif %}
-                                                    </span>
-                                                    {% if interaction.timestamp %}
-                                                    <span class="llm-card__time" data-tooltip="LLM call sent at">{{ interaction.timestamp | local_time }}</span>
-                                                    {% endif %}
-                                                    <span class="llm-card__chevron">&#8250;</span>
-                                                </div>
-                                                <div class="llm-card__body">
-                                                    {# Prompt context hint #}
-                                                    {% if interaction.prompt_preview %}
-                                                    <div class="llm-card__prompt">
-                                                        <div class="llm-card__prompt-label">Prompt Context</div>
-                                                        <div class="llm-card__prompt-text">{{ interaction.prompt_preview }}</div>
-                                                        <div class="llm-card__token-bar">
-                                                            {% set itotal = interaction.input_tokens + interaction.cache_read_tokens + interaction.cache_write_tokens %}
-                                                            {% if itotal > 0 %}
-                                                            <div class="llm-card__token-bar__fresh" style="width:{{ (interaction.input_tokens / itotal * 100) | round(0) }}%" data-tooltip="Fresh: {{ interaction.input_tokens | format_number }}"></div>
-                                                            <div class="llm-card__token-bar__cache-read" style="width:{{ (interaction.cache_read_tokens / itotal * 100) | round(0) }}%" data-tooltip="Cache read: {{ interaction.cache_read_tokens | format_number }}"></div>
-                                                            <div class="llm-card__token-bar__cache-write" style="width:{{ (interaction.cache_write_tokens / itotal * 100) | round(0) }}%" data-tooltip="Cache write: {{ interaction.cache_write_tokens | format_number }}"></div>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                    {% endif %}
-                                                    {# Response #}
-                                                    {% if interaction.response_preview %}
-                                                    <div class="llm-card__response">
-                                                        <div class="llm-card__response-label">Response</div>
-                                                        <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
-                                                        {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Main Response"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>Open</button>
-                                                        {% endif %}
-                                                    </div>
-                                                    {% endif %}
-                                                    {# Tools called by this LLM #}
-                                                    {% if interaction.tool_calls %}
-                                                    <div class="llm-card__tools">
-                                                        <div class="llm-card__tools-label">Tools Called ({{ interaction.tool_calls | length }})</div>
-                                                        {% for tc in interaction.tool_calls %}
-                                                        <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
-                                                            <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
-                                                                <span class="tool-detail-card__chevron">&#8250;</span>
-                                                                <span class="badge badge-primary">{{ tc.name }}</span>
-                                                                {% if tc.timestamp %}
-                                                                <span class="tool-card__time" data-tooltip="Tool call started at">{{ tc.timestamp | local_time }}</span>
-                                                                {% endif %}
-                                                                {% if tc.duration_ms > 0 %}
-                                                                <span class="tool-card__duration" data-tooltip="Tool execution duration">{{ (tc.duration_ms / 1000) | round(1) }}s</span>
-                                                                {% endif %}
-                                                                <span class="tool-detail-card__summary">
-                                                                    {% if tc.name == 'Bash' %}
-                                                                        <code class="mono text-xs">{{ tc.parameters.get('command', '')[:100] }}</code>
-                                                                    {% elif tc.name == 'Agent' and tc.subagent_summary %}
-                                                                        <span class="subagent-inline">Agent: {{ tc.subagent_summary.description or tc.subagent_summary.agent_type }}</span>
-                                                                    {% elif tc.parameters.get('file_path') %}
-                                                                        <code class="mono text-xs">{{ tc.parameters.file_path | relative_to_repo }}</code>
-                                                                    {% else %}
-                                                                        <span class="mono text-xs">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
-                                                                    {% endif %}
-                                                                </span>
-                                                                {% if tc.is_failed %}
-                                                                {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                                                {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
-                                                                {% else %}<span class="badge badge-error">failed</span>{% endif %}
-                                                                {% elif tc.has_nonzero_exit %}
-                                                                <span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>
-                                                                {% else %}
-                                                                <span class="badge badge-success">ok</span>
-                                                                {% endif %}
-                                                            </div>
-                                                            <div class="tool-detail-card__body">
-                                                                {% if tc.is_failed and tc.error_message %}
-                                                                <div class="tool-error-block">
-                                                                    <strong class="text-xs text-error">Error:</strong>
-                                                                    <pre class="mono text-xs tool-error-pre">{{ tc.error_message }}</pre>
-                                                                </div>
-                                                                {% endif %}
-                                                                <div class="tool-param-block">
-                                                                    <strong class="text-xs">Parameters:</strong>
-                                                                    <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
-                                                                </div>
-                                                                {{ render_tool_result(tc.result) }}
-                                                            </div>
-                                                        </div>
-                                                        {% endfor %}
-                                                    </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-
-                                            {% elif interaction.scope == "subagent" %}
-                                            <div class="subagent-card">
-                                                <div class="subagent-card__header" onclick="toggleSubagentCard(this)">
-                                                    <span class="llm-card__scope llm-card__scope--subagent">Subagent</span>
-                                                    <span class="llm-card__model">{{ interaction.model[:40] }}</span>
-                                                    <span class="llm-card__tokens">via {{ interaction.parent_tool_name }}</span>
-                                                    <div class="subagent-card__stats">
-                                                        <span>{{ interaction.tool_call_count }} tools</span>
-                                                        <span>{{ interaction.output_tokens | format_number }} out</span>
-                                                    </div>
-                                                    {% if interaction.timestamp %}
-                                                    <span class="llm-card__time">{{ interaction.timestamp | local_time }}</span>
-                                                    {% endif %}
-                                                    <span class="llm-card__chevron">&#8250;</span>
-                                                </div>
-                                                <div class="subagent-card__body">
-                                                    {% if interaction.response_preview %}
-                                                    <div class="llm-card__response mt-2">
-                                                        <div class="llm-card__response-label">Subagent Result</div>
-                                                        <div class="llm-card__response-text">{{ interaction.response_full | markdown | safe }}</div>
-                                                        {% if interaction.response_full | length > 600 %}
-                                                        <button class="show-more" data-content-modal="Round #{{ round_index }} · Subagent Result"><template>{{ interaction.response_full }}</template><template>{{ interaction.response_full | markdown | safe }}</template>Open</button>
-                                                        {% endif %}
-                                                    </div>
-                                                    {% endif %}
-                                                    {% if interaction.tool_calls %}
-                                                    <div class="tool-tree mt-3">
-                                                        {% for tc in interaction.tool_calls %}
-                                                        <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
-                                                            <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
-                                                                <span class="tool-detail-card__chevron">&#8250;</span>
-                                                                <span class="badge badge-muted">{{ tc.name }}</span>
-                                                                {% if tc.timestamp %}
-                                                                <span class="tool-card__time">{{ tc.timestamp | local_time }}</span>
-                                                                {% endif %}
-                                                                {% if tc.duration_ms > 0 %}
-                                                                <span class="tool-card__duration">{{ (tc.duration_ms / 1000) | round(1) }}s</span>
-                                                                {% endif %}
-                                                                <span class="tool-detail-card__summary">
-                                                                    {% if tc.name == 'Bash' %}
-                                                                        <code class="mono text-xs">{{ tc.parameters.get('command', '')[:100] }}</code>
-                                                                    {% elif tc.parameters.get('file_path') %}
-                                                                        <code class="mono text-xs">{{ tc.parameters.file_path | relative_to_repo }}</code>
-                                                                    {% else %}
-                                                                        <span class="mono text-xs">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
-                                                                    {% endif %}
-                                                                </span>
-                                                                {% if tc.is_failed %}
-                                                                {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                                                {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
-                                                                {% else %}<span class="badge badge-error">failed</span>{% endif %}
-                                                                {% elif tc.has_nonzero_exit %}
-                                                                <span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>
-                                                                {% else %}
-                                                                <span class="badge badge-success">ok</span>
-                                                                {% endif %}
-                                                            </div>
-                                                            <div class="tool-detail-card__body">
-                                                                {% if tc.is_failed and tc.error_message %}
-                                                                <div class="tool-error-block">
-                                                                    <strong class="text-xs text-error">Error:</strong>
-                                                                    <pre class="mono text-xs tool-error-pre">{{ tc.error_message }}</pre>
-                                                                </div>
-                                                                {% endif %}
-                                                                <div class="tool-param-block">
-                                                                    <strong class="text-xs">Parameters:</strong>
-                                                                    <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
-                                                                </div>
-                                                                {{ render_tool_result(tc.result) }}
-                                                            </div>
-                                                        </div>
-                                                        {% endfor %}
-                                                    </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                            {% endif %}
-                                        {% endfor %}
-
-                                        {# Fallback: if no interactions, show original assistant msg + tool calls #}
-                                        {% if not round.interactions %}
-                                        {% if round.assistant_msg.content_html %}
-                                        <div class="msg msg--assistant">
-                                            <div class="msg__meta">Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
-                                            <div class="msg__body">{{ round.assistant_msg.content_html | safe }}</div>
-                                        </div>
-                                        {% endif %}
-                                        {% if round.tool_calls %}
-                                        {% for tc in round.tool_calls %}
-                                        <div class="tool-detail-card {{ 'tool-detail-card--error' if tc.is_failed else '' }}">
-                                            <div class="tool-detail-card__header" onclick="toggleToolDetail(this)">
-                                                <span class="tool-detail-card__chevron">&#8250;</span>
-                                                <span class="badge badge-primary">{{ tc.name }}</span>
-                                                {% if tc.timestamp %}
-                                                <span class="tool-card__time">{{ tc.timestamp | local_time }}</span>
-                                                {% endif %}
-                                                {% if tc.duration_ms > 0 %}
-                                                <span class="tool-card__duration">{{ (tc.duration_ms / 1000) | round(1) }}s</span>
-                                                {% endif %}
-                                                <span class="tool-detail-card__summary">
-                                                    {% if tc.parameters %}
-                                                    {% if tc.name == 'Bash' %}
-                                                        <code class="mono text-xs">{{ tc.parameters.get('command', '')[:100] }}</code>
-                                                    {% elif tc.parameters.get('file_path') %}
-                                                        <code class="mono text-xs">{{ tc.parameters.file_path | relative_to_repo }}</code>
-                                                    {% else %}
-                                                        <span class="mono text-xs">{{ tc.parameters | tojson_repo | truncate(80) }}</span>
-                                                    {% endif %}
-                                                    {% endif %}
-                                                    {% if tc.subagent_summary %}
-                                                    <span class="subagent-inline">
-                                                        · {{ tc.llm_call_count | format_number }} LLM · {{ tc.subagent_tool_call_count | format_number }} tools
-                                                        {% if tc.subagent_summary.tool_counts %}
-                                                        · {{ tc.subagent_summary.tool_counts | tojson | truncate(80) }}
-                                                        {% endif %}
-                                                    </span>
-                                                    {% endif %}
-                                                </span>
-                                                {% if tc.is_failed %}
-                                                {% if tc.exit_code is not none %}<span class="badge badge-error">exit={{ tc.exit_code }}</span>
-                                                {% elif tc.error_message %}<span class="badge badge-error" data-tooltip="{{ tc.error_message }}">failed</span>
-                                                {% else %}<span class="badge badge-error">failed</span>{% endif %}
-                                                {% elif tc.has_nonzero_exit %}
-                                                <span class="badge badge-warning" data-tooltip="Command returned exit code {{ tc.exit_code }} but tool executed successfully">exit={{ tc.exit_code }}</span>
-                                                {% else %}
-                                                <span class="badge badge-success">ok</span>
-                                                {% endif %}
-                                            </div>
-                                            <div class="tool-detail-card__body">
-                                                {% if tc.is_failed and tc.error_message %}
-                                                <div class="tool-error-block">
-                                                    <strong class="text-xs text-error">Error:</strong>
-                                                    <pre class="mono text-xs tool-error-pre">{{ tc.error_message }}</pre>
-                                                </div>
-                                                {% endif %}
-                                                <div class="tool-param-block">
-                                                    <strong class="text-xs">Parameters:</strong>
-                                                    <pre class="mono text-xs tool-param-pre">{{ tc.parameters | tojson_repo(indent=2) if tc.parameters else '—' }}</pre>
-                                                </div>
-                                                {{ render_tool_result(tc.result) }}
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                        {% endif %}
-                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -820,120 +599,48 @@
     </div>
 </div>
 
-<!-- Tab: Hotspots -->
+<!-- Tab: Hotspots (diagnostic tool) -->
 <div id="hotspots" class="tab-content">
-    <div class="hotspots-grid">
-        <!-- Tool usage by frequency -->
-        {% if tool_calls %}
-        <div class="card">
-            <div class="card-title">Tool Usage by Frequency</div>
-            <div class="tool-hotspots">
-                {% set ns = namespace(tool_counts={}) %}
-                {% for tc in tool_calls %}
-                    {% if tc.name in ns.tool_counts %}
-                        {% set _ = ns.tool_counts.update({tc.name: ns.tool_counts[tc.name] + 1}) %}
-                    {% else %}
-                        {% set _ = ns.tool_counts.update({tc.name: 1}) %}
-                    {% endif %}
-                {% endfor %}
-                {% for tool_name, count in ns.tool_counts | dictsort(by='value', reverse=true) %}
-                <div class="tool-hotspot__item">
-                    <span class="tool-hotspot__name">{{ tool_name }}</span>
-                    <div class="tool-hotspot__bar-wrap">
-                        <div class="tool-hotspot__bar" style="width:{{ (count / (tool_calls | length) * 100) | round(0) }}%"></div>
-                    </div>
-                    <span class="tool-hotspot__count">{{ count }}</span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Failed tools distribution -->
-        {% set failed_tools_list = tool_calls | selectattr('is_failed') | list %}
-        {% if failed_tools_list | length > 0 %}
-        <div class="card">
-            <div class="card-title">Failed Tools <span class="badge badge-error">{{ failed_tools_list | length }}</span></div>
-            <div class="tool-hotspots">
-                {% set ns3 = namespace(failed_counts={}) %}
-                {% for tc in failed_tools_list %}
-                    {% if tc.name in ns3.failed_counts %}
-                        {% set _ = ns3.failed_counts.update({tc.name: ns3.failed_counts[tc.name] + 1}) %}
-                    {% else %}
-                        {% set _ = ns3.failed_counts.update({tc.name: 1}) %}
-                    {% endif %}
-                {% endfor %}
-                {% for tool_name, count in ns3.failed_counts | dictsort(by='value', reverse=True) %}
-                <div class="tool-hotspot__item tool-hotspot__item--error">
-                    <span class="tool-hotspot__name tool-hotspot__name--error">{{ tool_name }}</span>
-                    <div class="tool-hotspot__bar-wrap">
-                        <div class="tool-hotspot__bar tool-hotspot__bar--error" style="width:{{ (count / (failed_tools_list | length) * 100) | round(0) }}%"></div>
-                    </div>
-                    <span class="tool-hotspot__count">{{ count }}</span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Top token rounds -->
-        {% if rounds and rounds | length > 1 %}
-        <div class="card">
-            <div class="card-title">Top Token Rounds</div>
-            <div class="top-rounds-list">
-                {% set top_rounds = rounds | sort(attribute='total_tokens', reverse=True) | list %}
-                {% for round in top_rounds[:5] %}
-                    {% set rb = round.token_breakdown() %}
-                    {% set rt = rb.input + rb.cache_read + rb.cache_write + rb.output %}
-                    <div class="top-round__row">
-                        <span class="top-round__idx mono text-xs">#{{ loop.index }}</span>
-                        <span class="top-round__val mono">{{ rt | format_number }}</span>
-                        <div class="top-round__bar">
-                            {% if supports_cache_tokens %}
-                            <div class="top-round__bar-fill top-round__bar--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
-                            <div class="top-round__bar--cr" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
-                            <div class="top-round__bar--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
-                            <div class="top-round__bar--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
-                            {% else %}
-                            <div class="top-round__bar-fill top-round__bar--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
-                            <div class="top-round__bar--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></div>
-                            {% endif %}
-                        </div>
-                        <span class="top-round__tools text-muted text-xs">{{ round.tool_calls | length }}t</span>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Cache creation rounds (per-round breakdown) -->
-        {% set cache_write_all = [] %}
-        {% for r in rounds %}
-            {% set rb = r.token_breakdown() %}
-            {% if rb.cache_write > 0 %}
-                {% set _ = cache_write_all.append({'idx': loop.index, 'cw': rb.cache_write, 'total': rb.input + rb.cache_read + rb.cache_write + rb.output, 'preview': r.preview_text}) %}
-            {% endif %}
+    <div class="hotspots-diagnostic">
+        <!-- Diagnostic summary header -->
+        {% set all_hotspot_items = [] %}
+        {% for round in rounds %}
+            {% set r_idx = loop.index %}
+            {% set sigs = round_signals[loop.index0] if round_signals else [] %}
+            {% for sig in sigs %}
+                {% set _ = all_hotspot_items.append({'round_idx': r_idx, 'key': sig.key, 'label': sig.label, 'severity': sig.severity, 'reason': sig.reason}) %}
+            {% endfor %}
         {% endfor %}
-        {% if cache_write_all | length > 0 %}
-        <div class="card">
-            <div class="card-title">Cache Creation per Round
-                <span class="badge badge-muted" data-tooltip="cache_creation_input_tokens: input tokens written to prompt cache for future rounds. Grows with multi-turn sessions.">{{ session.cached_output_tokens | format_number }} total</span>
-            </div>
-            <div class="card-subtitle">Each round that wrote to the prompt cache, sorted by volume. Hover a round number to jump to it in Timeline.</div>
-            <div class="top-rounds-list">
-                {% set max_cw = cache_write_all | map(attribute='cw') | max %}
-                {% for cr in cache_write_all | sort(attribute='cw', reverse=True) %}
-                <div class="top-round__row" data-tooltip="Round #{{ cr.idx }}">
-                    <span class="top-round__idx mono text-xs">#{{ cr.idx }}</span>
-                    <span class="top-round__val mono">{{ cr.cw | format_number }}</span>
-                    <div class="top-round__bar" style="flex:1">
-                        <div class="top-round__bar--cw" style="width:{{ (cr.cw / max_cw * 100) | round(0) if max_cw > 0 else 0 }}%"></div>
-                    </div>
-                    <span class="text-muted text-xs">{{ (cr.cw / cr.total * 100) | round(0) if cr.total > 0 else 0 }}%</span>
-                </div>
-                {% endfor %}
-            </div>
+
+        {% if all_hotspot_items | length > 0 %}
+        <div class="hotspots-diagnostic__header">
+            <span class="hotspots-diagnostic__count">{{ all_hotspot_items | length }} diagnostic item{{ 's' if all_hotspot_items | length != 1 else '' }}</span>
+            <span class="hotspots-diagnostic__severity-breakdown">
+                {% set crit_count = all_hotspot_items | selectattr('severity', 'equalto', 'critical') | list | length %}
+                {% set warn_count = all_hotspot_items | selectattr('severity', 'equalto', 'warning') | list | length %}
+                {% if crit_count > 0 %}<span class="badge badge--anomaly-critical">{{ crit_count }} critical</span>{% endif %}
+                {% if warn_count > 0 %}<span class="badge badge--anomaly-warning">{{ warn_count }} warning</span>{% endif %}
+            </span>
         </div>
-        {% endif %}
-        {% endif %}
+
+        <div class="hotspots-diagnostic__list">
+            {% for item in all_hotspot_items %}
+            <div class="hotspot-item hotspot-item--{{ item.severity }}" data-round-idx="{{ item.round_idx }}">
+                <span class="hotspot-item__round mono">#{{ item.round_idx }}</span>
+                <span class="hotspot-item__type">{{ item.label }}</span>
+                <span class="hotspot-item__severity-badge badge badge--anomaly-{{ 'critical' if item.severity == 'critical' else 'warning' if item.severity == 'warning' else 'info' }}">{{ item.severity }}</span>
+                <span class="hotspot-item__reason">{{ item.reason }}</span>
+                <button class="hotspot-item__jump-btn"
+                        onclick="HotspotsCtrl.jumpToRound({{ item.round_idx }})"
+                        title="跳转到 Round #{{ item.round_idx }}">跳转</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="hotspots-diagnostic__empty">
+            <div class="hotspots-diagnostic__empty-icon">&#x2705;</div>
+            <p>未发现异常。本轮会话各项指标均正常。</p>
+        </div>
         {% endif %}
     </div>
 </div>
@@ -968,7 +675,7 @@
         <div class="card-title" data-tooltip="Main call typically corresponds to one round; subagent calls are nested under the parent round and do not form separate session-level rounds.">LLM Calls Detail ({{ llm_calls | length }} total · {{ main_calls_list | length }} main + {{ sub_calls_list | length }} subagent)</div>
         <div class="profile-table-wrap">
             <div class="table-wrap">
-            <table>
+            <table class="data-table">
                 <thead>
                     <tr>
                         <th class="numeric">#</th>
@@ -984,6 +691,7 @@
                         <th class="numeric">Tools</th>
                         <th>Preview</th>
                         <th>Time</th>
+                        <th>Inspect</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1015,13 +723,22 @@
                             {{ call.response_preview[:80] if call.response_preview else '—' }}
                         </td>
                         <td class="text-xs text-muted mono">{{ call.timestamp | local_time if call.timestamp else '' }}</td>
+                        <td class="numeric">
+                            <button type="button" class="inspect-btn"
+                                    data-call-idx="{{ loop.index }}"
+                                    data-model="{{ call.model[:50] }}"
+                                    data-scope="{{ call.scope }}"
+                                    data-round="{{ call.round_index + 1 }}"
+                                    onclick="event.stopPropagation(); openLLMInspector(this);"
+                                    title="在 Inspector 中查看 Request/Response">查看</button>
+                        </td>
                     </tr>
                     <tr class="llm-call-detail display-none">
-                        <td colspan="{{ 11 if supports_cache_tokens else 9 }}" style="padding:0; background:var(--bg);">
-                            <div style="padding:12px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                        <td colspan="{{ 12 if supports_cache_tokens else 10 }}">
+                            <div class="llm-call-detail__grid">
                                 <div>
                                     <strong class="text-xs">Request Context:</strong>
-                                    <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ call.request_full[:1000] if call.request_full else (call.prompt_preview if call.prompt_preview else '—') }}</pre>
+                                    <pre class="mono text-xs llm-call-detail__pre-block">{{ call.request_full[:1000] if call.request_full else (call.prompt_preview if call.prompt_preview else '—') }}</pre>
                                     {% if call.request_full or call.prompt_preview %}
                                     {% set req_raw_id = 'profile-call-' ~ loop.index ~ '-request-raw' %}
                                     {% set req_md_id = 'profile-call-' ~ loop.index ~ '-request-md' %}
@@ -1035,12 +752,12 @@
                                         Open
                                     </button>
                                     <template id="{{ req_raw_id }}">{{ call.request_full if call.request_full else call.prompt_preview }}</template>
-                                    <template id="{{ req_md_id }}">{{ (call.request_full if call.request_full else call.prompt_preview) | markdown | safe }}</template>
+                                    <template id="{{ req_md_id }}">{{ (call.request_full if call.request_full else call.prompt_preview) | render_llm_blocks_html | safe }}</template>
                                     {% endif %}
                                 </div>
                                 <div>
                                     <strong class="text-xs">Response:</strong>
-                                    <pre class="mono text-xs" style="max-height:300px; overflow-y:auto; margin-top:4px; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ call.response_full[:1000] if call.response_full else '—' }}</pre>
+                                    <pre class="mono text-xs llm-call-detail__pre-block">{{ call.response_full[:1000] if call.response_full else '—' }}</pre>
                                     {% if call.response_full %}
                                     {% set res_raw_id = 'profile-call-' ~ loop.index ~ '-response-raw' %}
                                     {% set res_md_id = 'profile-call-' ~ loop.index ~ '-response-md' %}
@@ -1054,13 +771,16 @@
                                         Open
                                     </button>
                                     <template id="{{ res_raw_id }}">{{ call.response_full }}</template>
-                                    <template id="{{ res_md_id }}">{{ call.response_full | markdown | safe }}</template>
+                                    <template id="{{ res_md_id }}">{{ call.response_full | render_llm_blocks_html | safe }}</template>
                                     {% endif %}
+                                    {# Hidden templates for Inspector -- request/response raw content #}
+                                    <template id="llm-call-{{ loop.index }}-inspect-request">{{ call.request_full if call.request_full else call.prompt_preview }}</template>
+                                    <template id="llm-call-{{ loop.index }}-inspect-response">{{ call.response_full }}</template>
                                 </div>
                                 {% if call.tool_calls %}
                                 <div>
                                     <strong class="text-xs">Tool Calls ({{ call.tool_call_count }}):</strong>
-                                    <div class="tool-tree" style="margin-top:4px">
+                                    <div class="tool-tree llm-call-detail__tools">
                                         {% for tc in call.tool_calls %}
                                         <div class="tool-tree__item {{ 'tool-tree__item--error' if tc.is_failed else '' }}">
                                             <span class="tool-tree__name">{{ tc.name }}</span>
@@ -1075,7 +795,7 @@
                                 {% else %}
                                 <div>
                                     <strong class="text-xs">Tool Calls:</strong>
-                                    <div class="text-muted text-xs" style="margin-top:4px">No tools called</div>
+                                    <div class="text-muted text-xs llm-call-detail__no-tools">No tools called</div>
                                 </div>
                                 {% endif %}
                             </div>
@@ -1272,27 +992,6 @@
         }
     };
 
-    /* ─── Copy raw data ──────────────────────────────────────────── */
-    window.copyRawData = function() {
-        var el = document.getElementById('raw-json');
-        if (el) {
-            navigator.clipboard.writeText(el.textContent).then(function() {
-                var btn = event.target;
-                btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-            });
-        }
-    };
-
-    /* ─── Copy path ──────────────────────────────────────────────── */
-    window.copyPath = function(el) {
-        var text = el.dataset.tooltip.replace('Click to copy: ', '');
-        navigator.clipboard.writeText(text).then(function() {
-            el.textContent = 'Copied!';
-            setTimeout(function() { el.textContent = text; }, 1000);
-        });
-    };
-
     /* ─── Tool detail card expand/collapse ───────────────────── */
     window.toggleToolDetail = function(headerEl) {
         var card = headerEl.closest('.tool-detail-card');
@@ -1318,6 +1017,54 @@
         } else {
             detailRow.style.display = 'none';
         }
+    };
+
+    /* ─── LLM call inspector entry ─────────────────────────── */
+    window.openLLMInspector = function(btn) {
+        if (!window.openInspector) return;
+
+        var callIdx = btn.getAttribute('data-call-idx') || '?';
+        var model = btn.getAttribute('data-model') || '';
+        var scope = btn.getAttribute('data-scope') || '';
+        var round = btn.getAttribute('data-round') || '';
+
+        // Retrieve raw content from hidden templates
+        var reqTpl = document.getElementById('llm-call-' + callIdx + '-inspect-request');
+        var resTpl = document.getElementById('llm-call-' + callIdx + '-inspect-response');
+        var reqRaw = reqTpl ? (reqTpl.textContent || '') : '(No request content)';
+        var resRaw = resTpl ? (resTpl.textContent || '') : '(No response content)';
+
+        var viewerHtml =
+            '<div class="inspector-sub-viewer">' +
+                '<div class="inspector-sub-viewer__header">Request</div>' +
+                '<div class="viewer viewer--raw">' +
+                    '<div class="viewer__raw">' +
+                        '<pre class="viewer__raw-pre">' +
+                            reqRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                        '</pre>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="inspector-sub-viewer__header inspector-sub-viewer__header--mt">Response</div>' +
+                '<div class="viewer viewer--raw">' +
+                    '<div class="viewer__raw">' +
+                        '<pre class="viewer__raw-pre">' +
+                            resRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                        '</pre>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        window.openInspector({
+            title: 'LLM Call #' + callIdx + ' (R' + round + ')',
+            metadata: {
+                'Call #': { value: callIdx, mono: true },
+                'Round': { value: 'R' + round, mono: true },
+                'Scope': { value: scope },
+                'Model': { value: model, mono: true }
+            },
+            summary: '在 Inspector 中查看 LLM Call #' + callIdx + ' 的 Request 和 Response 原始内容。',
+            viewerHtml: viewerHtml
+        });
     };
 
     /* ─── Show More / Less button ──────────────────────────── */
@@ -1516,6 +1263,52 @@
             btn.classList.add('active');
         }
     };
+
+    /* ─── Hotspots diagnostic: jump to round ──────────────── */
+    window.HotspotsCtrl = (function() {
+        /**
+         * Jump from hotspots diagnostic to a specific round in Timeline tab.
+         * Switches tab, scrolls to the round row, expands it, and highlights it.
+         */
+        function jumpToRound(roundIdx) {
+            // 1. Switch to Timeline tab
+            if (typeof window.switchTab === 'function') {
+                window.switchTab('timeline');
+            }
+
+            // 2. Find the round header row
+            var headerRow = document.querySelector('.round-header-row[data-round-idx="' + roundIdx + '"]');
+            if (!headerRow) {
+                console.warn('HotspotsCtrl: round #' + roundIdx + ' header row not found');
+                return;
+            }
+
+            // 3. Expand the round detail if collapsed
+            var detailRow = headerRow.nextElementSibling;
+            if (detailRow && detailRow.classList.contains('round-detail-row')) {
+                if (detailRow.style.display === 'none' || detailRow.style.display === '') {
+                    if (typeof window.toggleRoundDetail === 'function') {
+                        window.toggleRoundDetail(headerRow);
+                    }
+                }
+            }
+
+            // 4. Scroll into view
+            headerRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 5. Highlight with animation
+            var prev = document.querySelector('.round-header-row.row--highlighted');
+            if (prev) prev.classList.remove('row--highlighted');
+            headerRow.classList.add('row--highlighted');
+            setTimeout(function() {
+                headerRow.classList.remove('row--highlighted');
+            }, 3000);
+        }
+
+        return {
+            jumpToRound: jumpToRound
+        };
+    })();
 
 })();
 </script>

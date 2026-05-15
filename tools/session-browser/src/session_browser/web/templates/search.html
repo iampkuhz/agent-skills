@@ -3,18 +3,31 @@
 
 {% block title %}Search - Agent Run Profiler{% endblock %}
 
-{% block topbar %}
-<div class="topbar-breadcrumb">
-    <a href="/dashboard">Dashboard</a>
-    <span class="sep">/</span>
-    <span class="current">Search</span>
-</div>
+{% block breadcrumb %}
+<a href="/dashboard">Dashboard</a>
+<span class="sep">/</span>
+<span class="current">Search</span>
 {% endblock %}
 
 {% block content %}
-<div class="card search-panel">
-    <form class="search-form" action="/search" method="get">
-        <input class="filter-bar__input search-form__input"
+<!-- Page header -->
+<div class="page-header">
+    <div class="page-header__top">
+        <div class="page-header__left">
+            <h1 class="page-header__title">Search</h1>
+        </div>
+        <div class="page-header__actions">
+            {% if query %}
+            <span class="text-muted text-xs" id="search-count-label">{{ sessions | length }} results for "{{ query }}"</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Search input card -->
+<div class="card" style="margin-bottom:12px; padding:10px 14px">
+    <form class="filter-bar" action="/search" method="get">
+        <input class="filter-bar__input filter-bar__input--search"
                type="search"
                name="q"
                value="{{ query }}"
@@ -24,18 +37,11 @@
     </form>
 </div>
 
-<div class="card">
-    <div class="card-title">
-        {% if query %}
-        Search Results <span class="text-muted fw-400 normal-case no-tracking">({{ sessions | length }} for "{{ query }}")</span>
-        {% else %}
-        Search
-        {% endif %}
-    </div>
-
+<!-- Results table -->
+<div class="page-section">
     {% if query and sessions %}
     <div class="table-wrap">
-        <table id="search-results-table">
+        <table id="search-results-table" class="data-table" data-table-enhanced>
             <thead>
                 <tr>
                     <th>Title</th>
@@ -76,6 +82,7 @@
             </tbody>
         </table>
     </div>
+    <div id="search-empty" class="empty-state" style="display:none">No sessions match your search.</div>
     {% elif query %}
     <div class="empty-state">No sessions matched "{{ query }}".</div>
     {% else %}

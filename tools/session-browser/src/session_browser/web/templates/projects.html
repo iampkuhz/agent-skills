@@ -3,21 +3,25 @@
 
 {% block title %}Projects - Agent Run Profiler{% endblock %}
 
-{% block topbar %}
-<div class="topbar-breadcrumb">
-    <a href="/dashboard">Dashboard</a>
-    <span class="sep">/</span>
-    <span class="current">Projects</span>
-</div>
-{% endblock %}
-
 {% block content %}
 
-<!-- Search and sort controls -->
+<!-- Page header -->
+<div class="page-header">
+    <div class="page-header__top">
+        <div class="page-header__left">
+            <h1 class="page-header__title">Projects</h1>
+        </div>
+        <div class="page-header__actions">
+            <span class="text-muted text-xs" id="projects-count-label">{{ projects | length }} projects</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filter row -->
 <div class="card" style="margin-bottom:12px; padding:10px 14px">
     <div class="filter-bar">
-        <input id="project-search" type="text" placeholder="Search by name or path…"
-               class="filter-bar__input" />
+        <input id="project-search" type="text" placeholder="Search by name or path..."
+               class="filter-bar__input filter-bar__input--search" />
         <select id="project-sort" class="filter-bar__select">
             <option value="last_seen">Sort: Last Active</option>
             <option value="total_sessions">Sort: Sessions</option>
@@ -30,23 +34,23 @@
 </div>
 
 <!-- Projects table -->
-<div class="card">
-    <div class="card-title">
-        Projects <span class="text-muted normal-case">(<span id="project-count">{{ projects | length }}</span>)</span>
+<div class="page-section">
+    <div class="card-title flex">
+        All Projects <span class="text-muted normal-case">(<span id="project-count">{{ projects | length }}</span>)</span>
     </div>
     {% if projects %}
     <div class="table-wrap">
-        <table id="projects-table">
+        <table id="projects-table" class="data-table" data-table-enhanced>
             <thead>
                 <tr>
                     <th>Project</th>
                     <th>Path</th>
-                    <th class="numeric">Sessions</th>
+                    <th class="numeric sortable">Sessions</th>
                     <th class="numeric">Agents</th>
-                    <th class="numeric">Tokens</th>
-                    <th class="numeric">Tools</th>
+                    <th class="numeric sortable">Tokens</th>
+                    <th class="numeric sortable">Tools</th>
                     <th>Health</th>
-                    <th>Last Active</th>
+                    <th class="sortable">Last Active</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,18 +119,6 @@
 
 <script>
 (function() {
-    /* ─── Copy project path ────────────────────────────────────────── */
-    window.copyProjectPath = function(btn, path) {
-        navigator.clipboard.writeText(path).then(function() {
-            btn.classList.add('copied');
-            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>';
-            setTimeout(function() {
-                btn.classList.remove('copied');
-                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 0 1 1-1h8"/></svg>';
-            }, 1200);
-        });
-    };
-
     /* ─── Project search ─────────────────────────────────────────── */
     window.applyProjectFilters = function() {
         filterProjects();
@@ -146,6 +138,8 @@
         });
 
         document.getElementById('project-count').textContent = visibleCount;
+        var label = document.getElementById('projects-count-label');
+        if (label) label.textContent = visibleCount + ' projects';
         var empty = document.getElementById('projects-empty');
         if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
     }
