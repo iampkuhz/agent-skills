@@ -62,74 +62,13 @@ curl -s http://localhost:4000/v1/models \
 
 **预期结果**：返回配置的模型列表
 
-### 4. SearXNG MCP 服务验证
+### 4. SearXNG MCP 服务 [已退役]
 
-```bash
-# 安装依赖
-cd tools/search/searxng-mcp
-uv sync
-
-# 运行测试
-./scripts/run.sh test
-```
-
-**预期结果**：测试通过
-
-```bash
-# 手动测试（需要 SearXNG 运行中）
-uv run python -c "
-from src.client import SearXNGClient
-import asyncio
-
-async def test():
-    client = SearXNGClient()
-    results = await client.search('test query', max_results=3)
-    print(f'Found {len(results)} results')
-
-asyncio.run(test())
-"
-```
-
-**预期结果**：返回搜索结果
+> SearXNG MCP（`tools/search/searxng-mcp/`）已于 2026-05 移除。如需网页搜索能力，请使用 Crawl4AI MCP（`tools/crawl/crawl4ai/`）。
 
 ### 5. Claude Code 集成验证
 
-**步骤 1**：配置 MCP Server
-
-在 `~/.claude/settings.local.json` 中添加：
-
-```json
-{
-  "mcpServers": {
-    "searxng": {
-      "command": "uv",
-      "args": ["run", "python", "src/server.py"],
-      "cwd": "/Users/zhehan/Documents/tools/llm/skills/feipi-agent-kit/tools/search/searxng-mcp",
-      "env": {
-        "SEARXNG_BASE_URL": "http://localhost:8873",
-        "SEARXNG_TIMEOUT": "30.0"
-      }
-    }
-  }
-}
-```
-
-**步骤 2**：启动 MCP 服务
-
-```bash
-# 在 Claude Code 中验证
-# Claude Code 会自动启动配置的 MCP 服务
-```
-
-**步骤 3**：使用工具
-
-在 Claude Code 中输入：
-
-```
-使用 search_web 搜索 "Python async best practices"，返回 3 条结果
-```
-
-**预期结果**：返回 3 条搜索结果，包含 title、url、snippet、engine 字段
+> 以下 SearXNG MCP 配置示例已随服务退役失效。如需配置 MCP Server，请参考 Crawl4AI MCP 的文档。
 
 ### 6. 健康检查脚本验证
 
@@ -165,12 +104,7 @@ asyncio.run(test())
 
 ### MCP 服务无法连接
 
-**症状**：Claude Code 提示 MCP 服务不可用
-
-**排查步骤**：
-1. 检查 SearXNG 是否运行：`curl http://localhost:8873/healthz`
-2. 手动运行 MCP 服务：`cd tools/search/searxng-mcp && ./scripts/run.sh stdio`
-3. 检查 Claude Code 配置中的路径是否正确
+> SearXNG MCP 服务已退役。如需 MCP 搜索能力，请使用 Crawl4AI MCP（`tools/crawl/crawl4ai/`）。
 
 ---
 
@@ -193,12 +127,12 @@ asyncio.run(test())
 
 ### 新增服务
 
-- [x] SearXNG MCP 已创建于 `tools/search/searxng-mcp/`
-- [x] MCP 服务可通过测试
+- [x] LiteLLM 已配置到 `tools/gateway/litellm/`
+- [x] SearXNG MCP 曾创建于 `tools/search/searxng-mcp/`（已于 2026-05 移除）
 
 ### 集成验证
 
-- [ ] SearXNG MCP 可在 Claude Code 中使用
+- [ ] Crawl4AI MCP 可在 Claude Code 中使用
 - [ ] 搜索工具返回有效结果
 - [ ] 错误处理清晰可读
 

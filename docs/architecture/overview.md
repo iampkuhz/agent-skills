@@ -74,7 +74,7 @@
 tools/
 ├── search/       # 搜索类服务
 │   ├── searxng/      # SearXNG 本体
-│   └── searxng-mcp/  # SearXNG MCP 封装
+│   └── searxng-mcp/  # SearXNG MCP 封装 [已退役]
 ├── crawl/        # 抓取类服务
 │   ├── crawl4ai/
 │   └── crawl4ai-mcp/
@@ -153,10 +153,13 @@ tools/search/searxng/compose/
 
 ### MCP 模式（推荐）
 
+> 以下为历史架构图，SearXNG MCP 已退役。当前推荐使用 Crawl4AI MCP。
+
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │  Claude Code  │ ──► │  searxng-mcp │ ──► │   SearXNG    │
 │              │ MCP │  (FastMCP)    │HTTP │  (搜索引擎)   │
+│              │     │  [已退役]     │     │              │
 └──────────────┘     └──────────────┘     └──────────────┘
 ```
 
