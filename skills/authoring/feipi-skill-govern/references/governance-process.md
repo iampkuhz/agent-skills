@@ -81,6 +81,24 @@
 - 禁止写回任意 skill 的 `assets/`、`references/`、`templates/` 或其他内部目录。
 - 若需要示例文件名，优先使用 `tmp/<skill-name>-step1-audit.md`、`tmp/<skill-name>-rename-plan.md`、`tmp/<skill-name>-governance-report.md`。
 
+## 治理产物落位与字段
+
+### 落位规则
+
+Step 1 基线审计、Step 1.5 rename review/rename plan、Step 2 checklist、governance report 都属于临时治理产物。
+这些文件只能写到仓库根 `tmp/` 或系统临时目录，禁止提交到任意 skill 的 `assets/`、`references/`、`templates/` 或其他内部目录。
+
+推荐命名：`tmp/<skill-name>-step1-audit.md`、`tmp/<skill-name>-rename-plan.md`、`tmp/<skill-name>-governance-report.md`。
+
+### 通用字段
+
+以下字段应在相关临时文档中按需出现并保持同名：
+`current_name`、`target_name`、`target_layer`、`target_domain`、`target_action`、`target_object`、`rename_reason`、`rule_violation`、`script_localization_status`、`validation_status`、`current_layer`。
+
+### 使用原则
+
+临时文档只提供治理过程记录，不替代真实分析与验证。旧 rename 结论若不符合 v2，必须通过 Step 1.5 重审，不能直接复用历史结论。
+
 ## 暂停与重启规则
 
 - 若治理真源发生变化，历史上尚未执行完的 Step 2C / Step 2D 一律暂停。
