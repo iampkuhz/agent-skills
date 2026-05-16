@@ -3,6 +3,13 @@
 import os
 import sys
 import re
+import shlex
+
+
+REQUIRED_SKILL_FIELDS = ("name", "path", "layer", "description", "clients", "entry", "validation", "status")
+VALID_LAYERS = {"authoring", "diagram", "integration"}
+VALID_STATUS = {"stable", "compatibility"}
+VALID_VALIDATION_TYPES = {"script", "none"}
 
 
 def find_repo_root():
@@ -41,6 +48,8 @@ def try_parse_yaml_simple(text):
 
             if key in ("name", "path", "layer", "description", "entry", "status"):
                 current[key] = value
+            elif key == "clients":
+                current["clients"] = [item.strip() for item in value.strip("[]").split(",") if item.strip()]
             elif key == "validation" and value in ("null", "none", ""):
                 current["validation"] = None
             elif key == "type":
@@ -60,22 +69,28 @@ def parse_registry(root):
 
     skills = None
 
-    # Try PyYAML
     try:
         import yaml
-        with open(reg_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        skills = data.get("skills", [])
     except ImportError:
-        pass
-    except Exception:
-        pass
-
-    if skills is None:
-        # Fallback to simple parser
         with open(reg_path, "r", encoding="utf-8") as f:
             text = f.read()
-        skills = try_parse_yaml_simple(text)
+        return try_parse_yaml_simple(text)
+
+    try:
+        with open(reg_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except Exception as exc:
+        print(f"  [FAIL] Cannot parse skills/registry.yaml: {exc}")
+        return None
+
+    if not isinstance(data, dict):
+        print("  [FAIL] skills/registry.yaml must be a mapping")
+        return None
+
+    skills = data.get("skills")
+    if not isinstance(skills, list):
+        print("  [FAIL] skills/registry.yaml field 'skills' must be a list")
+        return None
 
     return skills
 
@@ -89,6 +104,85 @@ def check_registry_exists(root):
     else:
         print(f"  [FAIL] skills/registry.yaml not found")
         return False
+
+
+def get_validation_info(skill):
+    """Return (validation_present, validation_type, validation_command)."""
+    if "validation" in skill:
+        val = skill.get("validation")
+        if val is None:
+            return True, "none", ""
+        if isinstance(val, dict):
+            return True, val.get("type", ""), val.get("command", "")
+        return True, "", ""
+
+    if "validation_type" in skill or "validation_command" in skill:
+        return True, skill.get("validation_type", ""), skill.get("validation_command", "")
+
+    return False, "", ""
+
+
+def check_skill_metadata(skills):
+    """Check required registry metadata before filesystem checks."""
+    all_ok = True
+    seen_names = set()
+    seen_paths = set()
+
+    for skill in skills:
+        name = skill.get("name", "<unknown>")
+
+        for field in REQUIRED_SKILL_FIELDS:
+            if field == "validation":
+                present, _, _ = get_validation_info(skill)
+                if not present:
+                    print(f"  [FAIL] Skill '{name}' missing required field: validation")
+                    all_ok = False
+                continue
+
+            value = skill.get(field)
+            if value in (None, "") or (field == "clients" and not value):
+                print(f"  [FAIL] Skill '{name}' missing required field: {field}")
+                all_ok = False
+
+        if name in seen_names:
+            print(f"  [FAIL] Duplicate skill name: {name}")
+            all_ok = False
+        seen_names.add(name)
+
+        path = skill.get("path", "")
+        if path in seen_paths:
+            print(f"  [FAIL] Duplicate skill path: {path}")
+            all_ok = False
+        seen_paths.add(path)
+
+        if name != "<unknown>" and not re.match(r"^feipi-[a-z0-9-]+$", name):
+            print(f"  [FAIL] Skill '{name}' name does not match feipi-* kebab-case")
+            all_ok = False
+
+        layer = skill.get("layer")
+        if layer and layer not in VALID_LAYERS:
+            print(f"  [FAIL] Skill '{name}' has invalid layer: {layer}")
+            all_ok = False
+
+        clients = skill.get("clients")
+        if clients and not isinstance(clients, list):
+            print(f"  [FAIL] Skill '{name}' clients must be a list")
+            all_ok = False
+
+        status = skill.get("status")
+        if status and status not in VALID_STATUS:
+            print(f"  [FAIL] Skill '{name}' has invalid status: {status}")
+            all_ok = False
+
+        _, val_type, val_cmd = get_validation_info(skill)
+        if val_type and val_type not in VALID_VALIDATION_TYPES:
+            print(f"  [FAIL] Skill '{name}' has invalid validation type: {val_type}")
+            all_ok = False
+        if val_type == "script" and not val_cmd:
+            print(f"  [FAIL] Skill '{name}' has validation type 'script' but no command")
+            all_ok = False
+
+    return all_ok
 
 
 def check_skill_paths(root, skills):
@@ -135,25 +229,17 @@ def check_validation_scripts(root, skills):
 
     for skill in skills:
         name = skill.get("name", "<unknown>")
-
-        # Extract validation info from nested dict (PyYAML) or flat keys (fallback)
-        val = skill.get("validation")
-        if isinstance(val, dict):
-            val_type = val.get("type", "")
-            val_cmd = val.get("command", "")
-        else:
-            val_type = skill.get("validation_type", "")
-            val_cmd = skill.get("validation_command", "")
+        _, val_type, val_cmd = get_validation_info(skill)
 
         if not val_type or val_type != "script":
             continue
 
         if not val_cmd:
-            print(f"  [WARN] Skill '{name}' has validation type 'script' but no command")
+            # check_skill_metadata reports the missing command as the contract error.
             continue
 
         # Extract the script path from the command (e.g., "bash path/to/script.sh" -> path/to/script.sh)
-        parts = val_cmd.split()
+        parts = shlex.split(val_cmd)
         script_path = parts[-1] if parts else ""
 
         full_script = os.path.join(root, script_path)
@@ -179,13 +265,17 @@ def main():
         return 1
 
     skills = parse_registry(root)
+    if skills is None:
+        print("Registry validation: FAIL (registry parse error)")
+        return 1
 
     if not skills:
-        print(f"  [WARN] No skills found in registry")
-        print("Registry validation: PASS (empty but valid)")
-        return 0
+        print("  [FAIL] No skills found in registry")
+        print("Registry validation: FAIL")
+        return 1
 
     print(f"  [INFO] Found {len(skills)} skill(s) in registry")
+    results.append(check_skill_metadata(skills))
     results.append(check_skill_paths(root, skills))
     results.append(check_validation_scripts(root, skills))
 
