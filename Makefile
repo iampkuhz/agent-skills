@@ -28,6 +28,7 @@ SESSION_BROWSER_DIR := tools/session-browser
 .PHONY: session-browser-up session-browser-deploy session-browser-down session-browser-logs session-browser-status
 .PHONY: doctor setup
 .PHONY: model-download
+.PHONY: harness-doctor validate-harness
 
 # ===== 主帮助 =====
 
@@ -72,6 +73,10 @@ help:
 	@echo "===== 仓库维护 ====="
 	@echo "  make setup               # 初始化设置"
 	@echo "  make doctor              # 健康检查"
+	@echo ""
+	@echo "===== Harness 验证 ====="
+	@echo "  make harness-doctor      # 离线 harness 验证（rules/commands/registry/manifest）"
+	@echo "  make validate-harness    # 同 harness-doctor"
 	@echo ""
 
 # ===== Skills 安装 =====
@@ -183,12 +188,12 @@ session-browser-status:
 
 setup:
 	@echo "🔧 初始化设置..."
-	@./scripts/bootstrap/setup.sh 2>/dev/null || echo "⚠️  setup.sh 尚未创建，手动执行初始化"
+	@./scripts/bootstrap/setup.sh 2>/dev/null || echo "⚠️  setup.sh 执行失败"
 	@echo "✅ 初始化完成"
 
 doctor:
 	@echo "🏥 健康检查..."
-	@./scripts/doctor/check.sh 2>/dev/null || echo "⚠️  check.sh 尚未创建，手动执行检查"
+	@./scripts/doctor/check.sh 2>/dev/null || echo "⚠️  check.sh 执行失败"
 	@echo ""
 	@echo "===== 服务状态 ====="
 	@echo "SearXNG:"
@@ -211,3 +216,11 @@ model-download:
 		$(if $(PROXY),-p "$(PROXY)") \
 		$(if $(OUTPUT),-o "$(OUTPUT)") \
 		"$(MODEL)"
+
+# ===== Harness 验证 =====
+
+harness-doctor:
+	@bash scripts/harness/doctor.sh
+
+validate-harness:
+	@bash scripts/harness/doctor.sh
