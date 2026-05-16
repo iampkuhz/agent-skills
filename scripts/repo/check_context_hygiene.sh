@@ -88,6 +88,8 @@ if [[ -d "$REPO_ROOT/commands" ]]; then
   done
   if $has_actual; then
     log_pass "commands/" "contains actual command files"
+  elif grep -q "当前没有已启用 command" "$REPO_ROOT/commands/README.md" 2>/dev/null; then
+    log_pass "commands/" "no commands (by design — README declares no enabled commands)"
   else
     log_warn "commands/" "no actual command files found — shell only (by design if retired)"
     ((warns++))
