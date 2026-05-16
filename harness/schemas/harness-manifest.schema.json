@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feipi Agent Kit Harness Manifest",
+  "description": "仓库资源注册表 — 描述所有已存在的文件、目录与工作流",
+  "type": "object",
+  "required": ["version", "name", "description", "entrypoints", "rules", "commands", "skills", "workflows", "validation", "local_config"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "语义化版本号"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "仓库名称"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "仓库简短描述"
+    },
+    "entrypoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "type", "description"],
+        "properties": {
+          "path": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["core-constraints", "detail", "overview", "handbook", "rules-index"]
+          },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "scope", "description"],
+        "properties": {
+          "path": { "type": "string" },
+          "scope": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "readme": { "type": "string" }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "layer", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "layer": {
+            "type": "string",
+            "enum": ["authoring", "diagram", "integration"]
+          },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "validation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "script", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "script": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "local_config": {
+      "type": "object",
+      "required": ["files", "policy"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "description"],
+            "properties": {
+              "path": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "policy": { "type": "string" }
+      }
+    }
+  }
+}

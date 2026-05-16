@@ -1,0 +1,120 @@
+# Feipi Agent Kit — Harness Manifest
+# Auto-generated. Do not edit manually unless registering new resources.
+
+version: "0.1.0"
+name: "feipi-agent-kit"
+description: "AI 工程助手仓库 — skills / tools / rules / commands 的创建、更新与验证"
+
+# ---------------------------------------------------------------------------
+# Entrypoints — AI agent 启动时加载的核心文档
+# ---------------------------------------------------------------------------
+entrypoints:
+  - path: "AGENTS.md"
+    type: "core-constraints"
+    description: "核心约束与入口（强约束、目录路由、DoD）"
+  - path: "CLAUDE.md"
+    type: "detail"
+    description: "详细说明（渐进式加载入口）"
+  - path: "README.md"
+    type: "overview"
+    description: "仓库总览"
+  - path: "docs/agent-handbook.md"
+    type: "handbook"
+    description: "Agent 操作手册"
+  - path: "rules/README.md"
+    type: "rules-index"
+    description: "规则索引"
+
+# ---------------------------------------------------------------------------
+# Rules — 行为规则（仅已存在的文件）
+# ---------------------------------------------------------------------------
+rules:
+  - path: "rules/global/language.md"
+    scope: "global"
+    description: "语言使用规范（中文优先）"
+
+# ---------------------------------------------------------------------------
+# Commands — 当前无已启用 command
+# ---------------------------------------------------------------------------
+commands:
+  enabled: false
+  readme: "commands/README.md"
+
+# ---------------------------------------------------------------------------
+# Skills — 全部 8 个已注册 skill
+# ---------------------------------------------------------------------------
+skills:
+  # --- authoring layer ---
+  - name: "feipi-patent-generate-innovation-disclosure"
+    path: "skills/authoring/feipi-patent-generate-innovation-disclosure/SKILL.md"
+    layer: "authoring"
+    description: "专利创新交底书生成"
+  - name: "feipi-skill-govern"
+    path: "skills/authoring/feipi-skill-govern/SKILL.md"
+    layer: "authoring"
+    description: "Skill 治理（命名、触发、验证边界）"
+  - name: "feipi-techreport-ppt-skill"
+    path: "skills/authoring/feipi-techreport-ppt-skill/SKILL.md"
+    layer: "authoring"
+    description: "技术汇报 PPT 单页重构"
+  # --- diagram layer ---
+  - name: "feipi-plantuml-generate-architecture-diagram"
+    path: "skills/diagram/feipi-plantuml-generate-architecture-diagram/SKILL.md"
+    layer: "diagram"
+    description: "PlantUML 架构图生成（兼容入口）"
+  - name: "feipi-plantuml-generate-diagram"
+    path: "skills/diagram/feipi-plantuml-generate-diagram/SKILL.md"
+    layer: "diagram"
+    description: "PlantUML 作图主入口"
+  - name: "feipi-plantuml-generate-sequence-diagram"
+    path: "skills/diagram/feipi-plantuml-generate-sequence-diagram/SKILL.md"
+    layer: "diagram"
+    description: "PlantUML 时序图生成（兼容入口）"
+  # --- integration layer ---
+  - name: "feipi-dingtalk-send-webhook"
+    path: "skills/integration/feipi-dingtalk-send-webhook/SKILL.md"
+    layer: "integration"
+    description: "钉钉群机器人 webhook 消息发送"
+  - name: "feipi-video-read-url"
+    path: "skills/integration/feipi-video-read-url/SKILL.md"
+    layer: "integration"
+    description: "视频 URL 处理（下载、字幕、摘要）"
+
+# ---------------------------------------------------------------------------
+# Workflows — 已定义的工作流
+# ---------------------------------------------------------------------------
+workflows:
+  - name: "skill-govern"
+    path: "harness/workflows/skill-govern.yaml"
+    description: "Skill 治理工作流（创建、审查、校验）"
+  - name: "diagram-generate"
+    path: "harness/workflows/diagram-generate.yaml"
+    description: "PlantUML 图表生成工作流"
+
+# ---------------------------------------------------------------------------
+# Validation — harness 级一致性检查（由 scripts/harness/doctor.sh 执行）
+# ---------------------------------------------------------------------------
+validation:
+  - name: "validate_rules"
+    script: "scripts/harness/validate_rules.py"
+    description: "rules/ 一致性检查"
+  - name: "validate_commands"
+    script: "scripts/harness/validate_commands.py"
+    description: "commands/ 一致性检查"
+  - name: "validate_registry"
+    script: "scripts/harness/validate_registry.py"
+    description: "skills/registry.yaml 一致性检查"
+  - name: "validate_manifest"
+    script: "scripts/harness/validate_manifest.py"
+    description: "harness/manifest.yaml 一致性检查"
+
+# ---------------------------------------------------------------------------
+# Local Config — 用户个人配置，不可模板化
+# ---------------------------------------------------------------------------
+local_config:
+  files:
+    - path: ".claude/settings.local.json"
+      description: "Claude Code 本地配置（用户个人设置）"
+    - path: ".mcp.json"
+      description: "MCP 服务配置（用户个人 MCP 列表）"
+  policy: "这些文件属于用户个人本地配置，保持原样，不纳入模板或 manifest 管理"

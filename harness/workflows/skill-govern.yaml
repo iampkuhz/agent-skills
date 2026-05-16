@@ -1,0 +1,49 @@
+# Workflow: Skill Governance
+# 用于 skill 的创建、审查、校验与生命周期管理
+
+workflow:
+  name: "skill-govern"
+  version: "0.1.0"
+  description: "Skill 治理工作流 — 确保所有 skill 遵循命名、结构、触发与验证规范"
+
+  # 触发条件
+  triggers:
+    - "创建新 skill 时"
+    - "重构现有 skill 时"
+    - "执行仓库健康检查时"
+    - "审计 skill 边界时"
+
+  # 引用的 skill
+  referenced_skills:
+    - name: "feipi-skill-govern"
+      path: "skills/authoring/feipi-skill-govern/SKILL.md"
+      role: "主治理 skill"
+
+  # 校验步骤
+  steps:
+    - name: "check-naming"
+      description: "检查 skill 命名规范"
+      script: "scripts/hooks/check-skill-naming.sh"
+      required: true
+
+    - name: "check-structure"
+      description: "检查 skill 目录结构"
+      script: "scripts/hooks/check-skill-structure.sh"
+      required: true
+
+    - name: "check-frontmatter"
+      description: "检查 SKILL.md frontmatter"
+      script: "scripts/hooks/check-frontmatter.sh"
+      required: true
+
+    - name: "validate-context-hygiene"
+      description: "检查上下文清洁"
+      script: "scripts/repo/check_context_hygiene.sh"
+      required: false
+
+  # 输出
+  outputs:
+    - type: "report"
+      description: "治理检查报告"
+    - type: "status"
+      description: "通过/失败状态"

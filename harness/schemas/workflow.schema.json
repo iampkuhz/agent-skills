@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feipi Agent Kit Workflow",
+  "description": "工作流定义 — 描述触发条件、引用资源、执行步骤与输出",
+  "type": "object",
+  "required": ["workflow"],
+  "properties": {
+    "workflow": {
+      "type": "object",
+      "required": ["name", "version", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "工作流唯一名称"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "工作流版本号"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "工作流描述"
+        },
+        "triggers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "触发条件列表"
+        },
+        "referenced_skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "path", "role"],
+            "properties": {
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "role": { "type": "string" }
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "script": { "type": "string" },
+              "required": { "type": "boolean" }
+            }
+          }
+        },
+        "routing": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "string" },
+            "compatibility": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "condition": { "type": "string" },
+                  "target": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "description"],
+            "properties": {
+              "type": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
