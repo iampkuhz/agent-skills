@@ -6,6 +6,10 @@ set -euo pipefail
 # 1. 软链接模式：安装到用户级 agent 目录（~/.claude/skills 等）
 # 2. 拷贝模式：安装到项目目录内（<project>/.agents/skills 等）
 #
+# 安装前自动验证：
+# 1. 运行 scripts/harness/validate_registry.py 校验 registry.yaml
+# 2. 对比 registry.yaml 中列出的技能路径与文件系统扫描结果，必须完全一致
+#
 # 注意：OpenClaw 安全策略拒绝 realpath 超出根目录的软链接
 # （"resolved realpath stays inside the configured root"），
 # 因此对 openclaw 用户级安装也使用实拷，而非软链接。
@@ -37,6 +41,10 @@ while [[ $# -gt 0 ]]; do
       echo "选项:"
       echo "  --agent <name>  指定 agent 类型（codex | qwen | qoder | claudecode | openclaw）"
       echo "  --dir <path>    指定目标路径"
+      echo ""
+      echo "安装前自动验证："
+      echo "  1. 运行 registry 校验（validate_registry.py）"
+      echo "  2. 对比 registry.yaml 与文件系统技能目录的一致性"
       echo ""
       echo "示例:"
       echo "  $0                              # 软链接到所有已存在的用户级目录"
@@ -281,11 +289,152 @@ collect_all_skills() {
   printf '%s\n' "${final_skills[@]}" | sort -u
 }
 
+# ===== 注册表验证与解析 =====
+
+validate_registry() {
+  echo "=== 注册表验证 ==="
+  local validator="$REPO_ROOT/scripts/harness/validate_registry.py"
+  if [[ ! -f "$validator" ]]; then
+    echo "  [ERROR] 注册表验证脚本不存在：$validator" >&2
+    return 1
+  fi
+  if ! python3 "$validator"; then
+    echo ""
+    echo "[ERROR] 注册表验证失败，已中止安装。" >&2
+    echo "请先修复 skills/registry.yaml 中的问题，再重试安装。" >&2
+    return 1
+  fi
+  return 0
+}
+
+parse_registry_skills() {
+  local reg_file="$REPO_ROOT/skills/registry.yaml"
+
+  if [[ ! -f "$reg_file" ]]; then
+    echo "[ERROR] 注册表文件不存在：$reg_file" >&2
+    return 1
+  fi
+
+  python3 << 'PYEOF'
+import sys, re, os
+
+reg_file = os.environ.get("REG_FILE", "")
+if not reg_file:
+    print("[ERROR] REG_FILE not set", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    import yaml
+    with open(reg_file, "r") as f:
+        data = yaml.safe_load(f)
+    for s in data.get("skills", []):
+        print(s.get("path", ""))
+except ImportError:
+    with open(reg_file, "r") as f:
+        text = f.read()
+    for line in text.splitlines():
+        m = re.match(r"^\s+path:\s*(.+)$", line)
+        if m:
+            print(m.group(1).strip().strip('"').strip("'"))
+except Exception as e:
+    print(f"[ERROR] 解析注册表失败: {e}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+}
+
+validate_registry_consistency() {
+  local registry_file="$1"
+  local collected_file="$2"
+
+  if [[ ! -f "$registry_file" ]] || [[ ! -s "$registry_file" ]]; then
+    echo "[ERROR] 无法读取注册表中的技能列表" >&2
+    return 1
+  fi
+
+  if [[ ! -f "$collected_file" ]] || [[ ! -s "$collected_file" ]]; then
+    echo "[ERROR] 无法读取文件系统扫描的技能列表" >&2
+    return 1
+  fi
+
+  # 将文件系统收集的绝对路径转为相对路径（相对于 REPO_ROOT）
+  # 以便与 registry.yaml 中的相对路径进行比较
+  local _normalized_collected
+  _normalized_collected="$(mktemp)"
+  sed "s|^${REPO_ROOT}/||" "$collected_file" | sort -u > "$_normalized_collected"
+
+  local missing_in_registry missing_in_fs
+  missing_in_registry="$(comm -23 <(sort "$_normalized_collected") <(sort "$registry_file"))"
+  missing_in_fs="$(comm -13 <(sort "$_normalized_collected") <(sort "$registry_file"))"
+
+  rm -f "$_normalized_collected"
+
+  local ok=true
+
+  if [[ -n "$missing_in_registry" ]]; then
+    echo "[ERROR] 以下技能存在于文件系统但未注册于 skills/registry.yaml：" >&2
+    while IFS= read -r p; do
+      echo "  - $p" >&2
+    done <<< "$missing_in_registry"
+    ok=false
+  fi
+
+  if [[ -n "$missing_in_fs" ]]; then
+    echo "[ERROR] 以下技能注册于 registry.yaml 但文件系统中不存在：" >&2
+    while IFS= read -r p; do
+      echo "  - $p" >&2
+    done <<< "$missing_in_fs"
+    ok=false
+  fi
+
+  if [[ "$ok" == false ]]; then
+    echo ""
+    echo "[ERROR] 注册表与文件系统不一致，已中止安装。" >&2
+    echo "请同步 skills/registry.yaml 与 skills/ 目录，再重试安装。" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# ===== 主流程：注册表验证 =====
+
+if ! validate_registry; then
+  exit 1
+fi
+
+# 收集技能列表（一次），用于注册表一致性校验和安装前展示
+_tmp_skills_registry="$(mktemp)"
+_tmp_skills_collected="$(mktemp)"
+trap 'rm -f "$_tmp_skills_registry" "$_tmp_skills_collected"' EXIT
+
+export REG_FILE="$REPO_ROOT/skills/registry.yaml"
+parse_registry_skills | sort -u > "$_tmp_skills_registry"
+collect_all_skills "$SRC_ROOT" | sort -u > "$_tmp_skills_collected"
+
+if ! validate_registry_consistency "$_tmp_skills_registry" "$_tmp_skills_collected"; then
+  exit 1
+fi
+
+echo ""
+
+# ===== 安装前展示技能列表 =====
+_skill_count="$(wc -l < "$_tmp_skills_collected" | tr -d ' ')"
+echo "将安装以下 ${_skill_count} 个技能："
+while IFS= read -r skill_path; do
+  [[ -z "$skill_path" ]] && continue
+  _skill_name="$(basename "$skill_path")"
+  echo "  - ${_skill_name}  (${skill_path})"
+done < "$_tmp_skills_collected"
+echo ""
+
+# ===== 开始安装 =====
+
 install_skills() {
   local mode="$1"
   local dest_root="$2"
   local install_func="$3"
   local label="$4"
+  local skills_file="${5:-}"
 
   echo "=== $label ==="
   echo "源目录：$SRC_ROOT"
@@ -312,10 +461,17 @@ install_skills() {
   fi
 
   # 收集所有技能（递归扫描，平铺输出）
+  # 如果提供了预收集的列表（用于注册表校验），直接使用
   local skill_paths=()
-  while IFS= read -r skill_path; do
-    [[ -n "$skill_path" ]] && skill_paths+=("$skill_path")
-  done < <(collect_all_skills "$SRC_ROOT")
+  if [[ -n "$skills_file" ]] && [[ -f "$skills_file" ]] && [[ -s "$skills_file" ]]; then
+    while IFS= read -r skill_path; do
+      [[ -n "$skill_path" ]] && skill_paths+=("$skill_path")
+    done < "$skills_file"
+  else
+    while IFS= read -r skill_path; do
+      [[ -n "$skill_path" ]] && skill_paths+=("$skill_path")
+    done < <(collect_all_skills "$SRC_ROOT")
+  fi
 
   echo "发现 ${#skill_paths[@]} 个技能"
 
@@ -392,7 +548,7 @@ if [[ -n "$TARGET_DIR" ]]; then
     exit 1
   fi
 
-  result="$(install_skills "copy" "$dest_root" "copy_dir" "安装到项目：$dest_root")"
+  result="$(install_skills "copy" "$dest_root" "copy_dir" "安装到项目：$dest_root" "$_tmp_skills_collected")"
   installed="$(echo "$result" | tail -1 | cut -d' ' -f1)"
   skipped="$(echo "$result" | tail -1 | cut -d' ' -f2)"
   total_installed=$((total_installed + installed))
@@ -432,11 +588,11 @@ else
     # OpenClaw 安全策略拒绝 realpath 超出根目录的软链接，
     # 因此对 openclaw 使用实拷而非软链接
     if [[ "$agent" == "openclaw" ]]; then
-      result="$(install_skills "copy" "$dest_root" "copy_dir" "安装到 ${agent} -> ${dest_root} [实拷]")"
+      result="$(install_skills "copy" "$dest_root" "copy_dir" "安装到 ${agent} -> ${dest_root} [实拷]" "$_tmp_skills_collected")"
     elif [[ -n "$agent" ]]; then
-      result="$(install_skills "link" "$dest_root" "link_item" "安装到 $agent -> $dest_root")"
+      result="$(install_skills "link" "$dest_root" "link_item" "安装到 $agent -> $dest_root" "$_tmp_skills_collected")"
     else
-      result="$(install_skills "link" "$dest_root" "link_item" "安装到 $dest_root")"
+      result="$(install_skills "link" "$dest_root" "link_item" "安装到 $dest_root" "$_tmp_skills_collected")"
     fi
     installed="$(echo "$result" | tail -1 | cut -d' ' -f1)"
     skipped="$(echo "$result" | tail -1 | cut -d' ' -f2)"
