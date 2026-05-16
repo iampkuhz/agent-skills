@@ -31,6 +31,12 @@
 
   /** 获取当前页面中"活跃"的表格（优先选可见且含多行的） */
   function getActiveTable() {
+    // 如果 Profile tab 活跃，优先返回 Profile 表格
+    var profileTab = document.querySelector('[data-tab="profile"].active');
+    if (profileTab) {
+      var profileTable = getProfileTable();
+      if (profileTable) return profileTable;
+    }
     // 优先使用 data-table-enhanced 标记的表格
     var tables = document.querySelectorAll('table[data-table-enhanced]');
     for (var i = 0; i < tables.length; i++) {
@@ -43,6 +49,15 @@
         return allTables[i];
       }
     }
+    return null;
+  }
+
+  /** 获取 Profile 表格（LLM Calls table，lazy-loaded） */
+  function getProfileTable() {
+    var profileContent = document.getElementById('profile');
+    if (!profileContent || !profileContent.dataset.loaded) return null;
+    var table = profileContent.querySelector('table.profile-call-index');
+    if (table && isTableVisible(table)) return table;
     return null;
   }
 
@@ -138,6 +153,13 @@
   /** 打开当前高亮行 */
   Keyboard.openSelected = function () {
     if (!_highlightedRow) return;
+    // LLM call row → open LLM Call Inspector
+    if (_highlightedRow.classList.contains('llm-call-row')) {
+      if (typeof window.openLLMInspector === 'function') {
+        window.openLLMInspector(_highlightedRow);
+        return;
+      }
+    }
     // 查找行内的第一个 <a> 链接，模拟点击
     var link = _highlightedRow.querySelector('a[href]');
     if (link) {
@@ -166,7 +188,10 @@
       project: 'Project',
       title: 'Title',
       totalTokens: 'Total Tokens',
-      endedAt: 'Ended At'
+      endedAt: 'Ended At',
+      callIdx: 'Call #',
+      scope: 'Scope',
+      round: 'Round'
     };
     for (var key in labelMap) {
       if (dataset[key]) {

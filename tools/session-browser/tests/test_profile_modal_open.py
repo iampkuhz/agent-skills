@@ -1,10 +1,9 @@
 """Tests for Profile tab LLM Call modal Open button reliability.
 
-Ensures that:
-- Profile Open buttons use sibling templates + data-*-template-id (no nested <template>).
-- Corresponding sibling <template> elements exist with unique IDs.
-- openContentModal() supports both new template-id and old nested-template fallback.
-- Capture-phase event handler exists with a closest() polyfill.
+After P-01 Profile Call Index refactoring:
+- Profile no longer has inline Open buttons for request/response.
+- Details are viewed via Inspector (openLLMInspector).
+- Hidden <template> elements still exist for Inspector content retrieval.
 - Conversation/Timeline old buttons still use nested templates (backward compat).
 """
 
@@ -22,104 +21,48 @@ def _base_source():
     return (TEMPLATE_DIR / "base.html").read_text(encoding="utf-8")
 
 
-# ── Profile button structure ──────────────────────────────────────────
+# ── Profile uses Inspector, not inline Open buttons ──────────────────
 
 
-def _extract_profile_llm_call_buttons(source):
-    """Extract the Profile LLM call detail grid block to analyse buttons."""
-    m = re.search(
-        r'<strong class="text-xs">Request Context:</strong>.*?'
-        r'<strong class="text-xs">Tool Calls',
-        source,
-        re.DOTALL,
-    )
-    assert m, "Could not find Request Context / Tool Calls block in Profile template"
-    return m.group()
-
-
-def test_profile_request_open_has_data_template_ids():
-    """Request Open button must have data-raw-template-id and data-md-template-id."""
+def test_profile_no_inline_detail_rows():
+    """Profile must NOT have inline llm-call-detail expansion rows."""
     source = _session_source()
-    block = _extract_profile_llm_call_buttons(source)
-
-    # Find the Request button block
-    btn_m = re.search(
-        r'<button\s[^>]*data-content-modal="LLM Call #\{\{ loop\.index \}} · Request"[^>]*>.*?</button>',
-        block,
-        re.DOTALL,
-    )
-    assert btn_m, "Request Open button not found with expected data-content-modal"
-    btn_html = btn_m.group()
-
-    assert 'data-raw-template-id=' in btn_html, (
-        "Request button must have data-raw-template-id attribute"
-    )
-    assert 'data-md-template-id=' in btn_html, (
-        "Request button must have data-md-template-id attribute"
-    )
-    assert 'type="button"' in btn_html, (
-        "Request button must have type='button'"
+    assert 'llm-call-detail' not in source, (
+        "Profile must not contain llm-call-detail rows — "
+        "details belong in Inspector"
     )
 
 
-def test_profile_response_open_has_data_template_ids():
-    """Response Open button must have data-raw-template-id and data-md-template-id."""
+def test_profile_has_inspector_templates():
+    """Profile must have hidden <template> elements for Inspector retrieval."""
     source = _session_source()
-
-    btn_m = re.search(
-        r'<button\s[^>]*data-content-modal="LLM Call #\{\{ loop\.index \}} · Response"[^>]*>.*?</button>',
-        source,
-        re.DOTALL,
+    assert "inspect-request" in source, (
+        "Profile must have inspect-request template id pattern"
     )
-    assert btn_m, "Response Open button not found with expected data-content-modal"
-    btn_html = btn_m.group()
-
-    assert 'data-raw-template-id=' in btn_html, (
-        "Response button must have data-raw-template-id attribute"
-    )
-    assert 'data-md-template-id=' in btn_html, (
-        "Response button must have data-md-template-id attribute"
-    )
-    assert 'type="button"' in btn_html, (
-        "Response button must have type='button'"
+    assert "inspect-response" in source, (
+        "Profile must have inspect-response template id pattern"
     )
 
 
-def test_profile_buttons_have_no_nested_template():
-    """Open buttons must NOT contain nested <template> elements."""
+def test_profile_row_has_data_attrs():
+    """Each profile row must have data attributes for Inspector."""
     source = _session_source()
-
-    # Find all button blocks in the Profile section
-    for match in re.finditer(
-        r'<button\s[^>]*class="content-open-btn[^"]*"[^>]*>.*?</button>',
-        source,
-        re.DOTALL,
-    ):
-        btn_html = match.group()
-        assert '<template>' not in btn_html, (
-            f"Button should not contain nested <template> elements:\n{btn_html}"
-        )
+    assert "data-llm-call-id=" in source, (
+        "Profile rows must have data-llm-call-id"
+    )
+    assert "data-call-idx=" in source, (
+        "Profile rows must have data-call-idx"
+    )
 
 
-def test_profile_sibling_templates_exist_for_request():
-    """After the Request Open button, sibling <template> with matching id must exist."""
+def test_profile_has_inspect_button():
+    """Profile must have inspect button calling openLLMInspector."""
     source = _session_source()
-
-    # Check the template id pattern uses loop.index with Jinja2 ~ concatenation
-    assert "profile-call-" in source, (
-        "Template id must reference 'profile-call-' prefix"
+    assert 'class="inspect-btn"' in source, (
+        "Profile must have inspect button"
     )
-    assert "'profile-call-' ~ loop.index ~ '-request-raw'" in source, (
-        "Request raw template id must be built from 'profile-call-' + loop.index + '-request-raw'"
-    )
-    assert "'profile-call-' ~ loop.index ~ '-request-md'" in source, (
-        "Request md template id must be built from 'profile-call-' + loop.index + '-request-md'"
-    )
-    assert "'profile-call-' ~ loop.index ~ '-response-raw'" in source, (
-        "Response raw template id must be built from 'profile-call-' + loop.index + '-response-raw'"
-    )
-    assert "'profile-call-' ~ loop.index ~ '-response-md'" in source, (
-        "Response md template id must be built from 'profile-call-' + loop.index + '-response-md'"
+    assert "openLLMInspector" in source, (
+        "Profile must reference openLLMInspector function"
     )
 
 

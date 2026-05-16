@@ -101,4 +101,56 @@
         window.arpCopy(btn, text);
     };
 
+    /* -- Horizontal scroll shadow management -- */
+
+    function updateScrollShadow(el) {
+        var hasScroll = el.scrollWidth > el.clientWidth;
+        if (!hasScroll) {
+            el.classList.remove('is-scroll-left', 'is-scroll-right');
+            return;
+        }
+        if (el.scrollLeft > 0) {
+            el.classList.add('is-scroll-left');
+        } else {
+            el.classList.remove('is-scroll-left');
+        }
+        if (el.scrollLeft < el.scrollWidth - el.clientWidth - 1) {
+            el.classList.add('is-scroll-right');
+        } else {
+            el.classList.remove('is-scroll-right');
+        }
+    }
+
+    function initScrollShadows() {
+        document.querySelectorAll('.table-wrap').forEach(function (el) {
+            if (el._shadowBound) return;
+            el._shadowBound = true;
+            el.addEventListener('scroll', function () {
+                updateScrollShadow(el);
+            });
+            updateScrollShadow(el);
+        });
+    }
+
+    // Also bind .profile-table-wrap (used in profile lazy-load)
+    function initAllScrollShadows() {
+        document.querySelectorAll('.table-wrap, .profile-table-wrap').forEach(function (el) {
+            if (el._shadowBound) return;
+            el._shadowBound = true;
+            el.addEventListener('scroll', function () {
+                updateScrollShadow(el);
+            });
+            updateScrollShadow(el);
+        });
+    }
+
+    // Initial pass
+    initAllScrollShadows();
+
+    // Re-calculate on resize
+    window.addEventListener('resize', initAllScrollShadows);
+
+    // Re-initialise after profile lazy-load
+    document.addEventListener('profile-loaded', initAllScrollShadows);
+
 })();

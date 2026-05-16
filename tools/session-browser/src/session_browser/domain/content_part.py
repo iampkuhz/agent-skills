@@ -21,7 +21,7 @@ from typing import Optional
 
 
 class ContentPartType:
-    """Allowed content part types."""
+    """Allowed content part types (format-level)."""
 
     TEXT = "text"
     MARKDOWN = "markdown"
@@ -29,6 +29,28 @@ class ContentPartType:
     IMAGE = "image"
     CODE = "code"
     HTML = "html"
+
+
+# ─── Context-level part roles (structural, within API messages) ──────────
+
+
+class ContextPartType:
+    """Structural roles for multipart context parts.
+
+    These describe where a part sits in the API message structure
+    (system prompt, user message, tool result, etc.), independently
+    from ContentPartType which describes the content format.
+    """
+
+    SYSTEM_PROMPT = "system_prompt"
+    USER_MESSAGE = "user_message"
+    ASSISTANT_MESSAGE = "assistant_message"
+    TOOL_RESULT = "tool_result"
+    TOOL_USE = "tool_use"
+    ATTACHMENT = "attachment"
+    IMAGE_CONTENT = "image_content"
+    DOCUMENT_CONTENT = "document_content"
+    UNKNOWN = "unknown"
 
 
 # ─── Detection helpers ───────────────────────────────────────────────────
@@ -204,6 +226,17 @@ class ContentPart:
         Free-form key/value for additional context (e.g. image dimensions,
         JSON schema reference, HTML sandbox flag).
 
+    Multipart context fields (I-08):
+    context_type : str
+        One of ContextPartType values describing the structural role
+        (system_prompt, user_message, tool_result, attachment, etc.).
+    title : str, optional
+        Human-readable label for the part header in the viewer.
+    content_bytes : int
+        Approximate byte size of the content (len(content.encode)).
+    token_hint : int
+        Approximate token count (heuristic: ~4 chars/token for English text).
+
     Examples
     --------
     Text (fallback for empty or plain prose)::
@@ -248,6 +281,17 @@ class ContentPart:
             content="<table><tr><td>Cell</td></tr></table>",
             metadata={"sandbox": True},
         )
+
+    With multipart context fields::
+
+        ContentPart(
+            part_type="markdown",
+            content="You are a helpful assistant...",
+            context_type=ContextPartType.SYSTEM_PROMPT,
+            title="System Prompt",
+            content_bytes=1200,
+            token_hint=300,
+        )
     """
 
     part_type: str
@@ -255,6 +299,12 @@ class ContentPart:
     language: str = ""
     filename: str = ""
     metadata: dict = field(default_factory=dict)
+
+    # Multipart context fields (I-08)
+    context_type: str = ContextPartType.UNKNOWN
+    title: str = ""
+    content_bytes: int = 0
+    token_hint: int = 0
 
     @staticmethod
     def from_text(text: str) -> ContentPart:
@@ -277,6 +327,10 @@ class ContentPart:
             language=data.get("language", ""),
             filename=data.get("filename", ""),
             metadata=data.get("metadata", {}),
+            context_type=data.get("context_type", ContextPartType.UNKNOWN),
+            title=data.get("title", ""),
+            content_bytes=data.get("content_bytes", 0),
+            token_hint=data.get("token_hint", 0),
         )
 
     def to_dict(self) -> dict:
@@ -287,6 +341,10 @@ class ContentPart:
             "language": self.language,
             "filename": self.filename,
             "metadata": self.metadata,
+            "context_type": self.context_type,
+            "title": self.title,
+            "content_bytes": self.content_bytes,
+            "token_hint": self.token_hint,
         }
 
     @property
@@ -312,3 +370,45 @@ class ContentPart:
     @property
     def is_html(self) -> bool:
         return self.part_type == ContentPartType.HTML
+
+    # ─── Context type convenience properties ────────────────────────────
+
+    @property
+    def is_system_prompt(self) -> bool:
+        return self.context_type == ContextPartType.SYSTEM_PROMPT
+
+    @property
+    def is_user_message(self) -> bool:
+        return self.context_type == ContextPartType.USER_MESSAGE
+
+    @property
+    def is_tool_result(self) -> bool:
+        return self.context_type == ContextPartType.TOOL_RESULT
+
+    @property
+    def is_attachment(self) -> bool:
+        return self.context_type == ContextPartType.ATTACHMENT
+
+    # ─── Auto-computed metadata ────────────────────────────────────────
+
+    def compute_metadata(self) -> None:
+        """Set content_bytes and token_hint from current content.
+
+        This is a no-op if the fields are already populated (preserves
+        any values that were set by the caller during parsing).
+        - content_bytes = len(content.encode("utf-8"))
+        - token_hint = heuristic ~4 chars/token for English text.
+        """
+        if self.content_bytes == 0 and self.content:
+            self.content_bytes = len(self.content.encode("utf-8"))
+        if self.token_hint == 0 and self.content:
+            # Heuristic: ~4 chars per token (English text average).
+            # For JSON/code the ratio is closer to 3-3.5; for prose ~4-5.
+            self.token_hint = max(1, len(self.content) // 4)
+
+    @staticmethod
+    def compute_all(parts: list["ContentPart"]) -> list["ContentPart"]:
+        """Compute metadata for all parts in place and return the list."""
+        for part in parts:
+            part.compute_metadata()
+        return parts

@@ -11,57 +11,112 @@
 
     var _activeFilter = 'all';
 
+    /* ── Single node toggle ──────────────────────────────────── */
+
+    function toggleNode(nodeOrEvent) {
+        var node;
+        if (nodeOrEvent && nodeOrEvent.target) {
+            // Called from event delegation — find the .timeline-node ancestor
+            node = nodeOrEvent.target.closest('.timeline-node');
+        } else if (nodeOrEvent) {
+            node = nodeOrEvent;
+        }
+        if (!node) return;
+        if (!node.classList.contains('timeline-node')) return;
+
+        var isExpanded = node.classList.contains('is-expanded');
+        var toggle = node.querySelector('.timeline-node__toggle');
+
+        if (isExpanded) {
+            node.classList.remove('is-expanded');
+            if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        } else {
+            node.classList.add('is-expanded');
+            if (toggle) toggle.setAttribute('aria-expanded', 'true');
+        }
+    }
+
+    /* ── Round detail helpers ────────────────────────────────── */
+
+    function expandRoundDetail(headerRow) {
+        var detailRow = headerRow.nextElementSibling;
+        if (!detailRow || !detailRow.classList.contains('round-detail-row')) return;
+        if (detailRow.style.display === 'none' || detailRow.style.display === '') {
+            detailRow.style.display = 'table-row';
+            var chevron = headerRow.querySelector('.round-chevron-inline');
+            if (chevron) chevron.style.transform = 'rotate(90deg)';
+        }
+    }
+
+    function collapseRoundDetail(headerRow) {
+        var detailRow = headerRow.nextElementSibling;
+        if (!detailRow || !detailRow.classList.contains('round-detail-row')) return;
+        if (detailRow.style.display !== 'none' && detailRow.style.display !== '') {
+            detailRow.style.display = 'none';
+            var chevron = headerRow.querySelector('.round-chevron-inline');
+            if (chevron) chevron.style.transform = '';
+        }
+    }
+
+    /* ── Node helpers ────────────────────────────────────────── */
+
+    function expandNode(nodeEl) {
+        if (!nodeEl || !nodeEl.classList.contains('timeline-node')) return;
+        nodeEl.classList.add('is-expanded');
+        var toggle = nodeEl.querySelector('.timeline-node__toggle');
+        if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    }
+
+    function collapseNode(nodeEl) {
+        if (!nodeEl || !nodeEl.classList.contains('timeline-node')) return;
+        nodeEl.classList.remove('is-expanded');
+        var toggle = nodeEl.querySelector('.timeline-node__toggle');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    }
+
     /* ── Expand / Collapse ───────────────────────────────── */
 
     function expandAll() {
         // Round summary table rows
         var headers = document.querySelectorAll('.round-header-row');
         headers.forEach(function (header) {
-            var detailRow = header.nextElementSibling;
-            if (detailRow && detailRow.classList.contains('round-detail-row')) {
-                if (detailRow.style.display === 'none' || detailRow.style.display === '') {
-                    detailRow.style.display = 'table-row';
-                    var chevron = header.querySelector('.round-chevron-inline');
-                    if (chevron) chevron.style.transform = 'rotate(90deg)';
-                }
-            }
+            expandRoundDetail(header);
         });
 
-        // Future: timeline-structured nodes
-        var nodes = document.querySelectorAll('.timeline-node:not(.is-expanded)');
+        // Timeline nodes with children
+        var nodes = document.querySelectorAll('.timeline-node.has-children:not(.is-expanded)');
         nodes.forEach(function (node) {
-            node.classList.add('is-expanded');
+            expandNode(node);
         });
 
+        // Persist expand-all state
         var key = 'rounds_' + (window._sessionId || '');
         if (window.arpStorage && window._sessionId) {
             var allIdx = [];
             headers.forEach(function (h) { if (h.dataset.roundIdx) allIdx.push(h.dataset.roundIdx); });
             window.arpStorage.set(key, allIdx);
         }
+        try { localStorage.setItem('arp_timelineExpandAll', 'expanded'); } catch (e) {}
     }
 
     function collapseAll() {
+        // Round summary table rows
         var headers = document.querySelectorAll('.round-header-row');
         headers.forEach(function (header) {
-            var detailRow = header.nextElementSibling;
-            if (detailRow && detailRow.classList.contains('round-detail-row')) {
-                if (detailRow.style.display !== 'none' && detailRow.style.display !== '') {
-                    detailRow.style.display = 'none';
-                    var chevron = header.querySelector('.round-chevron-inline');
-                    if (chevron) chevron.style.transform = '';
-                }
-            }
+            collapseRoundDetail(header);
         });
 
+        // Timeline nodes
         var nodes = document.querySelectorAll('.timeline-node.is-expanded');
         nodes.forEach(function (node) {
-            node.classList.remove('is-expanded');
+            collapseNode(node);
         });
 
+        // Persist collapse-all state
         if (window.arpStorage && window._sessionId) {
             window.arpStorage.set('rounds_' + window._sessionId, []);
         }
+        try { localStorage.setItem('arp_timelineExpandAll', 'collapsed'); } catch (e) {}
     }
 
     /* ── Type filter ──────────────────────────────────────── */
@@ -83,8 +138,8 @@
         var rows = document.querySelectorAll('.round-header-row');
         rows.forEach(function (row) {
             var visible;
-            if (type === 'failed') {
-                // Failed only: check for error/fail status badges or row--failed class
+            if (type === 'error') {
+                // Error only: check for error/fail status badges or row--failed class
                 visible = row.classList.contains('row--failed') ||
                     !!row.querySelector('[class*="badge-error"], [class*="badge--status-error"]') ||
                     (row.dataset.status && row.dataset.status.toLowerCase().indexOf('fail') >= 0);
@@ -108,8 +163,10 @@
         var nodes = document.querySelectorAll('.timeline-node');
         nodes.forEach(function (node) {
             var cls = node.className;
-            if (type === 'failed') {
-                visible = cls.indexOf('--error') >= 0 || cls.indexOf('row--failed') >= 0;
+            if (type === 'error') {
+                visible = cls.indexOf('timeline-node--error') >= 0 ||
+                    cls.indexOf('row--failed') >= 0 ||
+                    cls.indexOf('is-failed') >= 0;
             } else if (type === 'expensive') {
                 visible = !!node.querySelector('[data-tokens]') && parseInt(node.dataset.tokens || '0') > 50000;
             } else {
@@ -176,6 +233,18 @@
         return s.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
     }
 
+    /**
+     * Programmatic jump to a target element.
+     * Ensures visibility, scrolls into view, and applies highlight.
+     * @param {HTMLElement} target - The element to jump to.
+     */
+    function jumpToNode(target) {
+        if (!target) return;
+        _ensureVisible(target);
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        _flashHighlight(target);
+    }
+
     function jumpOnKey(event) {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -239,7 +308,7 @@
         while (parent) {
             if (parent.classList && parent.classList.contains('timeline-node') &&
                 !parent.classList.contains('is-expanded')) {
-                parent.classList.add('is-expanded');
+                toggleNode(parent);
             }
             parent = parent.parentElement;
         }
@@ -255,6 +324,17 @@
         }, 3000);
     }
 
+    /* ── Selection ──────────────────────────────────────────── */
+
+    function selectNode(nodeEl) {
+        if (!nodeEl || !nodeEl.classList.contains('timeline-node')) return;
+        // Clear previous selection
+        document.querySelectorAll('.timeline-node.is-selected').forEach(function (n) {
+            n.classList.remove('is-selected');
+        });
+        nodeEl.classList.add('is-selected');
+    }
+
     /* ── Public API ───────────────────────────────────────── */
 
     window.TimelineCtrl = {
@@ -263,13 +343,47 @@
         filter: filter,
         jump: jump,
         jumpOnKey: jumpOnKey,
+        jumpToNode: jumpToNode,
+        toggleNode: toggleNode,
+        selectNode: selectNode,
         getActiveFilter: function () { return _activeFilter; }
     };
 
-    /* ── Init: mark "All" filter as active on load ────────── */
+    /* ── Event delegation for toggle clicks ──────────────────── */
+
+    document.addEventListener('click', function (e) {
+        var header = e.target.closest('[data-timeline-toggle]');
+        if (header) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleNode(e);
+            return;
+        }
+        var toggleBtn = e.target.closest('.timeline-node__toggle');
+        if (toggleBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleNode(e);
+            return;
+        }
+        // Select node on click (non-toggle areas)
+        var node = e.target.closest('.timeline-node');
+        if (node) {
+            selectNode(node);
+        }
+    });
+
+    /* ── Init: mark "All" filter as active + restore expand-all state ── */
     document.addEventListener('DOMContentLoaded', function () {
         var allChip = document.querySelector('.timeline-toolbar__filter[data-filter="all"]');
         if (allChip) allChip.classList.add('active');
+
+        // Restore last expand-all state (does nothing if never set)
+        try {
+            var saved = localStorage.getItem('arp_timelineExpandAll');
+            if (saved === 'expanded') expandAll();
+            else if (saved === 'collapsed') collapseAll();
+        } catch (e) {}
     });
 
 })();

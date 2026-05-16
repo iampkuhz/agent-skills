@@ -8,7 +8,7 @@
   {% endblock %}
 
   {% block inspector_sections %}
-  <!-- Metadata section -->
+  <!-- Metadata section (always visible, fixed at top) -->
   <section class="inspector-section" id="inspector-section-metadata">
     <h4 class="inspector-section-title">Metadata</h4>
     <div class="inspector-meta" id="inspector-metadata">
@@ -23,16 +23,25 @@
     </div>
   </section>
 
-  <!-- Summary section -->
-  <section class="inspector-section" id="inspector-section-summary">
+  <!-- Tab shell for LLM Call Inspector -->
+  <div class="inspector-tabs" id="inspector-tabs" style="display:none">
+    <div class="inspector-tablist" role="tablist" id="inspector-tablist">
+      <!-- Tab buttons injected by JS -->
+    </div>
+    <div class="inspector-tabpanels">
+      <!-- Tab panels injected by JS -->
+    </div>
+  </div>
+
+  <!-- Legacy sections (hidden when tabs are active) -->
+  <section class="inspector-section inspector-legacy-section" id="inspector-section-summary">
     <h4 class="inspector-section-title">Summary</h4>
     <div class="inspector-summary" id="inspector-summary">
       <p class="text-muted text-sm">No summary available.</p>
     </div>
   </section>
 
-  <!-- Related section -->
-  <section class="inspector-section" id="inspector-section-related">
+  <section class="inspector-section inspector-legacy-section" id="inspector-section-related">
     <h4 class="inspector-section-title">Related</h4>
     <div class="inspector-related" id="inspector-related">
       <p class="text-muted text-sm">No related items.</p>
@@ -40,7 +49,7 @@
   </section>
 
   <!-- Viewer slot (for request/response/profile/timeline viewers) -->
-  <section class="inspector-section" id="inspector-section-viewer">
+  <section class="inspector-section inspector-legacy-section" id="inspector-section-viewer">
     <h4 class="inspector-section-title">Viewer</h4>
     <div class="inspector-viewer-slot" id="inspector-viewer-slot">
       {# Viewer content injected here by business consumers #}

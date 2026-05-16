@@ -200,9 +200,19 @@ class LLMCall:
     cache_write_tokens: int = 0
     prompt_preview: str = ""         # first ~200 chars of prompt context
     request_preview: str = ""        # first ~200 chars of logged request
-    request_full: str = ""           # full logged request context
+    request_full: str = ""           # full logged request context (rendered, NOT raw HTTP payload)
     response_preview: str = ""       # first ~200 chars of response
     response_full: str = ""          # full response text (for expand)
+    # Raw HTTP request payload fields (distinct from request_full)
+    request_payload_raw: str = ""    # raw HTTP request JSON sent to the model (if persisted)
+    request_payload_message_count: int = 0  # message count in raw payload
+    request_payload_bytes: int = 0   # byte size of raw payload
+    request_payload_missing_reason: str = ""  # why raw payload is unavailable
+    # Raw HTTP response payload fields (distinct from response_full)
+    response_payload_raw: str = ""   # raw HTTP response JSON from the model (if persisted)
+    response_payload_missing_reason: str = ""  # why raw response is unavailable
+    finish_reason: str = ""          # e.g. "end_turn", "tool_use", "max_tokens", "stop_sequence"
+    tool_calls_raw: str = ""         # raw tool calls JSON structure (if available)
     tool_calls: list["ToolCall"] = field(default_factory=list)
     tool_call_count: int = 0
     failed_tool_count: int = 0

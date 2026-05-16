@@ -55,11 +55,15 @@
             </thead>
             <tbody>
                 {% for s in sessions %}
-                <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}">
+                <tr class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }}"
+                    data-object-type="session"
+                    data-session-key="{{ s.session_key }}">
                     <td class="sessions-title-cell">
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id | urlencode }}"
+                        <a href="/sessions/{{ s.agent }}/{{ s.session_id | urlencode }}?from=search"
                            class="link sessions-title-link"
-                           data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
+                           data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}"
+                           data-object-type="session"
+                           data-target-id="{{ s.session_key }}">
                             {{ s.title[:90] or 'Untitled' }}
                         </a>
                     </td>

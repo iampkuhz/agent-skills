@@ -286,3 +286,116 @@ def test_content_part_type_constants():
     assert ContentPartType.IMAGE == 'image'
     assert ContentPartType.CODE == 'code'
     assert ContentPartType.HTML == 'html'
+
+
+# ─── I-08 ContextPartType constants ────────────────────────────────────
+
+
+def test_context_part_type_constants():
+    from session_browser.domain.content_part import ContextPartType
+    assert ContextPartType.SYSTEM_PROMPT == 'system_prompt'
+    assert ContextPartType.USER_MESSAGE == 'user_message'
+    assert ContextPartType.ASSISTANT_MESSAGE == 'assistant_message'
+    assert ContextPartType.TOOL_RESULT == 'tool_result'
+    assert ContextPartType.TOOL_USE == 'tool_use'
+    assert ContextPartType.ATTACHMENT == 'attachment'
+    assert ContextPartType.IMAGE_CONTENT == 'image_content'
+    assert ContextPartType.DOCUMENT_CONTENT == 'document_content'
+    assert ContextPartType.UNKNOWN == 'unknown'
+
+
+# ─── I-08 New ContentPart fields ───────────────────────────────────────
+
+
+def test_content_part_new_fields_defaults():
+    """New multipart fields should default to sensible values."""
+    part = ContentPart(part_type="text", content="hello")
+    from session_browser.domain.content_part import ContextPartType
+    assert part.context_type == ContextPartType.UNKNOWN
+    assert part.title == ""
+    assert part.content_bytes == 0
+    assert part.token_hint == 0
+
+
+def test_content_part_new_fields_set():
+    part = ContentPart(
+        part_type="markdown",
+        content="Hello world",
+        context_type="user_message",
+        title="User Message #1",
+    )
+    assert part.context_type == "user_message"
+    assert part.title == "User Message #1"
+
+
+def test_content_part_context_type_properties():
+    from session_browser.domain.content_part import ContextPartType
+    part = ContentPart(part_type="markdown", content="test", context_type=ContextPartType.SYSTEM_PROMPT)
+    assert part.is_system_prompt is True
+    assert part.is_user_message is False
+    assert part.is_tool_result is False
+    assert part.is_attachment is False
+
+    part2 = ContentPart(part_type="text", content="test", context_type=ContextPartType.USER_MESSAGE)
+    assert part2.is_user_message is True
+
+    part3 = ContentPart(part_type="json", content="{}", context_type=ContextPartType.TOOL_RESULT)
+    assert part3.is_tool_result is True
+
+
+def test_content_part_compute_metadata():
+    part = ContentPart(part_type="markdown", content="Hello world, this is a test.")
+    assert part.content_bytes == 0  # Not yet computed
+    assert part.token_hint == 0
+
+    part.compute_metadata()
+    assert part.content_bytes > 0
+    assert part.token_hint > 0
+    # 31 chars / 4 = ~7 tokens (heuristic)
+    assert part.token_hint == max(1, 31 // 4)
+
+
+def test_content_part_compute_metadata_preserves_existing():
+    """If bytes/token are already set, compute_metadata should not overwrite."""
+    part = ContentPart(
+        part_type="markdown",
+        content="Hello",
+        content_bytes=100,
+        token_hint=25,
+    )
+    part.compute_metadata()
+    assert part.content_bytes == 100
+    assert part.token_hint == 25
+
+
+def test_content_part_compute_all():
+    parts = [
+        ContentPart(part_type="text", content="a"),
+        ContentPart(part_type="markdown", content="Hello world"),
+    ]
+    ContentPart.compute_all(parts)
+    for p in parts:
+        assert p.content_bytes > 0 or p.content == ""
+        assert p.token_hint >= 0
+
+
+def test_content_part_serialization_includes_new_fields():
+    part = ContentPart(
+        part_type="markdown",
+        content="test",
+        context_type="user_message",
+        title="User #1",
+        content_bytes=4,
+        token_hint=1,
+    )
+    d = part.to_dict()
+    assert d["context_type"] == "user_message"
+    assert d["title"] == "User #1"
+    assert d["content_bytes"] == 4
+    assert d["token_hint"] == 1
+
+    restored = ContentPart.from_dict(d)
+    assert restored.context_type == part.context_type
+    assert restored.title == part.title
+    assert restored.content_bytes == part.content_bytes
+    assert restored.token_hint == part.token_hint

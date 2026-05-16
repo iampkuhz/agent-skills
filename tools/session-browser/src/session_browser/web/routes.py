@@ -502,15 +502,24 @@ def _content_parts_to_blocks(parts: list) -> list[dict]:
     - part_type -> kind
     - content -> content
     - language -> language
-    - Adds 'title' from metadata or part_type label.
+    - context_type -> context_type (I-08)
+    - title -> title (I-08)
+    - content_bytes -> content_bytes (I-08)
+    - token_hint -> token_hint (I-08)
+    - Adds fallback title from context_type or part_type if missing.
     """
     blocks = []
     for part in parts:
         if isinstance(part, ContentPart):
             kind = part.part_type
-            title = part.metadata.get('title', '') if part.metadata else ''
+            title = part.title or part.metadata.get('title', '')
             if not title:
-                title = kind.capitalize()
+                # Derive title from context_type if available.
+                ctx = part.context_type
+                if ctx:
+                    title = ctx.replace('_', ' ').capitalize()
+                else:
+                    title = kind.capitalize()
             blocks.append({
                 'kind': kind,
                 'title': title,
@@ -518,10 +527,17 @@ def _content_parts_to_blocks(parts: list) -> list[dict]:
                 'language': part.language or '',
                 'content': part.content,
                 'raw': part.content,
+                'context_type': part.context_type,
+                'content_bytes': part.content_bytes,
+                'token_hint': part.token_hint,
             })
         elif isinstance(part, dict):
-            # Already a dict (backward compat)
-            blocks.append(part)
+            # Already a dict (backward compat) — ensure new fields exist.
+            block = dict(part)
+            block.setdefault('context_type', '')
+            block.setdefault('content_bytes', 0)
+            block.setdefault('token_hint', 0)
+            blocks.append(block)
     return blocks
 
 
@@ -870,6 +886,12 @@ def _build_llm_calls(
             tool_calls=[tc for tc in round_tools if tc.scope == "main"],
             tool_call_count=len([tc for tc in round_tools if tc.scope == "main"]),
             failed_tool_count=sum(1 for tc in round_tools if tc.scope == "main" and tc.is_failed),
+            request_payload_raw="",
+            request_payload_missing_reason="current session data source does not persist raw HTTP request payload",
+            response_payload_raw="",
+            response_payload_missing_reason="current session data source does not persist raw HTTP response",
+            finish_reason="",
+            tool_calls_raw="",
         )
         main_calls_in_round.setdefault(r_idx, []).append(llm_call)
         llm_calls.append(llm_call)
@@ -923,6 +945,12 @@ def _build_llm_calls(
                 tool_calls=[],
                 tool_call_count=0,
                 failed_tool_count=0,
+                request_payload_raw="",
+                request_payload_missing_reason="current session data source does not persist raw HTTP request payload",
+                response_payload_raw="",
+                response_payload_missing_reason="current session data source does not persist raw HTTP response",
+                finish_reason="",
+                tool_calls_raw="",
             ))
 
     return llm_calls
@@ -996,6 +1024,12 @@ def _build_subagent_interactions(
             tool_calls=sub_tools,
             tool_call_count=len(sub_tools),
             failed_tool_count=sum(1 for t in sub_tools if t.is_failed),
+            request_payload_raw="",
+            request_payload_missing_reason="current session data source does not persist raw HTTP request payload",
+            response_payload_raw="",
+            response_payload_missing_reason="current session data source does not persist raw HTTP response",
+            finish_reason="",
+            tool_calls_raw="",
         ))
 
     return interactions

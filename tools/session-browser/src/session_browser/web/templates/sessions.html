@@ -48,6 +48,10 @@
             <option value="failed_tool_count">Sort: Failed Tools</option>
             <option value="duration_seconds">Sort: Duration</option>
         </select>
+        <button class="filter-chip" data-quick-filter="failed" onclick="toggleQuickFilter(this)">Failed</button>
+        <button class="filter-chip" data-quick-filter="high-token" onclick="toggleQuickFilter(this)">High Token</button>
+        <button class="filter-chip" data-quick-filter="anomalies" onclick="toggleQuickFilter(this)">Anomalies</button>
+        <button class="filter-bar__btn" id="clear-all-btn" onclick="resetSessionFilters()" style="display:none">Clear All</button>
         <button class="filter-bar__btn" onclick="resetSessionFilters()">Reset</button>
     </div>
 </div>
@@ -169,6 +173,24 @@ window.openDemoInspector = function() {
 (function() {
     var STORAGE_KEY = 'agent-run-profiler:sessions:filters';
 
+    /* ---------- Quick filter chips ---------------------------------- */
+    var activeQuickFilter = '';
+
+    window.toggleQuickFilter = function(btn) {
+        var filter = btn.dataset.quickFilter;
+        if (activeQuickFilter === filter) {
+            activeQuickFilter = '';
+            btn.classList.remove('filter-chip--active');
+        } else {
+            document.querySelectorAll('[data-quick-filter]').forEach(function(b) {
+                b.classList.remove('filter-chip--active');
+            });
+            activeQuickFilter = filter;
+            btn.classList.add('filter-chip--active');
+        }
+        applyFilters();
+    };
+
     /* ---------- Apply all filters ----------------------------------- */
     function applyFilters() {
         var q = document.getElementById('session-search').value.toLowerCase().trim();
@@ -204,8 +226,19 @@ window.openDemoInspector = function() {
                     }
                 }
             }
-            if (q === '' && !agent && !model && !project) {
-                /* Show all rows when no filter is active */
+            /* Quick filter */
+            if (show && activeQuickFilter) {
+                switch (activeQuickFilter) {
+                    case 'failed':
+                        if (parseInt(row.dataset.failedCount) <= 0) show = false;
+                        break;
+                    case 'high-token':
+                        if (parseInt(row.dataset.totalTokens) <= 200000) show = false;
+                        break;
+                    case 'anomalies':
+                        if (row.dataset.hasAnomalies !== 'true') show = false;
+                        break;
+                }
             }
 
             row.style.display = show ? '' : 'none';
@@ -248,6 +281,13 @@ window.openDemoInspector = function() {
         var empty = document.getElementById('sessions-empty');
         if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
 
+        /* Clear All button visibility */
+        var clearBtn = document.getElementById('clear-all-btn');
+        if (clearBtn) {
+            var hasAnyFilter = q || agent || model || project || activeQuickFilter;
+            clearBtn.style.display = hasAnyFilter ? '' : 'none';
+        }
+
         /* Persist */
         saveFilters();
     }
@@ -259,26 +299,59 @@ window.openDemoInspector = function() {
             agent: document.getElementById('filter-agent').value,
             model: document.getElementById('filter-model').value,
             project: document.getElementById('filter-project').value,
-            sortBy: document.getElementById('sort-by').value
+            sortBy: document.getElementById('sort-by').value,
+            quick: activeQuickFilter
         };
         arpStorage.set(STORAGE_KEY, state);
+        /* Sync to URL for bookmarkability */
+        var params = new URLSearchParams(window.location.search);
+        if (activeQuickFilter) {
+            params.set('filter', activeQuickFilter);
+        } else {
+            params.delete('filter');
+        }
+        var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        if (newUrl !== window.location.pathname + window.location.search) {
+            history.replaceState(null, '', newUrl);
+        }
     }
 
     function restoreFilters() {
         var saved = arpStorage.get(STORAGE_KEY);
-        if (!saved) return;
-        var map = {
-            'session-search': 'q',
-            'filter-agent': 'agent',
-            'filter-model': 'model',
-            'filter-project': 'project',
-            'sort-by': 'sortBy'
-        };
-        for (var id in map) {
-            var el = document.getElementById(id);
-            if (el && saved[map[id]]) {
-                el.value = saved[map[id]];
+        if (saved) {
+            var map = {
+                'session-search': 'q',
+                'filter-agent': 'agent',
+                'filter-model': 'model',
+                'filter-project': 'project',
+                'sort-by': 'sortBy'
+            };
+            for (var id in map) {
+                var el = document.getElementById(id);
+                if (el && saved[map[id]]) {
+                    el.value = saved[map[id]];
+                }
             }
+            /* Restore quick filter from storage */
+            if (saved.quick) {
+                activeQuickFilter = saved.quick;
+                document.querySelectorAll('[data-quick-filter]').forEach(function(btn) {
+                    if (btn.dataset.quickFilter === saved.quick) {
+                        btn.classList.add('filter-chip--active');
+                    }
+                });
+            }
+        }
+        /* URL query param overrides storage (for bookmarkability) */
+        var urlParams = new URLSearchParams(window.location.search);
+        var urlFilter = urlParams.get('filter');
+        if (urlFilter) {
+            activeQuickFilter = urlFilter;
+            document.querySelectorAll('[data-quick-filter]').forEach(function(btn) {
+                if (btn.dataset.quickFilter === urlFilter) {
+                    btn.classList.add('filter-chip--active');
+                }
+            });
         }
     }
 
@@ -289,7 +362,18 @@ window.openDemoInspector = function() {
         document.getElementById('filter-model').value = '';
         document.getElementById('filter-project').value = '';
         document.getElementById('sort-by').value = 'ended_at';
+        activeQuickFilter = '';
+        document.querySelectorAll('[data-quick-filter]').forEach(function(btn) {
+            btn.classList.remove('filter-chip--active');
+        });
         arpStorage.remove(STORAGE_KEY);
+        /* Clear URL filter param */
+        var params = new URLSearchParams(window.location.search);
+        params.delete('filter');
+        var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        if (newUrl !== window.location.pathname + window.location.search) {
+            history.replaceState(null, '', newUrl);
+        }
         applyFilters();
     };
 

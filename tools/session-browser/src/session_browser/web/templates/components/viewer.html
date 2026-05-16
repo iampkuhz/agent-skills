@@ -22,6 +22,7 @@
     {% if title %}
     <div class="viewer__header">
         <span class="viewer__title">{{ title }}</span>
+        <button class="viewer__fullscreen-btn" onclick="openViewerFullscreen(this)" title="View in fullscreen">⛶</button>
     </div>
     {% endif %}
 
@@ -53,10 +54,33 @@
         {% set block_title = block.get('title', '') %}
         {% set block_lang = block.get('language', '') %}
         {% set block_content = block.get('content', '') %}
+        {% set block_context_type = block.get('context_type', '') %}
+        {% set block_bytes = block.get('content_bytes', 0) %}
+        {% set block_token_hint = block.get('token_hint', 0) %}
+        {% set block_raw = block.get('raw', block_content) %}
 
         <div class="viewer__part viewer__part--{{ block_kind }}">
-            {% if block_title or block_lang %}
+            {# ── Part header: context type badge + title + metadata ── #}
+            {% if block_title or block_lang or block_context_type or block_bytes > 0 or block_token_hint > 0 %}
             <div class="viewer__part-header">
+                {# Context type badge (I-08 multipart) #}
+                {% if block_context_type %}
+                {% if block_context_type == 'system_prompt' %}
+                <span class="viewer__context-type viewer__context-type--system" title="System Prompt">system</span>
+                {% elif block_context_type == 'user_message' %}
+                <span class="viewer__context-type viewer__context-type--user" title="User Message">user</span>
+                {% elif block_context_type == 'assistant_message' %}
+                <span class="viewer__context-type viewer__context-type--assistant" title="Assistant Message">assistant</span>
+                {% elif block_context_type == 'tool_result' %}
+                <span class="viewer__context-type viewer__context-type--tool" title="Tool Result">tool</span>
+                {% elif block_context_type == 'attachment' %}
+                <span class="viewer__context-type viewer__context-type--attachment" title="Attachment">attachment</span>
+                {% else %}
+                <span class="viewer__context-type viewer__context-type--unknown" title="{{ block_context_type }}">{{ block_context_type }}</span>
+                {% endif %}
+                {% endif %}
+
+                {# Content format badge (existing) #}
                 {% if block_kind == 'file_code' %}
                 <span class="viewer__part-type viewer__part-type--code" title="Code file"></span>
                 {% elif block_kind == 'file_markdown' %}
@@ -65,30 +89,67 @@
                 <span class="viewer__part-type viewer__part-type--tool" title="Tool result"></span>
                 {% elif block_kind == 'plain_text' %}
                 <span class="viewer__part-type viewer__part-type--text" title="Plain text"></span>
+                {% elif block_kind == 'code' %}
+                <span class="viewer__part-type viewer__part-type--code" title="Code"></span>
+                {% elif block_kind == 'json' %}
+                <span class="viewer__part-type viewer__part-type--tool" title="JSON"></span>
+                {% elif block_kind == 'html' %}
+                <span class="viewer__part-type viewer__part-type--md" title="HTML"></span>
                 {% else %}
                 <span class="viewer__part-type viewer__part-type--unknown" title="Unknown"></span>
                 {% endif %}
+
                 {% if block_title %}
                 <span class="viewer__part-title">{{ block_title }}</span>
                 {% endif %}
                 {% if block_lang %}
                 <code class="viewer__lang-tag">{{ block_lang }}</code>
                 {% endif %}
+
+                {# Size hints #}
+                <span class="viewer__part-meta">
+                    {% if block_bytes > 0 %}<span class="viewer__part-size" title="{{ block_bytes }} bytes">{{ block_bytes | format_number }}B</span>{% endif %}
+                    {% if block_token_hint > 0 %}<span class="viewer__part-tokens" title="~{{ block_token_hint }} tokens">{{ block_token_hint | format_number }}t</span>{% endif %}
+                </span>
+
+                {# Raw toggle #}
+                {% if block_raw and block_raw != block_content %}
+                <button class="viewer__raw-toggle" onclick="togglePartRaw(this)" title="View raw content">Raw</button>
+                {% elif block_raw and block_raw == block_content and block_bytes > 200 %}
+                <button class="viewer__raw-toggle" onclick="togglePartRaw(this)" title="View raw content">Raw</button>
+                {% endif %}
             </div>
             {% endif %}
 
             <div class="viewer__part-content">
-                {# Code blocks: syntax-highlight placeholder #}
-                {% if block_kind == 'file_code' %}
-                <pre class="viewer__code-block"><code class="language-{{ block_lang }}">{{ block_content }}</code></pre>
+                {# Rendered view #}
+                <div class="viewer__part-rendered">
+                    {% if block_kind == 'file_code' or block_kind == 'code' %}
+                    <pre class="viewer__code-block"><code class="language-{{ block_lang }}">{{ block_content }}</code></pre>
 
-                {# Markdown / plain text: render through markdown filter #}
-                {% elif block_kind == 'file_markdown' or block_kind == 'plain_text' %}
-                <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+                    {% elif block_kind == 'json' %}
+                    <pre class="viewer__json-block">{{ block_content }}</pre>
 
-                {# Unknown / tool_result: render as markdown (handles formatting) #}
-                {% else %}
-                <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+                    {% elif block_kind == 'file_markdown' or block_kind == 'plain_text' %}
+                    <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+
+                    {% elif block_kind == 'html' %}
+                    <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+
+                    {% else %}
+                    <div class="viewer__part-markdown">{{ block_content | markdown | safe }}</div>
+                    {% endif %}
+                </div>
+
+                {# Raw view (hidden by default) #}
+                {% if block_raw and block_bytes > 200 %}
+                <div class="viewer__part-raw" style="display:none">
+                    <div class="viewer__part-raw-header">
+                        <span class="viewer__part-raw-label">Raw content</span>
+                        <button class="viewer__raw-toggle viewer__raw-toggle--small" onclick="togglePartRaw(this)" title="Back to rendered view">Rendered</button>
+                    </div>
+                    <pre class="viewer__part-raw-pre">{{ block_raw }}</pre>
+                </div>
                 {% endif %}
             </div>
         </div>

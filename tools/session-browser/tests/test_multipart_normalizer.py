@@ -14,6 +14,7 @@ Covers:
 - Backward compatibility: from_text bridge.
 """
 
+import json
 import pytest
 
 from session_browser.domain.normalizer import normalize_message_content
@@ -325,3 +326,139 @@ def test_content_part_has_no_empty_metadata():
         assert isinstance(p.metadata, dict)
         assert isinstance(p.language, str)
         assert isinstance(p.filename, str)
+
+
+# ─── I-08 normalize_context_parts ──────────────────────────────────────
+
+
+from session_browser.domain.normalizer import (
+    normalize_context_parts,
+    detect_multipart_messages,
+)
+from session_browser.domain.content_part import ContextPartType
+
+
+def test_normalize_context_parts_none():
+    parts = normalize_context_parts(None)
+    assert len(parts) == 1
+    assert parts[0].part_type == ContentPartType.TEXT
+    assert parts[0].content == ""
+    assert parts[0].content_bytes == 0
+
+
+def test_normalize_context_parts_empty():
+    parts = normalize_context_parts("")
+    assert len(parts) == 1
+    assert parts[0].context_type == ContextPartType.UNKNOWN
+
+
+def test_normalize_context_parts_sets_type_and_title():
+    parts = normalize_context_parts(
+        "Hello world",
+        default_context_type=ContextPartType.USER_MESSAGE,
+        title="User Message #1",
+    )
+    assert len(parts) >= 1
+    for p in parts:
+        assert p.context_type == ContextPartType.USER_MESSAGE
+        assert p.title == "User Message #1"
+        # Metadata should be auto-computed.
+        assert p.content_bytes > 0 or p.content == ""
+        assert p.token_hint >= 0
+
+
+def test_normalize_context_parts_markdown_with_code():
+    text = "Here is code:\n\n```python\nx = 1\n```\n\nDone."
+    parts = normalize_context_parts(
+        text,
+        default_context_type=ContextPartType.ASSISTANT_MESSAGE,
+        title="Assistant #1",
+    )
+    # Should have at least 2 parts (markdown intro + code).
+    assert len(parts) >= 2
+    types = [p.part_type for p in parts]
+    assert ContentPartType.CODE in types
+    assert ContentPartType.MARKDOWN in types
+    # All parts should have the same context_type and title.
+    for p in parts:
+        assert p.context_type == ContextPartType.ASSISTANT_MESSAGE
+        assert p.title == "Assistant #1"
+
+
+# ─── I-08 detect_multipart_messages ────────────────────────────────────
+
+
+def test_detect_multipart_not_json():
+    """Plain text should return empty list (not a messages array)."""
+    result = detect_multipart_messages("Hello world")
+    assert result == []
+
+
+def test_detect_multipart_empty():
+    assert detect_multipart_messages("") == []
+    assert detect_multipart_messages("   ") == []
+
+
+def test_detect_multipart_valid_messages_array():
+    text = '[{"role": "system", "content": "You are helpful."}, {"role": "user", "content": "Hi!"}]'
+    parts = detect_multipart_messages(text)
+    assert len(parts) == 2
+
+    assert parts[0].context_type == ContextPartType.SYSTEM_PROMPT
+    assert parts[0].title == "System Prompt"
+    assert "You are helpful." in parts[0].content
+
+    assert parts[1].context_type == ContextPartType.USER_MESSAGE
+    assert parts[1].title == "User Message #2"
+    assert "Hi!" in parts[1].content
+
+
+def test_detect_multipart_with_tool_result():
+    text = '[{"role": "tool", "content": "42"}]'
+    parts = detect_multipart_messages(text)
+    assert len(parts) == 1
+    assert parts[0].context_type == ContextPartType.TOOL_RESULT
+
+
+def test_detect_multipart_with_complex_content():
+    """Message with list content should be serialized properly."""
+    text = json.dumps([
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What is this?"},
+                {"type": "image", "source": {"media_type": "image/png"}},
+            ],
+        }
+    ])
+    parts = detect_multipart_messages(text)
+    assert len(parts) == 1
+    assert parts[0].context_type == ContextPartType.USER_MESSAGE
+    # Content should be stringified, not a list.
+    assert isinstance(parts[0].content, str)
+    assert "What is this?" in parts[0].content
+
+
+def test_detect_multipart_metadata_computed():
+    text = json.dumps([{"role": "system", "content": "A" * 100}])
+    parts = detect_multipart_messages(text)
+    assert len(parts) == 1
+    assert parts[0].content_bytes > 0
+    assert parts[0].token_hint > 0
+
+
+def test_detect_multipart_invalid_json():
+    """Invalid JSON should return empty list."""
+    parts = detect_multipart_messages('[{"role": "system", invalid}]')
+    assert parts == []
+
+
+def test_detect_multipart_non_message_array():
+    """Array without role field should return empty."""
+    parts = detect_multipart_messages('[1, 2, 3]')
+    assert parts == []
+
+
+def test_detect_multipart_empty_array():
+    parts = detect_multipart_messages('[]')
+    assert parts == []

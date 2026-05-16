@@ -30,6 +30,7 @@
     'llm_call':  { 'icon': '🧠', 'color_class': 'timeline-node--llm-call',  'label': 'LLM Call' },
     'tool_call': { 'icon': '🔧', 'color_class': 'timeline-node--tool-call', 'label': 'Tool Call' },
     'error':     { 'icon': '⚠️', 'color_class': 'timeline-node--error',     'label': 'Error' },
+    'assistant': { 'icon': '🤖', 'color_class': 'timeline-node--assistant', 'label': 'Assistant' },
 } %}
 
 {# ── 单个节点内容（可递归调用子节点） ── #}
@@ -37,13 +38,13 @@
     {% set meta = _TIMELINE_TYPE_META.get(node.type, _TIMELINE_TYPE_META['message']) %}
 
     {# Header row ── #}
-    <div class="timeline-node__header">
+    <div class="timeline-node__header"
+         data-timeline-toggle="{{ node.timeline_id or '' }}">
         {# Expand toggle ── #}
-        {% if node.children or node.expanded is defined %}
+        {% if node.children and node.children | length > 0 %}
         <button class="timeline-node__toggle"
-                aria-expanded="{{ 'true' if node.expanded else 'false' }}"
-                onclick="this.parentElement.parentElement.classList.toggle('is-expanded');
-                         this.setAttribute('aria-expanded', this.getAttribute('aria-expanded') === 'true' ? 'false' : 'true')">
+                type="button"
+                aria-expanded="{{ 'true' if node.expanded else 'false' }}">
             <span class="timeline-node__chevron">&#8250;</span>
         </button>
         {% else %}
@@ -63,6 +64,15 @@
 
         {# Summary ── #}
         <span class="timeline-node__summary">{{ node.summary or '' }}</span>
+
+        {# Failed / Warning badge ── #}
+        {% if node.is_failed %}
+        <span class="timeline-node__status-badge timeline-node__status-badge--failed"
+              data-tooltip="{{ node.error_message or 'Tool call failed' }}">Failed</span>
+        {% elif node.is_warning %}
+        <span class="timeline-node__status-badge timeline-node__status-badge--warning"
+              data-tooltip="Command returned exit code {{ node.exit_code }} but executed successfully">exit={{ node.exit_code }}</span>
+        {% endif %}
 
         {# Duration (right-aligned) ── #}
         {% if node.duration %}
@@ -100,7 +110,7 @@
     {% endif %}
 
     {# Children (nested, only visible when expanded) ── #}
-    {% if node.children %}
+    {% if node.children and node.children | length > 0 %}
     <div class="timeline-node__children">
         {% for child in node.children %}
         {{ timeline_node(child) }}
@@ -113,13 +123,20 @@
 {% macro timeline_node(node) %}
 {% set meta = _TIMELINE_TYPE_META.get(node.type, _TIMELINE_TYPE_META['message']) %}
 {% set depth = node.depth | default(0) %}
+{% set is_failed = node.is_failed | default(false) %}
+{% set is_warning = node.is_warning | default(false) %}
 
-<div class="timeline-node {{ meta.color_class }}
+<div class="timeline-node {{ meta.color_class }} depth-{{ depth }}
             {{ 'is-expanded' if node.expanded else '' }}
-            {{ 'has-children' if node.children else '' }}
-            {{ 'is-leaf' if not node.children else '' }}"
+            {{ 'is-selected' if node.selected else '' }}
+            {{ 'has-children' if node.children and node.children | length > 0 else '' }}
+            {{ 'is-leaf' if not node.children or node.children | length == 0 else '' }}
+            {{ 'is-failed' if is_failed else '' }}
+            {{ 'is-warning' if is_warning and not is_failed else '' }}"
      data-timeline-type="{{ node.type }}"
+     data-timeline-id="{{ node.timeline_id or '' }}"
      style="--timeline-depth: {{ depth }};">
+    <span class="timeline-node__dot" aria-hidden="true"></span>
     {{ timeline_node_content(node) }}
 </div>
 {% endmacro %}

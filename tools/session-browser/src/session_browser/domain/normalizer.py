@@ -21,7 +21,7 @@ import json
 import re
 from typing import List
 
-from .content_part import ContentPart, ContentPartType, is_json, is_code_block
+from .content_part import ContentPart, ContentPartType, ContextPartType, is_json, is_code_block
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,179 @@ def normalize_message_content(text: str) -> List[ContentPart]:
         return [ContentPart(part_type=ContentPartType.TEXT, content="")]
 
     return parts
+
+
+def normalize_context_parts(
+    text: str,
+    default_context_type: str = ContextPartType.UNKNOWN,
+    title: str = "",
+) -> List[ContentPart]:
+    """Convert raw context text into enriched ContentParts with context-level metadata.
+
+    This is a higher-level wrapper around ``normalize_message_content`` that
+    additionally sets:
+    - ``context_type``: the structural role of each part (system_prompt,
+      user_message, tool_result, etc.).
+    - ``title``: human-readable label for display headers.
+    - ``content_bytes`` and ``token_hint``: auto-computed size hints.
+
+    Parameters
+    ----------
+    text : str
+        The raw message content.
+    default_context_type : str
+        ContextPartType value assigned to every part (default: UNKNOWN).
+        Use this when the caller knows the overall role (e.g. this is a
+        user message, so all parts get USER_MESSAGE).
+    title : str
+        Human-readable title applied to all parts (e.g. "User Message #1").
+
+    Returns
+    -------
+    list[ContentPart]
+        Ordered, typed, and enriched content parts.  Never ``None``.
+
+    Fallback
+    --------
+    If the input cannot be parsed into multipart structure, returns a
+    single part with context_type=UNKNOWN and an empty title, with
+    ``normalize_message_content`` providing content-level type detection.
+    The caller can detect this by checking if all parts have
+    ``context_type == UNKNOWN``.
+    """
+    if text is None:
+        part = ContentPart(
+            part_type=ContentPartType.TEXT,
+            content="",
+            context_type=default_context_type,
+            title=title,
+        )
+        part.compute_metadata()
+        return [part]
+
+    parts = normalize_message_content(text)
+
+    for part in parts:
+        part.context_type = default_context_type
+        if title:
+            part.title = title
+        part.compute_metadata()
+
+    return parts
+
+
+def detect_multipart_messages(text: str) -> List[ContentPart]:
+    """Attempt to parse *text* as a JSON messages array and return typed parts.
+
+    If *text* looks like a JSON array of API-style messages (each with
+    ``role`` and ``content``), this function extracts each message as a
+    separate ContentPart with:
+    - ``context_type`` derived from the message role (user, assistant, system, tool).
+    - ``title`` set to a human-readable label (e.g. "System Prompt", "User Message").
+    - ``content`` set to the message content (stringified if complex).
+
+    If *text* is not a valid JSON messages array, falls back to a single
+    UNKNOWN part (the caller should detect this and use raw display).
+
+    Parameters
+    ----------
+    text : str
+        Raw request context string that may contain a JSON messages array.
+
+    Returns
+    -------
+    list[ContentPart]
+        Parsed multipart parts, or a single UNKNOWN part on failure.
+    """
+    if not text or not text.strip():
+        return []
+
+    stripped = text.strip()
+    if not stripped.startswith("["):
+        return []
+
+    try:
+        messages = json.loads(stripped)
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+    if not isinstance(messages, list) or len(messages) == 0:
+        return []
+
+    # Validate: each message should have at least a "role" key.
+    if not all(isinstance(m, dict) and "role" in m for m in messages):
+        return []
+
+    parts: List[ContentPart] = []
+    for i, msg in enumerate(messages):
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+
+        # Complex content: flatten list of content blocks into a string.
+        if isinstance(content, list):
+            pieces = []
+            for block in content:
+                if isinstance(block, dict):
+                    block_type = block.get("type", "")
+                    if block_type == "text":
+                        pieces.append(block.get("text", ""))
+                    elif block_type == "tool_result":
+                        pieces.append(
+                            f"[Tool Result: {block.get('tool_use_id', 'unknown')}]\n"
+                            f"{block.get('content', '')}"
+                        )
+                    elif block_type == "tool_use":
+                        pieces.append(
+                            f"[Tool Use: {block.get('name', 'unknown')}]\n"
+                            f"{json.dumps(block.get('input', {}), indent=2)}"
+                        )
+                    elif block_type == "image":
+                        pieces.append(
+                            f"[Image: {block.get('source', {}).get('media_type', 'unknown')}]"
+                        )
+                    else:
+                        pieces.append(json.dumps(block, indent=2))
+                else:
+                    pieces.append(str(block))
+            content = "\n\n".join(pieces)
+        elif not isinstance(content, str):
+            content = json.dumps(content, indent=2)
+
+        # Map role to context_type and title.
+        ctx_type, part_title = _role_to_context_type(role, i)
+
+        part = ContentPart(
+            part_type=detect_content_type(content),
+            content=content,
+            context_type=ctx_type,
+            title=part_title,
+        )
+        part.compute_metadata()
+        parts.append(part)
+
+    return parts
+
+
+def _role_to_context_type(role: str, index: int) -> tuple[str, str]:
+    """Map an API message role to (context_type, human-readable title)."""
+    role_lower = role.lower()
+    if role_lower == "system":
+        return ContextPartType.SYSTEM_PROMPT, "System Prompt"
+    elif role_lower == "user":
+        return ContextPartType.USER_MESSAGE, f"User Message #{index + 1}"
+    elif role_lower == "assistant":
+        return ContextPartType.ASSISTANT_MESSAGE, f"Assistant Message #{index + 1}"
+    elif role_lower == "tool":
+        return ContextPartType.TOOL_RESULT, f"Tool Result #{index + 1}"
+    else:
+        return ContextPartType.UNKNOWN, f"Message #{index + 1} ({role})"
+
+
+# Import here to avoid circular import at module level.
+def detect_content_type(payload: str, filename_hint: str = "") -> str:
+    """Delegate to content_part.detect_content_type."""
+    from .content_part import detect_content_type as _detect
+    return _detect(payload, filename_hint)
 
 
 # ---------------------------------------------------------------------------

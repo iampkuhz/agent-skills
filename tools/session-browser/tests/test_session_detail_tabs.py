@@ -7,6 +7,10 @@ Covers:
 - Profile inspector 渲染（LLM inspector modal + openLLMInspector）
 - Tab 切换 JS 函数存在
 - 各 tab 基本结构元素完整
+- Metrics strip 元素
+- Anomaly banner 条件渲染模板
+- Token chart collapse 按钮
+- Inspector 7-tab shell 结构
 """
 
 from __future__ import annotations
@@ -279,7 +283,7 @@ class TestProfileTab:
     def test_has_llm_calls_detail_table(self):
         source = self._source()
         assert "LLM Calls Detail" in source, "Profile must have LLM Calls Detail section"
-        assert 'class="data-table"' in source, "Profile must have data-table for LLM calls"
+        assert "data-table" in source, "Profile must have data-table for LLM calls"
 
     def test_llm_table_columns(self):
         source = self._source()
@@ -299,17 +303,28 @@ class TestProfileTab:
         assert "data-scope=" in source, "Inspect button must have data-scope"
         assert "data-round=" in source, "Inspect button must have data-round"
 
-    def test_has_request_context_display(self):
+    def test_no_inline_detail_rows(self):
+        """Profile should NOT have inline llm-call-detail rows — details belong in Inspector."""
         source = self._source()
-        assert "Request Context:" in source, "Profile must show request context"
+        assert 'llm-call-detail' not in source, (
+            "Profile should not contain inline llm-call-detail rows — "
+            "request/response/tool details should be viewed via Inspector"
+        )
 
-    def test_has_response_display(self):
+    def test_no_request_context_inline(self):
+        """Profile should NOT have inline 'Request Context:' label."""
         source = self._source()
-        assert "Response:" in source, "Profile must show response"
+        assert "Request Context:" not in source, (
+            "Profile should not expose inline request context — "
+            "use Inspector for request payload"
+        )
 
-    def test_has_tool_calls_display(self):
+    def test_row_has_data_llm_call_id(self):
+        """Each LLM call row must have data-llm-call-id attribute for Inspector."""
         source = self._source()
-        assert "Tool Calls" in source, "Profile must show tool calls"
+        assert "data-llm-call-id=" in source, (
+            "LLM call rows must have data-llm-call-id for Inspector integration"
+        )
 
     def test_has_raw_session_data(self):
         source = self._source()
@@ -480,3 +495,178 @@ class TestTabStructuralIntegrity:
             "Modal must use classList.add('visible') to show"
         assert "classList.remove('visible')" in source, \
             "Modal must use classList.remove('visible') to hide"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Metrics Strip
+# ──────────────────────────────────────────────────────────────────────
+
+class TestMetricsStrip:
+    """Verify metrics strip card exists with key metric items."""
+
+    def _source(self):
+        return _session_source()
+
+    def test_metrics_strip_card_exists(self):
+        source = self._source()
+        assert 'class="metrics-strip-card"' in source, \
+            "Metrics strip must be wrapped in metrics-strip-card"
+
+    def test_has_duration_metric(self):
+        source = self._source()
+        assert '时长' in source or 'Duration' in source, \
+            "Metrics strip must include duration metric"
+
+    def test_has_rounds_metric(self):
+        source = self._source()
+        assert '轮次' in source or 'Rounds' in source, \
+            "Metrics strip must include rounds metric"
+
+    def test_has_total_token_metric(self):
+        source = self._source()
+        assert '总 Token' in source or 'Total Token' in source, \
+            "Metrics strip must include total token metric"
+
+    def test_has_tool_call_metric(self):
+        source = self._source()
+        assert '工具调用' in source or 'Tool Call' in source, \
+            "Metrics strip must include tool call metric"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Anomaly Banner
+# ──────────────────────────────────────────────────────────────────────
+
+class TestAnomalyBanner:
+    """Verify anomaly banner conditional rendering template."""
+
+    def _source(self):
+        return _session_source()
+
+    def test_anomaly_banner_template_exists(self):
+        source = self._source()
+        assert 'anomaly-inline anomaly-banner' in source, \
+            "Anomaly banner template must exist"
+
+    def test_anomaly_banner_has_jump_to_hotspots(self):
+        source = self._source()
+        assert "switchTab('hotspots')" in source, \
+            "Anomaly banner must have 'Jump to Hotspots' link"
+
+    def test_anomaly_banner_has_severity_badges(self):
+        source = self._source()
+        assert "anomaly-banner__severity-label" in source, \
+            "Anomaly banner must show severity label"
+
+    def test_anomaly_banner_has_anomaly_badges(self):
+        source = self._source()
+        assert "anomaly-badge" in source, \
+            "Anomaly banner must render anomaly-badge elements"
+
+    def test_has_anomalies_conditional(self):
+        source = self._source()
+        assert "has_anomalies" in source, \
+            "Anomaly banner must be conditionally rendered via has_anomalies"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Token Charts Card
+# ──────────────────────────────────────────────────────────────────────
+
+class TestTokenChartsCard:
+    """Verify token charts card with collapse/expand functionality."""
+
+    def _source(self):
+        return _session_source()
+
+    def test_token_charts_card_exists(self):
+        source = self._source()
+        assert 'id="tokenChartsCard"' in source, \
+            "Token charts card must exist with id tokenChartsCard"
+
+    def test_token_charts_collapse_header(self):
+        source = self._source()
+        assert 'id="tokenChartsHeader"' in source, \
+            "Token charts must have collapsible header"
+
+    def test_token_charts_toggle_function(self):
+        source = self._source()
+        assert "TokenChartsToggle" in source, \
+            "Must have TokenChartsToggle JS function for collapse/expand"
+
+    def test_token_charts_collapse_body(self):
+        source = self._source()
+        assert 'id="tokenChartsBody"' in source, \
+            "Token charts must have collapsible body section"
+
+    def test_token_charts_localStorage_persistence(self):
+        source = self._source()
+        assert "tokenChartState" in source, \
+            "Token chart collapse state must be persisted to localStorage"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Inspector 7-Tab Shell
+# ──────────────────────────────────────────────────────────────────────
+
+class TestInspectorTabs:
+    """Verify Inspector 7-tab shell structure (JS-driven)."""
+
+    def _source(self):
+        return _session_source()
+
+    def _inspector_js(self):
+        js_path = Path(__file__).parent.parent / "src" / "session_browser" / "web" / "static" / "js" / "inspector.js"
+        return js_path.read_text(encoding="utf-8")
+
+    def _inspector_component(self):
+        comp_path = TEMPLATE_DIR / "components" / "inspector.html"
+        return comp_path.read_text(encoding="utf-8")
+
+    def test_inspector_tab_shell_html_exists(self):
+        component = self._inspector_component()
+        assert "inspector-tabs" in component, \
+            "inspector.html must contain inspector-tabs shell container"
+
+    def test_inspector_tablist_element(self):
+        component = self._inspector_component()
+        assert "inspector-tablist" in component, \
+            "inspector.html must contain inspector-tablist element"
+
+    def test_inspector_tabpanels_element(self):
+        component = self._inspector_component()
+        assert "inspector-tabpanels" in component, \
+            "inspector.html must contain inspector-tabpanels element"
+
+    def test_default_tabs_has_7_tabs(self):
+        js = self._inspector_js()
+        assert "'Overview'" in js, "Inspector must have Overview tab"
+        assert "'Rendered Context'" in js, "Inspector must have Rendered Context tab"
+        assert "'Request Payload'" in js, "Inspector must have Request Payload tab"
+        assert "'Rendered Response'" in js, "Inspector must have Rendered Response tab"
+        assert "'Response Payload'" in js, "Inspector must have Response Payload tab"
+        assert "'Tools'" in js, "Inspector must have Tools tab"
+        assert "'Raw'" in js, "Inspector must have Raw tab"
+
+    def test_rendered_context_replaces_request_context(self):
+        """Verify old 'Request Context' label replaced by 'Rendered Context'."""
+        js = self._inspector_js()
+        assert "Rendered Context" in js, \
+            "Inspector must use 'Rendered Context' tab label"
+
+    def test_inspector_switchTab_js(self):
+        js = self._inspector_js()
+        assert "Inspector._switchTab" in js, \
+            "Inspector must have _switchTab function for tab navigation"
+
+    def test_inspector_tab_role_attributes(self):
+        js = self._inspector_js()
+        assert 'role="tab"' in js, "Inspector tab buttons must have role=tab"
+        assert 'role="tabpanel"' in js, "Inspector tab panels must have role=tabpanel"
+
+    def test_openInspector_passes_rendered_context(self):
+        source = self._source()
+        assert "rendered_context_raw" in source, \
+            "openLLMInspector must pass rendered_context_raw to inspector"
+        assert "rendered_context_length" in source, \
+            "openLLMInspector must pass rendered_context_length to inspector"
