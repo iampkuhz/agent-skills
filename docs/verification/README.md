@@ -145,14 +145,6 @@ curl -s http://localhost:4000/v1/models \
 
 ---
 
-## 后续验证计划
-
-1. **Crawl4AI 服务**：当实现后添加验证步骤
-2. **更多 MCP 工具**：当新增后添加验证步骤
-3. **自动化测试**：添加 CI/CD 验证
-
----
-
 ## 参考
 
 - [docs/architecture/overview.md](architecture/overview.md) - 架构说明

@@ -48,7 +48,7 @@
                               │                     │
                               │  • SearXNG         │
                               │  • LiteLLM         │
-                              │  • Crawl4AI (计划)  │
+                              │  • Crawl4AI        │
                               └─────────────────────┘
 ```
 
