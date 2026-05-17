@@ -1,15 +1,10 @@
-"""Tests for Inspector/Viewer tab structure.
+"""Tests for Inspector tab structure (Task 11: 3-tab simplified).
 
 Ensures that the LLM Call Inspector has:
-- 7 required tabs: Overview, Rendered Context, Request Payload,
-  Rendered Response, Response Payload, Tools, Raw.
-- Tab buttons and tabpanels with active state and basic ARIA attributes.
-- "Request Payload unavailable" empty-state text.
-- Safe HTML escaping for raw JSON/<pre> content.
-- Guarded viewerHtml fallback that doesn't break non-LLM Inspector.
-
-Before tab shell implementation, these tests SHOULD FAIL because the
-current inspector lacks tabs, unavailable states, and proper structure.
+- 3 required tabs: Overview, Payload, Tools.
+- insp-head / insp-body / insp-tabs structure.
+- Empty state when no object selected.
+- Safe HTML escaping for raw content.
 """
 
 import re
@@ -19,12 +14,8 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "src" / "session_browser" / "web"
 
 _REQUIRED_TABS = [
     "Overview",
-    "Rendered Context",
-    "Request Payload",
-    "Rendered Response",
-    "Response Payload",
+    "Payload",
     "Tools",
-    "Raw",
 ]
 
 
@@ -48,74 +39,71 @@ def _combined(sources: dict[str, str]) -> str:
 
 # ── Required tabs ────────────────────────────────────────────────────
 
-def test_all_seven_tabs_exist():
-    """All 7 required tab labels must be present across templates/JS."""
+def test_all_three_tabs_exist():
+    """All 3 required tab labels must be present."""
     sources = _read_all_sources()
     combined = _combined(sources)
     missing = [tab for tab in _REQUIRED_TABS if tab not in combined]
     assert not missing, f"Missing tab labels: {', '.join(missing)}"
 
 
-# ── ARIA and active state ────────────────────────────────────────────
+# ── Hi-Fi structure ──────────────────────────────────────────────────
 
-def test_tab_buttons_have_aria_role():
-    """Tab buttons must have role='tab' ARIA attribute."""
+def test_insp_head_exists():
+    """Inspector must have insp-head header area."""
     sources = _read_all_sources()
-    combined = _combined(sources)
-    assert 'role="tab"' in combined or "role='tab'" in combined, (
-        "Tab buttons must have role='tab' ARIA attribute"
+    html = sources.get("templates/components/inspector.html", "")
+    assert "insp-head" in html, "Missing insp-head in inspector template"
+
+
+def test_insp_close_exists():
+    """Inspector must have a close button."""
+    sources = _read_all_sources()
+    html = sources.get("templates/components/inspector.html", "")
+    assert "insp-close" in html, "Missing insp-close button"
+
+
+def test_insp_title_exists():
+    """Inspector must have insp-title element."""
+    sources = _read_all_sources()
+    html = sources.get("templates/components/inspector.html", "")
+    assert "insp-title" in html, "Missing insp-title element"
+
+
+def test_empty_state_exists():
+    """Inspector must have an empty state for no selection."""
+    sources = _read_all_sources()
+    html = sources.get("templates/components/inspector.html", "")
+    assert "insp-empty-state" in html or "No object selected" in html, (
+        "Missing empty state in inspector template"
     )
 
 
-def test_tabpanel_exists():
-    """Tab panels must exist (role='tabpanel' or class='tab-content')."""
+# ── Tab switching ────────────────────────────────────────────────────
+
+def test_switchTab_function_exists():
+    """JS must provide Inspector.switchTab for tab switching."""
     sources = _read_all_sources()
-    combined = _combined(sources)
-    has = (
-        'role="tabpanel"' in combined
-        or "role='tabpanel'" in combined
-        or 'class="tab-content"' in combined
-        or 'class="tabpanel"' in combined
-    )
-    assert has, "No tabpanel element found"
+    js = sources.get("static/js/inspector.js", "")
+    assert "switchTab" in js, "Missing switchTab function in inspector.js"
 
 
-def test_active_state_class_exists():
-    """Tab structure must have an 'active' state class."""
+def test_no_inspector_open_class():
+    """JS should NOT reference inspector-open class (grid column now)."""
     sources = _read_all_sources()
-    combined = _combined(sources)
-    assert re.search(r'class="[^"]*\bactive\b[^"]*"', combined), (
-        "No 'active' state class found in tab structure"
-    )
-
-
-# ── Empty state ──────────────────────────────────────────────────────
-
-def test_request_payload_unavailable():
-    """'Request Payload unavailable' or equivalent empty-state text must exist."""
-    sources = _read_all_sources()
-    combined = _combined(sources)
-    patterns = [
-        r'Request Payload.*unavailable',
-        r'unavailable.*Request Payload',
-        r'Request Payload.*not available',
-        r'No request payload',
-        r'request.*payload.*unavailable',
-    ]
-    found = any(re.search(p, combined, re.IGNORECASE) for p in patterns)
-    assert found, (
-        "No 'Request Payload unavailable' empty-state text found. "
-        "Add a clear unavailable message for missing request payload."
+    js = sources.get("static/js/inspector.js", "")
+    assert "inspector-open" not in js, (
+        "JS still references inspector-open class; should use hide-right instead"
     )
 
 
 # ── Content escaping ─────────────────────────────────────────────────
 
 def test_raw_content_html_escaping():
-    """Raw JSON/<pre> content must be HTML-escaped in JS."""
+    """Raw content must be HTML-escaped in JS."""
     js_path = TEMPLATE_DIR / "static" / "js" / "inspector.js"
     if not js_path.exists():
-        return  # Skip if JS file missing
+        return
     js = js_path.read_text(encoding="utf-8")
 
     assert re.search(r"replace\s*\(\s*/&/g\s*,\s*['\"]&amp;['\"]", js), (
@@ -129,47 +117,17 @@ def test_raw_content_html_escaping():
     )
 
 
-# ── viewerHtml fallback ─────────────────────────────────────────────
+# ── CSS styles ───────────────────────────────────────────────────────
 
-def test_viewerhtml_fallback_guarded():
-    """viewerHtml injection must be guarded by a conditional check."""
-    js_path = TEMPLATE_DIR / "static" / "js" / "inspector.js"
-    if not js_path.exists():
+def test_insp_css_styles_exist():
+    """CSS must define insp-* styles."""
+    css_path = TEMPLATE_DIR / "static" / "style.css"
+    if not css_path.exists():
         return
-    js = js_path.read_text(encoding="utf-8")
-    assert re.search(r'if\s*\(\s*payload\.viewerHtml\s*\)', js), (
-        "viewerHtml injection is not guarded by a conditional check"
-    )
-
-
-def test_inspector_has_default_viewer_slot():
-    """Inspector template must have a fallback/empty state for the viewer slot."""
-    inspector_path = TEMPLATE_DIR / "templates" / "components" / "inspector.html"
-    if not inspector_path.exists():
-        return
-    inspector = inspector_path.read_text(encoding="utf-8")
-    assert re.search(
-        r'(No .*? available|Not available|—|viewer__fallback|inspector-viewer-slot)',
-        inspector,
-    ), "Inspector template must have fallback content for absent viewerHtml"
-
-
-# ── Inspector tab shell ──────────────────────────────────────────────
-
-def test_inspector_has_tab_shell():
-    """Inspector must have its own tab shell (HTML or JS)."""
-    sources = _read_all_sources()
-    combined = _combined(sources)
-    has = bool(re.search(
-        r'(inspector-tab|data-inspector-tab|class="inspector.*tab|tab.*panel|tabpanel|role.*tab)',
-        combined,
-        re.IGNORECASE,
-    ))
-    assert has, (
-        "Inspector lacks a dedicated tab shell. "
-        "Add inspector-level tabs for: Overview, Rendered Context, "
-        "Request Payload, Rendered Response, Response Payload, Tools, Raw."
-    )
+    css = css_path.read_text(encoding="utf-8")
+    assert ".insp-tabs" in css, "Missing .insp-tabs CSS"
+    assert ".insp-head" in css, "Missing .insp-head CSS"
+    assert ".insp-title" in css, "Missing .insp-title CSS"
 
 
 # ── Rendered/raw separation ─────────────────────────────────────────
@@ -178,14 +136,21 @@ def test_rendered_raw_separation():
     """Rendered and raw content must have separate containers."""
     sources = _read_all_sources()
     combined = _combined(sources)
-    has_rendered = bool(re.search(
-        r'(rendered|markdown|viewer__markdown|viewer__part-markdown)',
+    has_viewer = bool(re.search(
+        r'(viewer__raw|viewer__raw-pre|viewer--raw)',
         combined,
     ))
-    has_raw = bool(re.search(
-        r'(viewer__raw|raw-pre|raw-json|__raw)',
-        combined,
-    ))
-    assert has_rendered and has_raw, (
-        "Rendered and raw containers are not clearly separated"
+    assert has_viewer, "No raw viewer container found"
+
+
+# ── Grid column behavior ─────────────────────────────────────────────
+
+def test_hide_right_hides_inspector():
+    """CSS: body.hide-right should hide .inspector."""
+    css_path = TEMPLATE_DIR / "static" / "style.css"
+    if not css_path.exists():
+        return
+    css = css_path.read_text(encoding="utf-8")
+    assert "hide-right" in css and ".inspector" in css, (
+        "CSS should hide inspector via body.hide-right"
     )

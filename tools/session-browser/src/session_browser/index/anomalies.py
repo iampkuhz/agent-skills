@@ -19,6 +19,7 @@ class AnomalyType:
     LONG_DURATION = "long_duration"
     CACHE_WRITE_SPIKE = "cache_write_spike"
     FAILED_RUN = "failed_run"
+    PAYLOAD_VISIBILITY_MISMATCH = "payload_visibility_mismatch"
 
 
 SEVERITY_CRITICAL = "critical"
@@ -179,6 +180,13 @@ def detect_session_anomalies(
             label="Cache Creation",
             reason=f"Cache creation {cache_write:,} tokens exceeds threshold ({warn:,})",
         ))
+
+    # ─── Payload visibility mismatch ───
+    # NOTE: This detection is now done in _serve_session() where llm_calls
+    # are available. The old check (session.get("rendered_context_length"))
+    # used a field that was never populated, causing false positives for all
+    # sessions with input tokens.
+    # Kept here for reference; the constant is still used by templates.
 
     return SessionAnomalies(session_key=session_key, anomalies=anomalies)
 

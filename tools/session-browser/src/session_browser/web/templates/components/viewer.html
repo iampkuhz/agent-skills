@@ -162,3 +162,63 @@
     </div>
 </div>
 {% endmacro %}
+
+{% macro payload_viewer(parts_data, title='') %}
+{# Full Payload Viewer — two-column layout (Task 12) #}
+<div class="viewer-shell" data-viewer="payload">
+    {% if title %}
+    <div class="viewer-shell__title">{{ title }}</div>
+    {% endif %}
+    <aside class="viewer-side">
+        <div class="nav-label">Parts</div>
+        {% if parts_data.request %}
+        <div class="part active" data-payload-part="request">
+            <span>Request Payload</span>
+            <span class="mono">{{ parts_data.request.size | format_bytes if parts_data.request.size else '—' }}</span>
+        </div>
+        {% endif %}
+        {% if parts_data.rendered %}
+        <div class="part" data-payload-part="rendered">
+            <span>Rendered Context</span>
+            <span class="mono">{{ parts_data.rendered.size | format_bytes if parts_data.rendered.size else '—' }}</span>
+        </div>
+        {% endif %}
+        {% if parts_data.response %}
+        <div class="part" data-payload-part="response">
+            <span>Response Payload</span>
+            <span class="mono">{{ parts_data.response.size | format_bytes if parts_data.response.size else '—' }}</span>
+        </div>
+        {% endif %}
+        {% if parts_data.tools %}
+        <div class="part" data-payload-part="tools">
+            <span>Tool Results</span>
+            <span class="mono">{{ parts_data.tools.count | default(0) }}</span>
+        </div>
+        {% endif %}
+    </aside>
+    <main class="viewer-main">
+        <div class="viewer-toolbar">
+            <div class="view-switch">
+                <button class="active" data-payload-switch="json">JSON</button>
+                <button data-payload-switch="rendered">Rendered</button>
+                <button data-payload-switch="raw">Raw</button>
+                <button data-payload-switch="diff" disabled>Diff</button>
+            </div>
+            <span class="badge warn payload-unavailable" style="display:none">payload unavailable</span>
+        </div>
+        <div class="viewer-content">
+            <div data-payload-view="json" style="padding:12px">
+                <pre class="code">{{ parts_data.request.json | default('') | safe }}</pre>
+            </div>
+            <div data-payload-view="rendered" style="display:none;padding:12px"></div>
+            <div data-payload-view="raw" style="display:none;padding:12px">
+                <pre class="code">{{ parts_data.request.raw | default('') | safe }}</pre>
+            </div>
+        </div>
+    </main>
+    {# Viewer data for JS initialization #}
+    <script type="application/json" data-viewer-data>
+    {{ parts_data | tojson | safe }}
+    </script>
+</div>
+{% endmacro %}

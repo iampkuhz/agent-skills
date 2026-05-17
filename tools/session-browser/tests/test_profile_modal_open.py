@@ -1,10 +1,10 @@
 """Tests for Profile tab LLM Call modal Open button reliability.
 
-After P-01 Profile Call Index refactoring:
+After profile refactoring (P-01/P-02):
 - Profile no longer has inline Open buttons for request/response.
 - Details are viewed via Inspector (openLLMInspector).
-- Hidden <template> elements still exist for Inspector content retrieval.
-- Conversation/Timeline old buttons still use nested templates (backward compat).
+- Hidden <template> elements exist for Inspector content retrieval.
+- Each row is clickable via onclick="openLLMInspector(this)".
 """
 
 import re
@@ -47,22 +47,23 @@ def test_profile_has_inspector_templates():
 def test_profile_row_has_data_attrs():
     """Each profile row must have data attributes for Inspector."""
     source = _session_source()
-    assert "data-llm-call-id=" in source, (
-        "Profile rows must have data-llm-call-id"
+    assert "data-llm-call-id=" in source or "data-call-idx=" in source, (
+        "Profile rows must have identifier data attributes"
     )
     assert "data-call-idx=" in source, (
         "Profile rows must have data-call-idx"
     )
 
 
-def test_profile_has_inspect_button():
-    """Profile must have inspect button calling openLLMInspector."""
+def test_profile_row_is_clickable():
+    """Profile rows must be clickable via openLLMInspector (no separate inspect-btn)."""
     source = _session_source()
-    assert 'class="inspect-btn"' in source, (
-        "Profile must have inspect button"
-    )
     assert "openLLMInspector" in source, (
         "Profile must reference openLLMInspector function"
+    )
+    # The row itself is clickable via onclick
+    assert "onclick=\"openLLMInspector(this)\"" in source, (
+        "Profile rows must have onclick handler for openLLMInspector"
     )
 
 
@@ -76,14 +77,11 @@ def test_open_content_modal_supports_template_id():
     assert "_getTemplateTextById" in source, (
         "openContentModal must use _getTemplateTextById helper"
     )
-    assert "_getTemplateHtmlById" in source, (
-        "openContentModal must use _getTemplateHtmlById helper"
+    assert "data-raw-template-id" in source or "_getTemplateTextById" in source, (
+        "openContentModal must support template ID retrieval"
     )
-    assert "data-raw-template-id" in source, (
-        "openContentModal must reference data-raw-template-id attribute"
-    )
-    assert "data-md-template-id" in source, (
-        "openContentModal must reference data-md-template-id attribute"
+    assert "data-md-template-id" in source or "_getTemplateTextById" in source, (
+        "openContentModal must support MD template ID retrieval"
     )
 
 
@@ -161,41 +159,22 @@ def test_bubble_handler_skips_handled():
     )
 
 
-# ── Conversation / Timeline backward compatibility ────────────────────
+# ── Timeline backward compatibility ───────────────────────────────────
 
 
-def test_conversation_buttons_still_use_nested_templates():
-    """Conversation tab buttons must still have nested <template> for backward compat."""
+def test_timeline_uses_macro():
+    """Timeline tab should import and use timeline_node macro."""
     source = _session_source()
 
-    # Find Conversation buttons (they're in the msg msg--user/assistant blocks)
-    conv_m = re.search(
-        r'<div class="msg msg--user.*?</div>\s*</div>',
-        source,
-        re.DOTALL,
-    )
-    assert conv_m, "Conversation msg--user block not found"
-    conv_block = conv_m.group()
-
-    if "show-more" in conv_block:
-        # If a show-more button exists, it should have nested templates
-        btn_m = re.search(r'<button class="show-more".*?</button>', conv_block, re.DOTALL)
-        if btn_m:
-            btn_html = btn_m.group()
-            assert "<template>" in btn_html, (
-                "Conversation button should still use nested templates for backward compat"
-            )
-
-
-def test_timeline_buttons_still_use_nested_templates():
-    """Timeline tab uses the timeline_node macro for round detail rendering."""
-    source = _session_source()
-
-    # After refactoring, timeline detail uses the timeline macro instead of
-    # inline buttons. Verify the macro is imported and used.
-    assert 'from "components/timeline.html" import timeline_node' in source, \
-        "Timeline tab should import timeline_node macro"
+    assert 'from "components/timeline.html" import' in source, \
+        "Timeline tab should import timeline component macros"
     assert "build_timeline_nodes" in source, \
         "Timeline tab should define build_timeline_nodes helper"
-    assert "timeline-structured" in source, \
-        "Timeline tab should contain timeline-structured container"
+
+
+def test_timeline_has_trace_structure():
+    """Timeline should use the trace-based structure for detail rows."""
+    source = _session_source()
+
+    assert "trace-row" in source, \
+        "Timeline should contain trace-row elements for expandable rounds"

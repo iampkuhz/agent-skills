@@ -442,6 +442,20 @@ def _html_escape(text: str) -> str:
     return html.escape(text)
 
 
+def _format_bytes(n) -> str:
+    """Format byte count to human-readable string."""
+    if n is None or n == 0:
+        return "0 B"
+    n = int(n)
+    if n < 1024:
+        return f"{n} B"
+    if n < 1024 * 1024:
+        return f"{n / 1024:.1f} KB"
+    if n < 1024 * 1024 * 1024:
+        return f"{n / (1024 * 1024):.1f} MB"
+    return f"{n / (1024 * 1024 * 1024):.1f} GB"
+
+
 # Register template filters
 _template_env.filters["format_number"] = lambda n: (
     f"{n / 1_000_000:.1f}M" if n >= 1_000_000
@@ -465,6 +479,7 @@ _template_env.filters["format_duration"] = lambda seconds: (
     else f"{int(seconds // 60)}min {int(seconds % 60)}s" if seconds >= 60
     else f"{int(seconds)}s"
 )
+_template_env.filters["format_bytes"] = _format_bytes
 _template_env.filters["relative_time"] = lambda iso_str: (
     _relative_time(iso_str)
 )
@@ -1220,10 +1235,14 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             elif path == "/sessions":
                 self._serve_all_sessions()
             elif path.startswith("/sessions/"):
-                parts = path[len("/sessions/"):].split("/", 1)
+                # Parse query params for export=mhtml
+                path_only = path.split("?", 1)[0]
+                export_mhtml = params.get("export") == ["mhtml"]
+
+                parts = path_only[len("/sessions/"):].split("/", 1)
                 if len(parts) == 2:
                     agent, session_id = parts
-                    self._serve_session(agent, session_id)
+                    self._serve_session(agent, session_id, export_mhtml=export_mhtml)
                 else:
                     self._serve_all_sessions()
             elif path == "/agents":
@@ -1359,7 +1378,7 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         )
         self._send_html(html)
 
-    def _serve_session(self, agent: str, session_id: str) -> None:
+    def _serve_session(self, agent: str, session_id: str, export_mhtml: bool = False) -> None:
         session_key = f"{agent}:{session_id}"
         conn = _get_connection()
         session = get_session(conn, session_key)
@@ -1423,6 +1442,20 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         from session_browser.index.anomalies import detect_session_anomalies
         sa = detect_session_anomalies(session_data)
 
+        # Payload visibility mismatch: check actual llm_calls for missing payloads.
+        # Only flag when input tokens exist but NO call has request_full data.
+        has_input = session.input_tokens > 0
+        has_any_request = any(c.request_full for c in llm_calls) if llm_calls else False
+        has_any_response = any(c.response_full for c in llm_calls) if llm_calls else False
+        if has_input and not has_any_request and not has_any_response:
+            from session_browser.index.anomalies import Anomaly, AnomalyType, SEVERITY_WARNING
+            sa.anomalies.append(Anomaly(
+                type=AnomalyType.PAYLOAD_VISIBILITY_MISMATCH,
+                severity=SEVERITY_WARNING,
+                label="Payload visibility mismatch",
+                reason="Session has input tokens, but no LLM call has request/response payload data.",
+            ))
+
         # Compute signals for each round after interactions are assigned
         round_signals = []
         for i, r in enumerate(rounds):
@@ -1434,6 +1467,14 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
         global _SESSION_REPO_ROOT
         _SESSION_REPO_ROOT = _get_repo_root(session.project_key) if session.project_key else None
 
+        # MHTML context
+        if export_mhtml:
+            logger.info("MHTML export: agent=%s session_id=%s", agent, session_id)
+            from session_browser.web.mhtml import get_context
+            mhtml_ctx = get_context(True)
+        else:
+            mhtml_ctx = {}
+
         html = self._render_template(
             "session.html",
             session=session,
@@ -1444,6 +1485,14 @@ class SessionBrowserHandler(BaseHTTPRequestHandler):
             llm_calls=llm_calls,
             current_agent=agent,
             session_anomalies=sa,
+            active_page="session",
+            session_url=f"/sessions/{agent}/{session_id}",
+            session_rounds=[
+                {"idx": i + 1, "name": r.title or f"Round {i + 1}",
+                 "status": getattr(r, "status", ""), "is_current": False}
+                for i, r in enumerate(rounds)
+            ],
+            **mhtml_ctx,
         )
         self._send_html(html)
 

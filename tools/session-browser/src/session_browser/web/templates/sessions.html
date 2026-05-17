@@ -3,142 +3,131 @@
 
 {% block title %}Sessions - Agent Run Profiler{% endblock %}
 
+{% block shell_class %} no-inspector{% endblock %}
+{% block inspector %}{% endblock %}
+
 {% block content %}
 
-<!-- Page header -->
-<div class="page-header">
-    <div class="page-header__top">
-        <div class="page-header__left">
-            <h1 class="page-header__title">Sessions</h1>
+<section class="card sessions-card">
+    <div class="card-head">
+        <div>
+            <div class="card-title">Sessions</div>
+            <div class="card-sub">Triage session history by failures, token cost, agent, and project.</div>
         </div>
-        <div class="page-header__actions">
-            <span class="text-muted text-xs" id="sessions-count-label">{{ total_count }} sessions</span>
+        <div class="top-actions">
+            <button class="action-btn" data-quick-filter="failed" onclick="toggleQuickFilter(this)">Failed only</button>
+            <button class="action-btn" data-quick-filter="high-token" onclick="toggleQuickFilter(this)">High token</button>
+            <button class="action-btn primary" id="open-selected-session">Open selected</button>
         </div>
     </div>
-</div>
+    <div class="card-body">
 
 <!-- Filter row -->
-<div class="card" style="margin-bottom:12px; padding:10px 14px">
-    <div class="filter-bar">
-        <input id="session-search" type="text" placeholder="Search title or session ID..."
-               class="filter-bar__input filter-bar__input--search" />
-        <select id="filter-agent" class="filter-bar__select">
-            <option value="">All Agents</option>
-            <option value="claude_code">Claude Code</option>
-            <option value="qoder">Qoder</option>
-            <option value="codex">Codex</option>
-        </select>
-        <select id="filter-model" class="filter-bar__select">
-            <option value="">All Models</option>
-            {% for m in model_list %}
-            <option value="{{ m }}">{{ m }}</option>
-            {% endfor %}
-        </select>
-        <select id="filter-project" class="filter-bar__select filter-bar__select--project">
-            <option value="">All Projects</option>
-            {% for p in project_list %}
-            <option value="{{ p }}">{{ p }}</option>
-            {% endfor %}
-        </select>
-        <select id="sort-by" class="filter-bar__select">
-            <option value="ended_at">Sort: Last Active</option>
-            <option value="total_tokens">Sort: Tokens</option>
-            <option value="output_tokens">Sort: Output Tokens</option>
-            <option value="tool_call_count">Sort: Tool Calls</option>
-            <option value="failed_tool_count">Sort: Failed Tools</option>
-            <option value="duration_seconds">Sort: Duration</option>
-        </select>
-        <button class="filter-chip" data-quick-filter="failed" onclick="toggleQuickFilter(this)">Failed</button>
-        <button class="filter-chip" data-quick-filter="high-token" onclick="toggleQuickFilter(this)">High Token</button>
-        <button class="filter-chip" data-quick-filter="anomalies" onclick="toggleQuickFilter(this)">Anomalies</button>
-        <button class="filter-bar__btn" id="clear-all-btn" onclick="resetSessionFilters()" style="display:none">Clear All</button>
-        <button class="filter-bar__btn" onclick="resetSessionFilters()">Reset</button>
-    </div>
+<div class="filter-bar">
+    <input id="session-search" type="text" placeholder="Search title or session ID..."
+           class="filter-bar__input filter-bar__input--search" />
+    <select id="filter-agent" class="filter-bar__select">
+        <option value="">All Agents</option>
+        <option value="claude_code">Claude Code</option>
+        <option value="qoder">Qoder</option>
+        <option value="codex">Codex</option>
+    </select>
+    <select id="filter-model" class="filter-bar__select">
+        <option value="">All Models</option>
+        {% for m in model_list %}
+        <option value="{{ m }}">{{ m }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-project" class="filter-bar__select filter-bar__select--project">
+        <option value="">All Projects</option>
+        {% for p in project_list %}
+        <option value="{{ p }}">{{ p }}</option>
+        {% endfor %}
+    </select>
+    <select id="sort-by" class="filter-bar__select">
+        <option value="ended_at">Sort: Last Active</option>
+        <option value="total_tokens">Sort: Tokens</option>
+        <option value="output_tokens">Sort: Output Tokens</option>
+        <option value="tool_call_count">Sort: Tool Calls</option>
+        <option value="failed_tool_count">Sort: Failed Tools</option>
+        <option value="duration_seconds">Sort: Duration</option>
+    </select>
+    <button class="filter-bar__btn" id="clear-all-btn" onclick="resetSessionFilters()" style="display:none">Clear All</button>
+    <button class="filter-bar__btn" onclick="resetSessionFilters()">Reset</button>
 </div>
 
-<!-- Sessions table -->
+<!-- Sessions grid -->
 <div class="page-section">
     <div class="card-title">
         All Sessions <span class="text-muted normal-case">(<span id="sessions-visible-count">{{ sessions | length }}</span>)</span>
     </div>
     {% if sessions %}
     <div class="table-wrap">
-        <table id="sessions-table" class="data-table" data-table-enhanced>
-            <thead>
-                <tr>
-                    <th class="sortable">Title</th>
-                    <th>Project</th>
-                    <th>Agent</th>
-                    <th>Model</th>
-                    <th class="numeric sortable">Tokens</th>
-                    <th class="numeric">Output</th>
-                    <th class="numeric sortable">Tools</th>
-                    <th class="sortable">Duration</th>
-                    <th>Anomaly</th>
-                    <th class="sortable">Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in sessions %}
-                {% set total_tokens = s.input_tokens + s.cached_input_tokens + s.cached_output_tokens + s.output_tokens %}
-                {% set has_anomalies = s.get('anomalies') and s['anomalies'] | length > 0 %}
-                {% set tools_per_round_val = (s.tool_call_count / s.assistant_message_count) | round(1) if s.assistant_message_count > 0 else 0 %}
-                {% set anomaly_tooltip = '' %}
-                {% if has_anomalies %}
-                    {% for a in s.anomalies %}
-                        {% set anomaly_tooltip = anomaly_tooltip + a.label + ': ' + a.reason %}
-                        {% if not loop.last %}{% set anomaly_tooltip = anomaly_tooltip + '&#10;' %}{% endif %}
-                    {% endfor %}
-                {% endif %}
-                <tr data-agent="{{ s.agent }}"
-                    data-model="{{ s.model }}"
-                    data-project="{{ s.project_key }}"
-                    data-session-id="{{ s.session_id }}"
-                    data-title="{{ s.title | lower }}"
-                    data-ended-at="{{ s.ended_at }}"
-                    data-input-tokens="{{ s.input_tokens }}"
-                    data-output-tokens="{{ s.output_tokens }}"
-                    data-tool-count="{{ s.tool_call_count }}"
-                    data-failed-count="{{ s.failed_tool_count }}"
-                    data-duration="{{ s.duration_seconds }}"
-                    data-has-anomalies="{{ 'true' if has_anomalies else 'false' }}"
-                    data-anomaly-types="{% if has_anomalies %}{% for a in s.anomalies %}{{ a.type }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
-                    data-total-tokens="{{ total_tokens }}"
-                    class="{{ 'row--failed' if s.failed_tool_count > 0 else '' }} {{ 'row--anomaly' if has_anomalies else '' }}">
-                    <td class="sessions-title-cell">
-                        <a href="/sessions/{{ s.agent }}/{{ s.session_id }}" class="link sessions-title-link" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">
-                            {{ s.title[:80] or 'Untitled' }}
-                        </a>
-                    </td>
-                    <td class="text-xs">
-                        <a href="/projects/{{ s.project_key | urlencode }}" class="link-muted" data-tooltip="{{ s.project_key }}">{{ s.project_name }}</a>
-                    </td>
-                    <td><span class="badge {{ 'badge-claude' if s.agent == 'claude_code' else 'badge-qoder' if s.agent == 'qoder' else 'badge-codex' }}">{{ 'CC' if s.agent == 'claude_code' else 'QD' if s.agent == 'qoder' else 'CX' }}</span></td>
-                    <td class="text-xs text-muted mono truncate" style="max-width:120px" data-tooltip="{{ s.model or 'unknown' }}">{{ s.model or '—' }}</td>
-                    <td class="numeric mono text-xs">{{ total_tokens | format_number }}</td>
-                    <td class="numeric mono text-xs">{{ s.output_tokens | format_number }}</td>
-                    <td class="numeric mono text-xs" data-tooltip="Tools: {{ s.tool_call_count }}{% if s.failed_tool_count > 0 %}; Failed: {{ s.failed_tool_count }}; Tools/R: {{ tools_per_round_val }}{% endif %}">
-                        {{ s.tool_call_count }}
-                        {% if s.failed_tool_count > 0 %}
-                        <span class="badge badge-error">{{ s.failed_tool_count }}f</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-xs text-muted {{ 'highlight-warn' if s.duration_seconds > 3600 else '' }}" data-tooltip="{{ s.duration_seconds | int }}s">{{ s.duration_seconds | format_duration }}</td>
-                    <td class="anomaly-cell" data-tooltip="{{ anomaly_tooltip }}">
-                        {% if has_anomalies %}
-                        {% for a in s.anomalies[:2] %}
-                        <span class="anomaly-badge {{ a.badge_class }}">{{ a.label }}</span>
-                        {% endfor %}
-                        {% if s.anomalies | length > 2 %}
-                        <span class="anomaly-badge anomaly-badge--more" data-tooltip="{% for a in s.anomalies[2:] %}{{ a.label }}: {{ a.reason }}&#10;{% endfor %}">+{{ s.anomalies | length - 2 }}</span>
-                        {% endif %}
-                        {% endif %}
-                    </td>
-                    <td class="text-xs text-muted">{{ s.ended_at | relative_time }}</td>
-                </tr>
+        <div class="data-table sessions-grid" data-sessions-grid>
+            <div class="table-head">
+                <div>Session</div>
+                <div>Agent</div>
+                <div>Project</div>
+                <div>Duration</div>
+                <div>Tokens</div>
+                <div>Failures</div>
+                <div>Rounds</div>
+                <div>Updated</div>
+            </div>
+            {% for s in sessions %}
+            {% set total_tokens = s.input_tokens + s.cached_input_tokens + s.cached_output_tokens + s.output_tokens %}
+            {% set has_anomalies = s.get('anomalies') and s['anomalies'] | length > 0 %}
+            {% set anomaly_tooltip = '' %}
+            {% if has_anomalies %}
+                {% for a in s.anomalies %}
+                    {% set anomaly_tooltip = anomaly_tooltip + a.label + ': ' + a.reason %}
+                    {% if not loop.last %}{% set anomaly_tooltip = anomaly_tooltip + '&#10;' %}{% endif %}
                 {% endfor %}
-            </tbody>
-        </table>
+            {% endif %}
+            <div class="table-row {{ 'row--failed' if s.failed_tool_count > 0 else '' }} {{ 'row--anomaly' if has_anomalies else '' }}"
+                 data-agent="{{ s.agent }}"
+                 data-model="{{ s.model }}"
+                 data-project="{{ s.project_key }}"
+                 data-session-id="{{ s.session_id }}"
+                 data-title="{{ s.title | lower }}"
+                 data-ended-at="{{ s.ended_at }}"
+                 data-input-tokens="{{ s.input_tokens }}"
+                 data-output-tokens="{{ s.output_tokens }}"
+                 data-tool-count="{{ s.tool_call_count }}"
+                 data-failed-count="{{ s.failed_tool_count }}"
+                 data-duration="{{ s.duration_seconds }}"
+                 data-has-anomalies="{{ 'true' if has_anomalies else 'false' }}"
+                 data-anomaly-types="{% if has_anomalies %}{% for a in s.anomalies %}{{ a.type }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
+                 data-total-tokens="{{ total_tokens }}"
+                 data-rounds="{{ s.assistant_message_count }}">
+                <!-- Session -->
+                <div>
+                    <div class="cell-title"><a href="/sessions/{{ s.agent }}/{{ s.session_id }}" data-tooltip="{{ s.title }}&#10;ID: {{ s.session_id }}">{{ s.title[:80] or 'Untitled' }}</a></div>
+                    <div class="cell-sub mono">{{ s.project_key }}</div>
+                </div>
+                <!-- Agent -->
+                <div><span class="badge agent">{{ 'CC' if s.agent == 'claude_code' else 'QD' if s.agent == 'qoder' else 'CX' }}</span></div>
+                <!-- Project -->
+                <div class="text-xs"><a href="/projects/{{ s.project_key | urlencode }}" class="link-muted" data-tooltip="{{ s.project_key }}">{{ s.project_name }}</a></div>
+                <!-- Duration -->
+                <div class="text-xs text-muted mono {{ 'highlight-warn' if s.duration_seconds > 3600 else '' }}" data-tooltip="{{ s.duration_seconds | int }}s">{{ s.duration_seconds | format_duration }}</div>
+                <!-- Tokens -->
+                <div class="mono text-xs">{{ total_tokens | format_number }}</div>
+                <!-- Failures -->
+                <div>
+                    {% if s.failed_tool_count > 0 %}
+                    <span class="diag err">{{ s.failed_tool_count }} failed</span>
+                    {% else %}
+                    <span class="diag ok">0</span>
+                    {% endif %}
+                </div>
+                <!-- Rounds -->
+                <div class="mono text-xs">{{ s.assistant_message_count }}</div>
+                <!-- Updated -->
+                <div class="text-xs text-muted mono">{{ s.ended_at | relative_time }}</div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
     <div id="sessions-empty" class="empty-state" style="display:none">No sessions match your filters. Try adjusting or resetting them.</div>
     {% else %}
@@ -180,16 +169,58 @@ window.openDemoInspector = function() {
         var filter = btn.dataset.quickFilter;
         if (activeQuickFilter === filter) {
             activeQuickFilter = '';
-            btn.classList.remove('filter-chip--active');
+            btn.classList.remove('active');
         } else {
             document.querySelectorAll('[data-quick-filter]').forEach(function(b) {
-                b.classList.remove('filter-chip--active');
+                b.classList.remove('active');
             });
             activeQuickFilter = filter;
-            btn.classList.add('filter-chip--active');
+            btn.classList.add('active');
         }
         applyFilters();
     };
+
+    /* ---------- Open selected --------------------------------------- */
+    function updateOpenSelectedState() {
+        var btn = document.getElementById('open-selected-session');
+        if (!btn) return;
+        var hasSelected = document.querySelector('[data-sessions-grid] .table-row.selected');
+        btn.disabled = !hasSelected;
+        btn.style.opacity = hasSelected ? '' : '0.5';
+        btn.style.cursor = hasSelected ? 'pointer' : 'default';
+    }
+
+    window.openSelectedSession = function() {
+        var row = document.querySelector('[data-sessions-grid] .table-row.selected');
+        if (!row) return;
+        window.location.href = '/sessions/' + row.dataset.agent + '/' + row.dataset.sessionId;
+    };
+
+    /* ---------- Row selection --------------------------------------- */
+    function initSelection() {
+        var grid = document.querySelector('[data-sessions-grid]');
+        if (!grid) return;
+
+        grid.addEventListener('click', function(e) {
+            // Don't toggle selection when clicking links
+            if (e.target.tagName === 'A' || e.target.closest('a')) return;
+
+            var row = e.target.closest('.table-row');
+            if (!row) return;
+
+            // Clear other selections
+            grid.querySelectorAll('.table-row.selected').forEach(function(r) {
+                r.classList.remove('selected');
+                r.removeAttribute('aria-selected');
+            });
+
+            // Set current row selected
+            row.classList.add('selected');
+            row.setAttribute('aria-selected', 'true');
+
+            updateOpenSelectedState();
+        });
+    }
 
     /* ---------- Apply all filters ----------------------------------- */
     function applyFilters() {
@@ -199,9 +230,9 @@ window.openDemoInspector = function() {
         var project = document.getElementById('filter-project').value;
         var sortBy = document.getElementById('sort-by').value;
 
-        var tbody = document.querySelector('#sessions-table tbody');
-        if (!tbody) return;
-        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var grid = document.querySelector('[data-sessions-grid]');
+        if (!grid) return;
+        var rows = Array.from(grid.querySelectorAll('.table-row'));
         var visibleCount = 0;
         var visibleRows = [];
 
@@ -269,7 +300,7 @@ window.openDemoInspector = function() {
             return vb - va;
         });
 
-        visibleRows.forEach(function(r) { tbody.appendChild(r); });
+        visibleRows.forEach(function(r) { grid.appendChild(r); });
 
         /* Update counts */
         var label = document.getElementById('sessions-count-label');
@@ -287,6 +318,14 @@ window.openDemoInspector = function() {
             var hasAnyFilter = q || agent || model || project || activeQuickFilter;
             clearBtn.style.display = hasAnyFilter ? '' : 'none';
         }
+
+        /* Clear selection if selected row is hidden */
+        var selectedRow = grid.querySelector('.table-row.selected');
+        if (selectedRow && selectedRow.style.display === 'none') {
+            selectedRow.classList.remove('selected');
+            selectedRow.removeAttribute('aria-selected');
+        }
+        updateOpenSelectedState();
 
         /* Persist */
         saveFilters();
@@ -337,7 +376,7 @@ window.openDemoInspector = function() {
                 activeQuickFilter = saved.quick;
                 document.querySelectorAll('[data-quick-filter]').forEach(function(btn) {
                     if (btn.dataset.quickFilter === saved.quick) {
-                        btn.classList.add('filter-chip--active');
+                        btn.classList.add('active');
                     }
                 });
             }
@@ -349,7 +388,7 @@ window.openDemoInspector = function() {
             activeQuickFilter = urlFilter;
             document.querySelectorAll('[data-quick-filter]').forEach(function(btn) {
                 if (btn.dataset.quickFilter === urlFilter) {
-                    btn.classList.add('filter-chip--active');
+                    btn.classList.add('active');
                 }
             });
         }
@@ -364,7 +403,7 @@ window.openDemoInspector = function() {
         document.getElementById('sort-by').value = 'ended_at';
         activeQuickFilter = '';
         document.querySelectorAll('[data-quick-filter]').forEach(function(btn) {
-            btn.classList.remove('filter-chip--active');
+            btn.classList.remove('active');
         });
         arpStorage.remove(STORAGE_KEY);
         /* Clear URL filter param */
@@ -387,6 +426,15 @@ window.openDemoInspector = function() {
             el.addEventListener('input', applyFilters);
         }
     });
+
+    /* Open selected button */
+    var openBtn = document.getElementById('open-selected-session');
+    if (openBtn) {
+        openBtn.addEventListener('click', window.openSelectedSession);
+    }
+
+    /* Row selection */
+    initSelection();
 
     /* Restore on load */
     restoreFilters();

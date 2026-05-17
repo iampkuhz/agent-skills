@@ -20,3 +20,4 @@ tools/gateway/litellm/env/.env
 /docs/session-browser-ui-serial-prompts/
 /tools/search/searxng/settings/settings.yml.new
 /output/*
+/tools/session-browser/tasks/

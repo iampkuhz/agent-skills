@@ -308,6 +308,24 @@
 </div>
 {% endif %}
 
+<!-- ── Hero Alerts (Task 13: Payload Visibility) ─────────────── -->
+{% if has_anomalies %}
+<div class="hero-alerts">
+    {% for a in session_anomalies.anomalies %}
+    {% if a.type == 'payload_visibility_mismatch' %}
+    <div class="alert warn">
+        <div class="ico">&Delta;</div>
+        <div>
+            <div class="alert-title">{{ a.label }}</div>
+            <div class="alert-sub">{{ a.reason }}</div>
+        </div>
+        <button class="jump" onclick="switchView('calls')">Inspect</button>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- ── Token Charts Card (Token Mix + Tokens per Round, single full-width card) ── -->
 {% if rounds and rounds | length > 1 %}
 <div class="token-charts-card" id="tokenChartsCard">
@@ -458,50 +476,30 @@
 
 
 
-<!-- Tabs -->
-<div class="tabs">
-    <button class="tab active" data-tab="conversation" onclick="switchTab('conversation')">Conversation</button>
-    <button class="tab" data-tab="timeline" onclick="switchTab('timeline')">Timeline</button>
-    <button class="tab" data-tab="hotspots" onclick="switchTab('hotspots')">Hotspots</button>
-    <button class="tab" data-tab="profile" onclick="switchTab('profile')">Profile</button>
-</div>
-
-<!-- Tab: Conversation (default) -->
-<div id="conversation" class="tab-content active">
-    <div class="card card--chat">
-        <div class="card-title">All Messages</div>
-        <div class="msg-flow">
-        {% for round in rounds %}
-        {% if round.user_msg.content %}
-        <div class="msg msg--user mb-3">
-            <div class="msg__meta">Round #{{ loop.index }} · User</div>
-            <div class="msg__body" data-expandable>
-                {{ viewer(round.user_msg.content, mode='parts', id_suffix='conv-u' ~ loop.index) }}
-            </div>
-            {% if round.user_msg.content | length > 800 %}
-            <button class="show-more" data-content-modal="Round #{{ loop.index }} · User"><template>{{ round.user_msg.content }}</template><template>{{ round.user_msg.content_html | safe }}</template>Open</button>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% if round.assistant_msg.content %}
-        <div class="msg msg--assistant mb-3">
-            <div class="msg__meta">Round #{{ loop.index }} · Assistant{% if round.assistant_msg.model %} ({{ round.assistant_msg.model }}){% endif %}</div>
-            <div class="msg__body" data-expandable>
-                {{ viewer(round.assistant_msg.content, mode='parts', id_suffix='conv-a' ~ loop.index) }}
-            </div>
-            {% if round.assistant_msg.content | length > 800 %}
-            <button class="show-more" data-content-modal="Round #{{ loop.index }} · Assistant"><template>{{ round.assistant_msg.content }}</template><template>{{ round.assistant_msg.content_html | safe }}</template>Open</button>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% endfor %}
-        </div>
+<!-- Workbench -->
+<section class="card wb">
+  <div class="wb-head">
+    <div class="wb-viewbar">
+      <div class="view-switch">
+        <button class="active" data-switch="trace" onclick="switchView('trace')">Trace</button>
+        <button data-switch="calls" onclick="switchView('calls')">Calls</button>
+        <button data-switch="hotspots" onclick="switchView('hotspots')">Hotspots</button>
+      </div>
+      <div>
+        <div class="wb-kicker">Workbench</div>
+        <div class="wb-desc">Trace is the primary view. Calls and Hotspots are alternate projections.</div>
+      </div>
     </div>
-</div>
-
-<!-- Tab: Timeline -->
-<div id="timeline" class="tab-content">
-    <div class="card">
+    <div class="wb-actions">
+      <button class="wb-chip">Failed only</button>
+      <button class="wb-chip">High token</button>
+      <button class="wb-chip primary">Open selected</button>
+    </div>
+  </div>
+  <div class="wb-body">
+    <div data-view="trace">
+      {# Migration note: was id="timeline" class="tab-content" #}
+<div class="card">
         <div class="card-title">Conversation Flow ({{ rounds | length }})</div>
 
         {# ── Timeline control bar ── #}
@@ -533,148 +531,268 @@
         </div>
 
         {% if rounds %}
-        <div class="table-wrap">
-            <table class="round-summary-table">
-                <thead>
-                    <tr>
-                        <th class="numeric">#</th>
-                        <th>Preview</th>
-                        <th>Signal</th>
-                        <th class="numeric">Tokens</th>
-                        <th class="numeric">LLM</th>
-                        <th class="numeric">Tools</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {# Compute global max round tokens for bar normalization #}
-                    {% set max_round_tokens = namespace(value=0) %}
-                    {% for _r in rounds %}
-                        {% set _rb = _r.token_breakdown() %}
-                        {% set _rt = _rb.input + _rb.cache_read + _rb.cache_write + _rb.output %}
-                        {% if _rt > max_round_tokens.value %}
-                            {% set max_round_tokens.value = _rt %}
-                        {% endif %}
-                    {% endfor %}
-                    {% for round in rounds %}
-                    {% set rb = round.token_breakdown() %}
-                    {% set round_input_total = rb.input + rb.cache_read + rb.cache_write %}
-                    {% set has_failed_tools = round.tool_calls | selectattr('is_failed') | list | length > 0 %}
-                    {% set has_llm_error = round.llm_error_count > 0 %}
-                    {% set round_tools = round.tool_calls | length %}
+        <div class="trace">
+          <div class="trace-head">
+            <div>Round</div><div>Preview</div><div>Diagnostics</div><div>Token mix</div><div>Time</div>
+          </div>
 
-                    {% set sigs = round_signals[loop.index0] if round_signals else [] %}
+          {# ── Global max round tokens for mixbar normalization ── #}
+          {% set max_round_tokens = namespace(value=0) %}
+          {% for _r in rounds %}
+            {% set _rb = _r.token_breakdown() %}
+            {% set _rt = _rb.input + _rb.cache_read + _rb.cache_write + _rb.output %}
+            {% if _rt > max_round_tokens.value %}
+              {% set max_round_tokens.value = _rt %}
+            {% endif %}
+          {% endfor %}
 
-                    <tr class="round-header-row {{ 'row--failed' if (has_failed_tools or has_llm_error) else '' }}"
-                        data-round-idx="{{ loop.index }}"
-                        onmouseenter="this.style.background='var(--surface-hover)'"
-                        onmouseleave="this.style.background=''"
-                        onclick="toggleRoundDetail(this)">
-                        <td class="numeric mono text-xs">
-                            {% if has_llm_error or has_failed_tools %}<span class="round-failed-dot" aria-hidden="true"></span>{% endif %}<span class="round-chevron-inline">&#8250;</span> #{{ loop.index }}
-                        </td>
-                        <td class="preview-cell mono text-xs" data-tooltip="{{ round.preview_text | striptags }}">
-                            <span class="preview-cell__content">
-                                {% if round.user_msg.content | trim %}
-                                <span class="preview-tag preview-tag--user" data-tooltip="This round includes user input">User</span>
-                                {% endif %}
-                                <span class="preview-cell__text">{{ round.preview_text | safe }}</span>
-                            </span>
-                        </td>
-                        <td class="signals-cell">
-                            {% for sig in sigs %}
-                            <span class="signal-badge signal-{{ sig['severity'] }}" data-tooltip="{{ sig['reason'] }}">{{ sig['label'] }}</span>
-                            {% endfor %}
-                        </td>
-                        <td class="numeric mono text-xs">
-                            {{ round.total_tokens | format_number }}
-                            <div class="token-bar-wrapper">
-                                {# Scale wrapper: width proportional to max round tokens #}
-                                {% set rt = round_input_total + rb.output %}
-                                {% set bar_scale = (rt / max_round_tokens.value * 100) if max_round_tokens.value > 0 else 0 %}
-                                <div class="round-token-bar-scale" style="width:{{ bar_scale | round(1) }}%">
-                                    <div class="round-token-bar">
-                                        {% if rt > 0 %}
-                                        <div class="round-token-bar__fresh" style="width:{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
-                                        {% if supports_cache_tokens %}
-                                        <div class="round-token-bar__cache-read" style="width:{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
-                                        <div class="round-token-bar__cache-write" style="width:{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
-                                        {% endif %}
-                                        <div class="round-token-bar__output" style="width:{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%"></div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="token-bar-tooltip">
-                                    <div class="token-bar-tooltip__title">Total: {{ rt | format_number }} tokens</div>
-                                    <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--fresh"></span>
-                                        <span class="token-bar-tooltip__name">Fresh</span>
-                                        <span class="token-bar-tooltip__value">{{ rb.input | format_number }}</span>
-                                        <span class="token-bar-tooltip__pct">{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--fresh" style="width:{{ (rb.input / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
-                                    </div>
-                                    {% if supports_cache_tokens %}
-                                    <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--cr"></span>
-                                        <span class="token-bar-tooltip__name">Cache Read</span>
-                                        <span class="token-bar-tooltip__value">{{ rb.cache_read | format_number }}</span>
-                                        <span class="token-bar-tooltip__pct">{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--cr" style="width:{{ (rb.cache_read / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
-                                    </div>
-                                    <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--cw"></span>
-                                        <span class="token-bar-tooltip__name" data-tooltip="Input tokens cached for future rounds">Cache Write</span>
-                                        <span class="token-bar-tooltip__value">{{ rb.cache_write | format_number }}</span>
-                                        <span class="token-bar-tooltip__pct">{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--cw" style="width:{{ (rb.cache_write / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
-                                    </div>
-                                    {% endif %}
-                                    <div class="token-bar-tooltip__row">
-                                        <span class="token-bar-tooltip__dot token-bar-tooltip__dot--out"></span>
-                                        <span class="token-bar-tooltip__name">Output</span>
-                                        <span class="token-bar-tooltip__value">{{ rb.output | format_number }}</span>
-                                        <span class="token-bar-tooltip__pct">{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%</span>
-                                        <span class="token-bar-tooltip__bar-bg"><span class="token-bar-tooltip__bar-fill token-bar-tooltip__bar-fill--out" style="width:{{ (rb.output / rt * 100) | round(0) if rt > 0 else 0 }}%"></span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="numeric mono text-xs">
-                            <div class="round-llm-dots">
-                                {% for ix in round.interactions %}
-                                <span class="round-llm-dot round-llm-dot--{{ 'error' if ix.status == 'error' else ix.scope }}"
-                                      data-tooltip="{{ ix.scope }}: {{ ix.model }}"></span>
-                                {% endfor %}
-                            </div>
-                            <span class="mono text-xs">{{ round.llm_call_count | format_number }}</span>
-                            {% if round.llm_error_count > 0 %}
-                            <span class="badge badge-error">{{ round.llm_error_count }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="numeric mono text-xs">
-                            {{ round_tools }}
-                            {% if has_failed_tools %}
-                            <span class="badge badge-error">{{ round.tool_calls | selectattr('is_failed') | list | length }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-xs text-muted mono">{{ round.user_msg.timestamp | local_time if round.user_msg.timestamp else '' }}</td>
-                    </tr>
-                    <tr class="round-detail-row display-none" data-round-idx="{{ loop.index }}">
-                        <td colspan="7" class="round-detail-cell">
-                            <div class="round {{ 'has-failed' if has_failed_tools else '' }}">
-                                <div class="round-content">
-                                    <div class="timeline">
-                                        <div class="timeline-structured" id="timeline-round-{{ loop.index }}">
-                                            {{ build_timeline_nodes(round, loop.index) }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+          {% for round in rounds %}
+          {% set rb = round.token_breakdown() %}
+          {% set round_input_total = rb.input + rb.cache_read + rb.cache_write %}
+          {% set has_failed_tools = round.tool_calls | selectattr('is_failed') | list | length > 0 %}
+          {% set has_llm_error = round.llm_error_count > 0 %}
+          {% set rt = round_input_total + rb.output %}
+
+          {% set sigs = round_signals[loop.index0] if round_signals else [] %}
+
+          {# ── Trace row ── #}
+          <div class="trace-row"
+               data-round-idx="{{ loop.index }}"
+               onclick="toggleRoundDetail(this)">
+            <div class="rid">
+              {% if has_llm_error or has_failed_tools %}<span class="round-failed-dot" aria-hidden="true"></span>{% endif %}
+              <span class="toggle" data-toggle-icon>›</span>
+              R{{ loop.index }}
+            </div>
+            <div class="round-main">
+              <div class="t">
+                {% if round.user_msg.content | trim %}
+                <span class="preview-tag preview-tag--user" data-tooltip="This round includes user input">User</span>
+                {% endif %}
+                {{ round.preview_text | safe }}
+              </div>
+              <div class="d">{{ round.preview_text | striptags | truncate(120) }}</div>
+            </div>
+            <div class="diags">
+              {% for sig in sigs %}
+              <span class="diag {{ sig['severity'] }}" data-tooltip="{{ sig['reason'] }}">{{ sig['label'] }}</span>
+              {% endfor %}
+              {% if round.llm_call_count > 1 %}
+              <span class="diag info">{{ round.llm_call_count }} LLM calls</span>
+              {% endif %}
+            </div>
+            <div class="mix">
+              <div class="mixbar">
+                {% set bar_scale = (rt / max_round_tokens.value * 100) if max_round_tokens.value > 0 else 0 %}
+                {% if rt > 0 %}
+                <span class="fresh" style="width:{{ (rb.input / rt * 100) | round(1) if rt > 0 else 0 }}%"></span>
+                {% if supports_cache_tokens and rb.cache_read > 0 %}
+                <span class="cache" style="width:{{ (rb.cache_read / rt * 100) | round(1) if rt > 0 else 0 }}%"></span>
+                {% endif %}
+                {% if supports_cache_tokens and rb.cache_write > 0 %}
+                <span class="write" style="width:{{ (rb.cache_write / rt * 100) | round(1) if rt > 0 else 0 }}%"></span>
+                {% endif %}
+                <span class="out" style="width:{{ (rb.output / rt * 100) | round(1) if rt > 0 else 0 }}%"></span>
+                {% endif %}
+              </div>
+              <span class="mixval">{{ rt | format_number }}</span>
+            </div>
+            <div class="tcell">{{ round.user_msg.timestamp | local_time if round.user_msg.timestamp else '' }}</div>
+          </div>
+
+          {# ── Trace detail (expanded content) ── #}
+          <div class="trace-detail" data-round-detail="{{ loop.index }}" style="display:none">
+            <div class="span-list">
+              {# ── User message node ── #}
+              {% if round.user_msg.content %}
+              <div class="span llm">
+                <div class="sk">USER</div>
+                <div class="sb">
+                  <div class="st">{{ round.user_msg.content | striptags | truncate(120) }}</div>
+                  <div class="sd">{{ round.user_msg.timestamp | local_time if round.user_msg.timestamp else '' }}</div>
+                </div>
+                <div class="sm"></div>
+              </div>
+              {% endif %}
+
+              {# ── LLM interaction nodes + nested tool calls ── #}
+              {% for interaction in round.interactions %}
+                {# LLM node #}
+                {% set ix_index = loop.index %}
+                <div class="span llm">
+                  <div class="sk">LLM #{{ ix_index }}</div>
+                  <div class="sb">
+                    <div class="st">
+                      {%- if interaction.scope == "subagent" -%}
+                      Subagent via {{ interaction.parent_tool_name }} · {{ interaction.model[:40] }}
+                      {%- else -%}
+                      {{ interaction.model[:60] }}
+                      {%- endif -%}
+                    </div>
+                    <div class="sd">
+                      {%- if interaction.tool_calls -%}
+                      {{ interaction.tool_calls | length }} tool call{{ 's' if interaction.tool_calls | length > 1 else '' }}
+                      {%- else -%}
+                      No tool calls
+                      {%- endif -%}
+                    </div>
+                  </div>
+                  <div class="sm">
+                    {% if interaction.input_tokens %}
+                    <span class="micro">{{ interaction.input_tokens | format_number }} in</span>
+                    {% endif %}
+                    {% if interaction.output_tokens %}
+                    <span class="micro">{{ interaction.output_tokens | format_number }} out</span>
+                    {% endif %}
+                  </div>
+                </div>
+
+                {# Tool call children #}
+                {% for tc in interaction.tool_calls %}
+                  {% set tc_summary = '' %}
+                  {% if tc.name == 'Bash' %}
+                    {% set tc_summary = tc.parameters.get('command', '')[:100] %}
+                  {% elif tc.name == 'Agent' and tc.subagent_summary %}
+                    {% set tc_summary = 'Subagent: ' ~ (tc.subagent_summary.description or tc.subagent_summary.agent_type) %}
+                  {% elif tc.parameters.get('file_path') %}
+                    {% set tc_summary = tc.parameters.file_path | relative_to_repo %}
+                  {% else %}
+                    {% set tc_summary = tc.parameters | tojson_repo | truncate(80) %}
+                  {% endif %}
+                  {% set tc_type = tc.name[:4].upper() %}
+                  {% if tc.is_failed %}
+                  <div class="span fail">
+                    <div class="sk">{{ tc_type }}</div>
+                    <div class="sb">
+                      <div class="st">{{ tc.name }}: {{ tc_summary }}</div>
+                      <div class="sd">
+                        {{ tc.error_message | default('') | striptags | truncate(120) }}
+                      </div>
+                    </div>
+                    <div class="sm">
+                      <span class="micro">exit {{ tc.exit_code }}</span>
+                      {% if tc.duration_ms %}
+                      <span class="micro">{{ tc.duration_ms }}ms</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% elif tc.has_nonzero_exit and not tc.is_failed %}
+                  <div class="span warn">
+                    <div class="sk">{{ tc_type }}</div>
+                    <div class="sb">
+                      <div class="st">{{ tc.name }}: {{ tc_summary }}</div>
+                      <div class="sd">
+                        {{ tc.duration_ms }}ms
+                      </div>
+                    </div>
+                    <div class="sm">
+                      <span class="micro">exit {{ tc.exit_code }}</span>
+                      {% if tc.duration_ms %}
+                      <span class="micro">{{ tc.duration_ms }}ms</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% else %}
+                  <div class="span tool">
+                    <div class="sk">{{ tc_type }}</div>
+                    <div class="sb">
+                      <div class="st">{{ tc.name }}: {{ tc_summary }}</div>
+                      <div class="sd">
+                        {%- if tc.duration_ms -%}
+                        {{ tc.duration_ms }}ms
+                        {%- endif -%}
+                      </div>
+                    </div>
+                    <div class="sm">
+                      <span class="micro">ok</span>
+                      {% if tc.duration_ms %}
+                      <span class="micro">{{ tc.duration_ms }}ms</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+
+              {# ── Assistant response (after LLM calls) ── #}
+              {% if round.assistant_msg.content and round.interactions %}
+              <div class="span llm">
+                <div class="sk">ASST</div>
+                <div class="sb">
+                  <div class="st">{{ round.assistant_msg.content | striptags | truncate(120) }}</div>
+                  <div class="sd">Assistant response</div>
+                </div>
+                <div class="sm"></div>
+              </div>
+              {% endif %}
+
+              {# ── Fallback: no interactions — show assistant msg + direct tool calls ── #}
+              {% if not round.interactions %}
+                {% if round.assistant_msg.content %}
+                <div class="span llm">
+                  <div class="sk">ASST</div>
+                  <div class="sb">
+                    <div class="st">{{ round.assistant_msg.content | striptags | truncate(120) }}</div>
+                    <div class="sd">Assistant: {{ round.assistant_msg.content | striptags | truncate(80) }}</div>
+                  </div>
+                  <div class="sm"></div>
+                </div>
+                {% endif %}
+                {% for tc in round.tool_calls %}
+                  {% set tc_summary = '' %}
+                  {% if tc.name == 'Bash' %}
+                    {% set tc_summary = tc.parameters.get('command', '')[:100] %}
+                  {% elif tc.parameters.get('file_path') %}
+                    {% set tc_summary = tc.parameters.file_path | relative_to_repo %}
+                  {% else %}
+                    {% set tc_summary = tc.parameters | tojson_repo | truncate(80) %}
+                  {% endif %}
+                  {% set tc_type = tc.name[:4].upper() %}
+                  {% if tc.is_failed %}
+                  <div class="span fail">
+                    <div class="sk">{{ tc_type }}</div>
+                    <div class="sb">
+                      <div class="st">{{ tc.name }}: {{ tc_summary }}</div>
+                      <div class="sd">
+                        {{ tc.error_message | default('') | striptags | truncate(120) }}
+                      </div>
+                    </div>
+                    <div class="sm">
+                      <span class="micro">exit {{ tc.exit_code }}</span>
+                      {% if tc.duration_ms %}<span class="micro">{{ tc.duration_ms }}ms</span>{% endif %}
+                    </div>
+                  </div>
+                  {% elif tc.has_nonzero_exit and not tc.is_failed %}
+                  <div class="span warn">
+                    <div class="sk">{{ tc_type }}</div>
+                    <div class="sb">
+                      <div class="st">{{ tc.name }}: {{ tc_summary }}</div>
+                      <div class="sd"></div>
+                    </div>
+                    <div class="sm">
+                      <span class="micro">exit {{ tc.exit_code }}</span>
+                      {% if tc.duration_ms %}<span class="micro">{{ tc.duration_ms }}ms</span>{% endif %}
+                    </div>
+                  </div>
+                  {% else %}
+                  <div class="span tool">
+                    <div class="sk">{{ tc_type }}</div>
+                    <div class="sb">
+                      <div class="st">{{ tc.name }}: {{ tc_summary }}</div>
+                      <div class="sd"></div>
+                    </div>
+                    <div class="sm">
+                      <span class="micro">ok</span>
+                      {% if tc.duration_ms %}<span class="micro">{{ tc.duration_ms }}ms</span>{% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+
+          {% endfor %}
         </div>
         {% else %}
         <div class="empty-state">No conversation data available.</div>
@@ -683,217 +801,82 @@
 </div>
 
 <!-- Tab: Hotspots (diagnostic tool) -->
-<div id="hotspots" class="tab-content">
-    <div class="hotspots-diagnostic">
-        <!-- Diagnostic summary header -->
-        {% set all_hotspot_items = [] %}
-        {% set _round_to_call_idx = {} %}
-        {% for _c in llm_calls|sort(attribute='round_index') %}
-            {% set _rkey = _c.round_index + 1 %}
-            {% if _rkey not in _round_to_call_idx %}
-                {% set _ = _round_to_call_idx.__setitem__(_rkey, loop.index) %}
-            {% endif %}
-        {% endfor %}
-        {% for round in rounds %}
-            {% set r_idx = loop.index %}
-            {% set sigs = round_signals[loop.index0] if round_signals else [] %}
-            {% for sig in sigs %}
-                {% set _ = all_hotspot_items.append({'round_idx': r_idx, 'key': sig.key, 'label': sig.label, 'severity': sig.severity, 'reason': sig.reason, 'call_idx': _round_to_call_idx.get(r_idx, 0)}) %}
-            {% endfor %}
-        {% endfor %}
-
-        {% if all_hotspot_items | length > 0 %}
-        <div class="hotspots-diagnostic__header">
-            <span class="hotspots-diagnostic__count">{{ all_hotspot_items | length }} diagnostic item{{ 's' if all_hotspot_items | length != 1 else '' }}</span>
-            <span class="hotspots-diagnostic__severity-breakdown">
-                {% set crit_count = all_hotspot_items | selectattr('severity', 'equalto', 'critical') | list | length %}
-                {% set warn_count = all_hotspot_items | selectattr('severity', 'equalto', 'warning') | list | length %}
-                {% if crit_count > 0 %}<span class="badge badge--anomaly-critical">{{ crit_count }} critical</span>{% endif %}
-                {% if warn_count > 0 %}<span class="badge badge--anomaly-warning">{{ warn_count }} warning</span>{% endif %}
-            </span>
-        </div>
-
-        <div class="hotspots-diagnostic__list">
-            {% for item in all_hotspot_items %}
-            <div class="hotspot-item hotspot-item--{{ item.severity }}"
-                 data-round-idx="{{ item.round_idx }}"
-                 data-call-idx="{{ item.call_idx }}">
-                <span class="hotspot-item__round mono">#{{ item.round_idx }}</span>
-                <span class="hotspot-item__type">{{ item.label }}</span>
-                <span class="hotspot-item__severity-badge badge badge--anomaly-{{ 'critical' if item.severity == 'critical' else 'warning' if item.severity == 'warning' else 'info' }}">{{ item.severity }}</span>
-                <span class="hotspot-item__reason">{{ item.reason }}</span>
-                {% if item.call_idx > 0 %}
-                <button class="hotspot-item__jump-btn"
-                        data-jump-target="profile"
-                        data-call-idx="{{ item.call_idx }}"
-                        onclick="HotspotsCtrl.jumpToProfile({{ item.call_idx }})"
-                        title="在 Profile Inspector 中查看 Call #{{ item.call_idx }}">查看</button>
-                {% else %}
-                <button class="hotspot-item__jump-btn"
-                        data-jump-target="timeline"
-                        onclick="HotspotsCtrl.jumpToRound({{ item.round_idx }})"
-                        title="跳转到 Round #{{ item.round_idx }}">跳转</button>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="hotspots-diagnostic__empty">
-            <div class="hotspots-diagnostic__empty-icon">&#x2705;</div>
-            <p>未发现异常。本轮会话各项指标均正常。</p>
-        </div>
-        {% endif %}
     </div>
-</div>
 
-<!-- Tab: Profile (LLM calls table + raw data) — lazy-loaded via <template> -->
-<div id="profile" class="tab-content">
-    <div class="profile-lazy-placeholder">
-        <p>Click to load LLM calls and raw session data.</p>
-    </div>
-</div>
-
-<!-- Content Modal (shared for "Open" buttons) -->
-<div id="content-modal" class="content-modal" onclick="if(event.target===this)closeContentModal()">
-    <div class="content-modal__panel">
-        <div class="content-modal__header">
-            <span class="content-modal__title"></span>
-            <div class="content-modal__tabs">
-                <button class="content-modal__tab-btn active" data-view="markdown" onclick="switchContentView('markdown')">Markdown</button>
-                <button class="content-modal__tab-btn" data-view="raw" onclick="switchContentView('raw')">Raw</button>
-            </div>
-            <button class="content-modal__close" onclick="closeContentModal()" title="Close">&times;</button>
-        </div>
-        <div class="content-modal__markdown"></div>
-        <div class="content-modal__raw"><pre></pre></div>
-    </div>
-</div>
-
-<template id="profile-template">
-    <!-- LLM calls table -->
+    <div data-view="calls" style="display:none">
+      {# Migration note: was id="profile" class="tab-content" + profile-template #}
+<!-- LLM calls table -->
     {% if llm_calls %}
-    <div class="card" data-marker="profile-table">
-        <div class="card-title" data-tooltip="Main call typically corresponds to one round; subagent calls are nested under the parent round and do not form separate session-level rounds.">LLM Calls Detail ({{ llm_calls | length }} total · {{ main_calls_list | length }} main + {{ sub_calls_list | length }} subagent)</div>
-        <div class="profile-table-wrap">
-            <div class="table-wrap">
-            <table class="data-table profile-call-index">
-                <thead>
-                    <tr>
-                        <th class="numeric">#</th>
-                        <th>Round</th>
-                        <th>Scope</th>
-                        <th>Model</th>
-                        <th class="numeric">Input</th>
-                        {% if supports_cache_tokens %}
-                        <th class="numeric">Cache R</th>
-                        <th class="numeric">Cache W</th>
-                        {% endif %}
-                        <th class="numeric">Output</th>
-                        <th class="numeric">Tools</th>
-                        <th class="numeric">Status</th>
-                        <th>Preview</th>
-                        <th>Time</th>
-                        <th>Inspect</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for call in llm_calls|sort(attribute='round_index') %}
-                    <tr class="llm-call-row {{ 'row--failed' if call.status == 'error' else '' }}"
-                        data-llm-call-id="llm-call-{{ loop.index }}"
-                        data-call-idx="{{ loop.index }}"
-                        data-model="{{ call.model[:50] }}"
-                        data-scope="{{ call.scope }}"
-                        data-round="{{ call.round_index + 1 }}"
-                        onclick="openLLMInspector(this)"
-                        style="cursor:pointer"
-                        onmouseenter="this.style.background='var(--surface-hover)'"
-                        onmouseleave="this.style.background=''">
-                        <td class="numeric mono text-xs">{{ loop.index }}</td>
-                        <td class="numeric mono text-xs">R{{ call.round_index + 1 }}</td>
-                        <td>
-                            {% if call.scope == 'main' %}
-                            <span class="badge badge-primary">Main</span>
-                            {% else %}
-                            <span class="badge badge-muted" data-tooltip="Subagent: {{ call.subagent_id }}">{{ call.parent_tool_name }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-xs mono">
-                            {% set model_lower = call.model | lower %}
-                            <span class="{{ 'model-color-sonnet' if 'sonnet' in model_lower else 'model-color-haiku' if 'haiku' in model_lower else 'model-color-opus' if 'opus' in model_lower else 'model-color-default' }}">
-                                {{ call.model[:30] }}
-                            </span>
-                        </td>
-                        <td class="numeric mono text-xs">{{ call.input_tokens | format_number }}</td>
-                        {% if supports_cache_tokens %}
-                        <td class="numeric mono text-xs">{{ call.cache_read_tokens | format_number }}</td>
-                        <td class="numeric mono text-xs">{{ call.cache_write_tokens | format_number }}</td>
-                        {% endif %}
-                        <td class="numeric mono text-xs">{{ call.output_tokens | format_number }}</td>
-                        <td class="numeric mono text-xs">{{ call.tool_call_count }}</td>
-                        <td class="call-status-cell">
-                            {# High token marker #}
-                            {% set call_total = call.input_tokens + call.output_tokens %}
-                            {% if call_total > 50000 %}
-                            <span class="call-marker call-marker--high-token"
-                                  data-tooltip="High token: {{ call_total | format_number }} tokens">&#x26a1;</span>
-                            {% endif %}
-                            {# Failed tool marker #}
-                            {% if call.failed_tool_count > 0 %}
-                            <span class="call-marker call-marker--failed"
-                                  data-tooltip="{{ call.failed_tool_count }} tool call(s) failed">&#x2717;</span>
-                            {% endif %}
-                            {# Payload missing marker #}
-                            {% if not call.request_full or call.request_full == "" %}
-                            <span class="call-marker call-marker--payload"
-                                  data-tooltip="Request payload not persisted">&#x26a0;</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-xs mono truncate" data-tooltip="{{ call.response_full[:500] if call.response_full else '' }}">
-                            {{ call.response_preview[:80] if call.response_preview else '—' }}
-                        </td>
-                        <td class="text-xs text-muted mono">{{ call.timestamp | local_time if call.timestamp else '' }}</td>
-                        <td class="numeric">
-                            <button type="button" class="inspect-btn"
-                                    data-call-idx="{{ loop.index }}"
-                                    data-model="{{ call.model[:50] }}"
-                                    data-scope="{{ call.scope }}"
-                                    data-round="{{ call.round_index + 1 }}"
-                                    data-input-tokens="{{ call.input_tokens }}"
-                                    data-output-tokens="{{ call.output_tokens }}"
-                                    data-cache-read="{{ call.cache_read_tokens }}"
-                                    data-cache-write="{{ call.cache_write_tokens }}"
-                                    onclick="event.stopPropagation(); openLLMInspector(this);"
-                                    title="在 Inspector 中查看 Request/Response">查看</button>
-                        </td>
-                        {# Hidden templates for Inspector -- request/response raw content #}
-                        <template id="llm-call-{{ loop.index }}-inspect-request">{{ call.request_full if call.request_full else call.prompt_preview }}</template>
-                        <template id="llm-call-{{ loop.index }}-inspect-response">{{ call.response_full }}</template>
-                        <template id="llm-call-{{ loop.index }}-tool-calls">
-                            {%- if call.tool_calls -%}
-                            [
-                            {%- for tc in call.tool_calls -%}
-                            {
-                                "name": "{{ tc.name }}",
-                                "status": {{ '"failed"' if tc.is_failed else '"ok"' }},
-                                "duration_ms": {{ tc.duration_ms or 0 }},
-                                "parameters": {{ tc.parameters | tojson }},
-                                "result_preview": "{{ (tc.result or '')[:200] | replace('\\', '\\\\') | replace('"', '\\"') | replace('\n', ' ') }}",
-                                "result_length": {{ (tc.result or '') | length }}
-                                {% if tc.is_failed %},"error_message": "{{ (tc.error_message or '') | replace('\\', '\\\\') | replace('"', '\\"') }}"{% endif %}
-                                {% if tc.exit_code is defined %},"exit_code": {{ tc.exit_code or 0 }}{% endif %}
-                            }{% if not loop.last %},{% endif %}
-                            {% endfor %}
-                            ]
-                            {%- else -%}[]{%- endif -%}
-                        </template>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            </div>
+    <div class="data-table">
+        <div class="table-head">
+            <div>#</div><div>Round</div><div>Model</div><div>Input</div><div>Cache R</div><div>Cache W</div><div>Output</div><div>Status</div><div>Preview</div>
         </div>
-        {% endif %}
+        {% for call in llm_calls|sort(attribute='round_index') %}
+        <div class="table-row"
+             data-call-idx="{{ loop.index }}"
+             data-model="{{ call.model[:50] }}"
+             data-scope="{{ call.scope }}"
+             data-round="{{ call.round_index + 1 }}"
+             data-input-tokens="{{ call.input_tokens }}"
+             data-output-tokens="{{ call.output_tokens }}"
+             data-cache-read="{{ call.cache_read_tokens }}"
+             data-cache-write="{{ call.cache_write_tokens }}"
+             onclick="openLLMInspector(this)"
+             tabindex="0">
+            <div class="mono">#{{ loop.index }}</div>
+            <div class="mono">R{{ call.round_index + 1 }}</div>
+            <div class="mono">{{ call.model[:30] }}</div>
+            <div class="mono">{{ call.input_tokens | format_number }}</div>
+            {% if supports_cache_tokens %}
+            <div class="mono">{{ call.cache_read_tokens | format_number }}</div>
+            <div class="mono">{{ call.cache_write_tokens | format_number }}</div>
+            {% else %}
+            <div class="mono">—</div>
+            <div class="mono">—</div>
+            {% endif %}
+            <div class="mono">{{ call.output_tokens | format_number }}</div>
+            <div>
+            {% set call_total = call.input_tokens + call.output_tokens %}
+            {% if call.status == 'error' %}
+            <span class="diag err">error</span>
+            {% elif call.failed_tool_count and call.failed_tool_count > 0 %}
+            <span class="diag err">{{ call.failed_tool_count }} failed</span>
+            {% elif not call.request_full or call.request_full == "" %}
+            <span class="diag warn">payload gap</span>
+            {% elif call_total > 50000 %}
+            <span class="diag warn">~{{ call_total | format_number }}t</span>
+            {% else %}
+            <span class="diag ok">ok</span>
+            {% endif %}
+            </div>
+            <div class="cell-title">{{ call.response_preview[:80] if call.response_preview else '—' }}</div>
+        </div>
+        {# Hidden templates for Inspector — 与旧 profile 同结构 #}
+        <template id="llm-call-{{ loop.index }}-inspect-request">{{ call.request_full if call.request_full else call.prompt_preview }}</template>
+        <template id="llm-call-{{ loop.index }}-inspect-response">{{ call.response_full }}</template>
+        <template id="llm-call-{{ loop.index }}-tool-calls">
+            {%- if call.tool_calls -%}
+            [
+            {%- for tc in call.tool_calls -%}
+            {
+                "name": "{{ tc.name }}",
+                "status": {{ '"failed"' if tc.is_failed else '"ok"' }},
+                "duration_ms": {{ tc.duration_ms or 0 }},
+                "parameters": {{ tc.parameters | tojson }},
+                "result_preview": "{{ (tc.result or '')[:200] | replace('\\', '\\\\') | replace('"', '\\"') | replace('\n', ' ') }}",
+                "result_length": {{ (tc.result or '') | length }}
+                {% if tc.is_failed %},"error_message": "{{ (tc.error_message or '') | replace('\\', '\\\\') | replace('"', '\\"') }}"{% endif %}
+                {% if tc.exit_code is defined %},"exit_code": {{ tc.exit_code or 0 }}{% endif %}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+            ]
+            {%- else -%}[]{%- endif -%}
+        </template>
+        {% endfor %}
     </div>
+    {% else %}
+    <div class="empty-state">No LLM calls found for this session.</div>
+    {% endif %}
 
     <!-- Raw session data (collapsible) -->
     <details class="raw-session">
@@ -913,7 +896,107 @@
   "cached_output_tokens": {{ session.cached_output_tokens }}{% endif %}
 }</pre>
     </details>
-</template>
+    </div>
+
+    <div data-view="hotspots" style="display:none">
+      {# Migration note: was id="hotspots" class="tab-content" #}
+<div class="card">
+    <div class="card-head">
+        <div>
+            <div class="card-title">Hotspots View · Diagnostics</div>
+            <div class="card-sub">Aggregated diagnostic hotspots for this session.</div>
+        </div>
+    </div>
+    <div class="card-body">
+        {# ── Aggregate round_signals into hotspot cards ── #}
+        {% set hotspot_cards = [] %}
+        {% set _round_to_call_idx = {} %}
+        {% for _c in llm_calls|sort(attribute='round_index') %}
+            {% set _rkey = _c.round_index + 1 %}
+            {% if _rkey not in _round_to_call_idx %}
+                {% set _ = _round_to_call_idx.__setitem__(_rkey, loop.index) %}
+            {% endif %}
+        {% endfor %}
+        {% for round in rounds %}
+            {% set r_idx = loop.index %}
+            {% set sigs = round_signals[loop.index0] if round_signals else [] %}
+            {% for sig in sigs %}
+                {# Failure: failed-tool, llm-error, long-tool #}
+                {% if sig.key in ['failed-tool', 'llm-error', 'long-tool'] %}
+                    {% set _ = hotspot_cards.append({
+                        'category': 'Failure hotspot',
+                        'value': 'R' ~ r_idx ~ ' · ' ~ sig.reason.split(':')[0] if ':' in sig.reason else sig.reason,
+                        'subtitle': sig.reason,
+                        'label': sig.label,
+                        'severity': 'err' if sig.severity == 'critical' else 'warn',
+                        'round_idx': r_idx
+                    }) %}
+                {% endif %}
+                {# Cost: high-write, large-input, tool-burst #}
+                {% if sig.key in ['high-write', 'large-input', 'tool-burst'] %}
+                    {% set _ = hotspot_cards.append({
+                        'category': 'Cost hotspot',
+                        'value': 'R' ~ r_idx ~ ' · ' ~ sig.label,
+                        'subtitle': sig.reason,
+                        'label': sig.label,
+                        'severity': 'warn' if sig.severity == 'warning' else 'info',
+                        'round_idx': r_idx
+                    }) %}
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+
+        {% if hotspot_cards | length > 0 %}
+        <div class="grid3">
+            {% for card in hotspot_cards[:9] %}
+            <div class="hot-card" data-severity="{{ card.severity }}" data-round-idx="{{ card.round_idx }}">
+                <div class="hot-k">{{ card.category }}</div>
+                <div class="hot-v">{{ card.value }}</div>
+                <div class="hot-s">{{ card.subtitle }}</div>
+                <br>
+                <span class="diag {{ card.severity }}">{{ card.label }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% if hotspot_cards | length > 9 %}
+        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--t4);">{{ hotspot_cards | length - 9 }} more diagnostics hidden</div>
+        {% endif %}
+        {% else %}
+        <div class="hotspots-diagnostic__empty">
+            <div class="hotspots-diagnostic__empty-icon">&#x2705;</div>
+            <p>未发现异常。本轮会话各项指标均正常。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+</div>
+
+<!-- Tab: Profile (LLM calls table + raw data) — lazy-loaded via <template> -->
+    </div>
+  </div>
+</section>
+
+{# ── DEPRECATED: Conversation tab (migrated out of Workbench) ── #}
+{# Former conversation tab (active by default) -- no longer rendered as visible DOM #}
+{# Content was All Messages flow with user/assistant msg blocks and viewer component #}
+
+
+<!-- Content Modal (shared for "Open" buttons) -->
+<div id="content-modal" class="content-modal" onclick="if(event.target===this)closeContentModal()">
+    <div class="content-modal__panel">
+        <div class="content-modal__header">
+            <span class="content-modal__title"></span>
+            <div class="content-modal__tabs">
+                <button class="content-modal__tab-btn active" data-view="markdown" onclick="switchContentView('markdown')">Markdown</button>
+                <button class="content-modal__tab-btn" data-view="raw" onclick="switchContentView('raw')">Raw</button>
+            </div>
+            <button class="content-modal__close" onclick="closeContentModal()" title="Close">&times;</button>
+        </div>
+        <div class="content-modal__markdown"></div>
+        <div class="content-modal__raw"><pre></pre></div>
+    </div>
+</div>
+
 
 <script>
 (function() {
@@ -996,30 +1079,34 @@
         });
     })();
 
-    /* ─── Toggle round detail row ──────────────────────────────── */
-    window.toggleRoundDetail = function(headerRow) {
-        var detailRow = headerRow.nextElementSibling;
-        if (!detailRow || !detailRow.classList.contains('round-detail-row')) return;
-        var chevron = headerRow.querySelector('.round-chevron-inline');
-        if (detailRow.style.display === 'none' || detailRow.style.display === '') {
-            detailRow.style.display = 'table-row';
-            if (chevron) chevron.style.transform = 'rotate(90deg)';
+    /* ─── Toggle round detail (div-based .trace-row + .trace-detail) ─── */
+    window.toggleRoundDetail = function(traceRow) {
+        var detailDiv = traceRow.nextElementSibling;
+        if (!detailDiv || !detailDiv.classList.contains('trace-detail')) return;
+        var toggleIcon = traceRow.querySelector('[data-toggle-icon]');
+        var isExpanding = detailDiv.style.display === 'none' || detailDiv.style.display === '';
+
+        if (isExpanding) {
+            detailDiv.style.display = '';
+            if (toggleIcon) toggleIcon.textContent = '⌄';
+            traceRow.classList.add('selected');
             // Persist expanded state
-            if (window._sessionId && headerRow.dataset.roundIdx) {
+            if (window._sessionId && traceRow.dataset.roundIdx) {
                 var key = 'rounds_' + window._sessionId;
                 var expanded = arpStorage.get(key) || [];
-                var idx = headerRow.dataset.roundIdx;
+                var idx = traceRow.dataset.roundIdx;
                 if (expanded.indexOf(idx) < 0) expanded.push(idx);
                 arpStorage.set(key, expanded);
             }
         } else {
-            detailRow.style.display = 'none';
-            if (chevron) chevron.style.transform = '';
+            detailDiv.style.display = 'none';
+            if (toggleIcon) toggleIcon.textContent = '›';
+            traceRow.classList.remove('selected');
             // Persist collapsed state
-            if (window._sessionId && headerRow.dataset.roundIdx) {
+            if (window._sessionId && traceRow.dataset.roundIdx) {
                 var key = 'rounds_' + window._sessionId;
                 var expanded = arpStorage.get(key) || [];
-                var idx = headerRow.dataset.roundIdx;
+                var idx = traceRow.dataset.roundIdx;
                 var pos = expanded.indexOf(idx);
                 if (pos >= 0) expanded.splice(pos, 1);
                 arpStorage.set(key, expanded);
@@ -1029,33 +1116,35 @@
 
     /* ─── Expand/Collapse all rounds ─────────────────────────── */
     window.expandAllRounds = function() {
-        var headers = document.querySelectorAll('.round-header-row');
-        headers.forEach(function(header) {
-            var detailRow = header.nextElementSibling;
-            if (detailRow && detailRow.classList.contains('round-detail-row')) {
-                if (detailRow.style.display === 'none' || detailRow.style.display === '') {
-                    detailRow.style.display = 'table-row';
-                    var chevron = header.querySelector('.round-chevron-inline');
-                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+        var rows = document.querySelectorAll('.trace-row');
+        rows.forEach(function(row) {
+            var detailDiv = row.nextElementSibling;
+            if (detailDiv && detailDiv.classList.contains('trace-detail')) {
+                if (detailDiv.style.display === 'none' || detailDiv.style.display === '') {
+                    detailDiv.style.display = '';
+                    var toggleIcon = row.querySelector('[data-toggle-icon]');
+                    if (toggleIcon) toggleIcon.textContent = '⌄';
+                    row.classList.add('selected');
                 }
             }
         });
         // Persist all expanded
         var key = 'rounds_' + window._sessionId;
         var allIdx = [];
-        headers.forEach(function(h) { if (h.dataset.roundIdx) allIdx.push(h.dataset.roundIdx); });
+        rows.forEach(function(r) { if (r.dataset.roundIdx) allIdx.push(r.dataset.roundIdx); });
         arpStorage.set(key, allIdx);
     };
 
     window.collapseAllRounds = function() {
-        var headers = document.querySelectorAll('.round-header-row');
-        headers.forEach(function(header) {
-            var detailRow = header.nextElementSibling;
-            if (detailRow && detailRow.classList.contains('round-detail-row')) {
-                if (detailRow.style.display !== 'none' && detailRow.style.display !== '') {
-                    detailRow.style.display = 'none';
-                    var chevron = header.querySelector('.round-chevron-inline');
-                    if (chevron) chevron.style.transform = '';
+        var rows = document.querySelectorAll('.trace-row');
+        rows.forEach(function(row) {
+            var detailDiv = row.nextElementSibling;
+            if (detailDiv && detailDiv.classList.contains('trace-detail')) {
+                if (detailDiv.style.display !== 'none' && detailDiv.style.display !== '') {
+                    detailDiv.style.display = 'none';
+                    var toggleIcon = row.querySelector('[data-toggle-icon]');
+                    if (toggleIcon) toggleIcon.textContent = '›';
+                    row.classList.remove('selected');
                 }
             }
         });
@@ -1195,38 +1284,41 @@
 
         window.openInspector({
             title: 'LLM Call #' + callIdx + ' (R' + round + ')',
-            metadata: {
-                'Call #': { value: callIdx, mono: true },
-                'Round': { value: 'R' + round, mono: true },
-                'Scope': { value: scope },
-                'Model': { value: model, mono: true }
+            subtitle: 'call #' + callIdx + ' · R' + round + ' · ' + model,
+            objectType: 'call',
+            objectId: '#' + callIdx,
+            overview: {
+                metadata: {
+                    'Call #': { value: callIdx, mono: true },
+                    'Round': { value: 'R' + round, mono: true },
+                    'Scope': { value: scope },
+                    'Model': { value: model, mono: true },
+                    'Input tokens': { value: inputTokens, mono: true },
+                    'Output tokens': { value: outputTokens, mono: true },
+                    'Cache read': { value: cacheRead, mono: true },
+                    'Cache write': { value: cacheWrite, mono: true },
+                },
+                warnings: [],
             },
+            payload: {
+                requestRaw: reqRaw,
+                responseRaw: resRaw,
+                contentParts: contentParts,
+                missingReason: '',
+            },
+            tools: toolCallsData || [],
+            // Keep old fields for backward compat with any remaining code
             content_parts: contentParts,
-            summary: '在 Inspector 中查看 LLM Call #' + callIdx + ' 的 Request 和 Response 原始内容。',
             viewerHtml: viewerHtml,
-            // Rendered Context tab data
             rendered_context_raw: reqRaw,
-            rendered_context_length: renderedContextLen,
             rendered_context_missing_reason: reqRaw && reqRaw.length > 0 ? '' : 'No rendered context (request_full/prompt_preview) available for this call.',
-            // Request Payload tab data
-            request_payload_raw: '',
-            request_payload_input_tokens: inputTokens,
-            request_payload_output_tokens: outputTokens,
-            request_payload_cache_read_tokens: cacheRead,
-            request_payload_cache_write_tokens: cacheWrite,
-            request_payload_rendered_context_length: renderedContextLen,
             request_payload_missing_reason: 'Current session data source does not persist raw HTTP request payload.',
-            // Response Payload tab data
-            response_payload_raw: '',
             response_payload_missing_reason: 'Current session data source does not persist raw HTTP response.',
-            finish_reason: '',
-            tool_calls_raw: '',
-            assistant_content: resRaw,
-            assistant_content_length: resRaw ? resRaw.length : 0,
-            // Tools tab data
+            tool_calls_raw: toolCallsData ? JSON.stringify(toolCallsData, null, 2) : '',
+            request_payload_raw: '',
+            response_payload_raw: '',
             tool_calls: toolCallsData,
-            // Raw tab data
-            debug_json: debugObj
+            debug_json: debugObj,
         });
     };
 
@@ -1479,28 +1571,28 @@
                 window.switchTab('timeline');
             }
 
-            // 2. Find the round header row
-            var headerRow = document.querySelector('.round-header-row[data-round-idx="' + roundIdx + '"]');
-            if (!headerRow) {
+            // 2. Find the trace row
+            var traceRow = document.querySelector('.trace-row[data-round-idx="' + roundIdx + '"]');
+            if (!traceRow) {
                 _showNondestructiveToast('Round #' + roundIdx + ' not found in Timeline.');
                 return;
             }
 
-            // 3. Expand the round detail if collapsed
-            var detailRow = headerRow.nextElementSibling;
-            if (detailRow && detailRow.classList.contains('round-detail-row')) {
-                if (detailRow.style.display === 'none' || detailRow.style.display === '') {
+            // 3. Expand the trace detail if collapsed
+            var detailDiv = traceRow.nextElementSibling;
+            if (detailDiv && detailDiv.classList.contains('trace-detail')) {
+                if (detailDiv.style.display === 'none' || detailDiv.style.display === '') {
                     if (typeof window.toggleRoundDetail === 'function') {
-                        window.toggleRoundDetail(headerRow);
+                        window.toggleRoundDetail(traceRow);
                     }
                 }
             }
 
             // 4. Scroll into view
-            headerRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            traceRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             // 5. Highlight with animation
-            _flashHighlightRow(headerRow);
+            _flashHighlightRow(traceRow);
         }
 
         /**
@@ -1630,21 +1722,21 @@
             if (typeof window.switchTab === 'function') {
                 window.switchTab('timeline');
             }
-            var headerRow = document.querySelector('.round-header-row[data-round-idx="' + roundIdx + '"]');
-            if (!headerRow) {
+            var traceRow = document.querySelector('.trace-row[data-round-idx="' + roundIdx + '"]');
+            if (!traceRow) {
                 showToast('Round #' + roundIdx + ' not found in Timeline.');
                 return;
             }
-            var detailRow = headerRow.nextElementSibling;
-            if (detailRow && detailRow.classList.contains('round-detail-row')) {
-                if (detailRow.style.display === 'none' || detailRow.style.display === '') {
+            var detailDiv = traceRow.nextElementSibling;
+            if (detailDiv && detailDiv.classList.contains('trace-detail')) {
+                if (detailDiv.style.display === 'none' || detailDiv.style.display === '') {
                     if (typeof window.toggleRoundDetail === 'function') {
-                        window.toggleRoundDetail(headerRow);
+                        window.toggleRoundDetail(traceRow);
                     }
                 }
             }
-            headerRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            flashHighlight(headerRow);
+            traceRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            flashHighlight(traceRow);
         }
 
         /**
