@@ -52,6 +52,7 @@ description: 用于按用户意图处理视频网站 URL（如 YouTube、Bilibil
 - 用户是否明确要求相关新闻/最新进展/当前影响
 - 是否已有视频标题或上下文说明
 - 是否允许批量处理（当前默认不自动展开播放列表或合集）
+- 用户意图是否偏向 strict / structured / review / tutorial / action 摘要风格
 
 默认策略：
 1. 如果用户要摘要、背景或分析，默认从 `summary / expand / background-only` 三类中决策。
@@ -59,7 +60,14 @@ description: 用于按用户意图处理视频网站 URL（如 YouTube、Bilibil
 3. 若用户只给 URL、意图不清，默认先做 `dryrun`，不直接真实下载。
 4. 有“高质量/准确/逐字”等明确要求时，转写档位自动走 `accurate`；其他情况默认 `fast`。
 5. 未明确要求背景时，不自动进入第二阶段分析。
-6. 背景阶段若未明确要求“相关新闻/最新/最近/现状”，默认 `--news off`，优先稳定背景资料，不主动搜索相关新闻。
+6. 背景阶段若未明确要求”相关新闻/最新/最近/现状”，默认 `--news off`，优先稳定背景资料，不主动搜索相关新闻。
+7. 摘要风格默认路由：
+   - “总结视频” / “这个视频讲了什么” → structured（默认结构化）
+   - “只总结，不扩展” / “只根据视频内容总结” → strict
+   - “总结并评价” / “这个视频怎么看” / “有什么启发” → review
+   - “操作步骤” / “怎么做” / “checklist” → tutorial 或 action
+   - “补充背景” / “来龙去脉” → expand 或 background-only，external_context=on
+   - “最新进展” / “相关新闻” / “现状” → expand 或 background-only，news=on
 
 ## 关键原则
 
@@ -113,6 +121,14 @@ description: 用于按用户意图处理视频网站 URL（如 YouTube、Bilibil
 - 长视频保护：whisper 模式会输出 `duration_sec`、`long_video` 和 `estimated_risk`，执行方可据此预估耗时，不做交互式确认。用户显式传 `accurate` 仍可按设计执行。
 - 中断后残留的 `.whisper.wav` + `.srt` 会被自动复用，不会触发重复下载或重复转写。执行方不要删除 run_dir 下已有的媒体文件，除非是本次 run 明确的临时文件。
 
+9. 最终输出结构约束（强制）
+- 摘要结果 `summary_result.md` 的顶层标题必须且仅包含：`## 摘要概述`、`## 来源状态`、`## 附件`
+- `## 摘要概述` 第一段必须是总述（先总后分），后续可按视频类型使用三级标题组织（如核心内容、论证结构、操作步骤、嘉宾观点等）
+- `## 来源状态` 必须显式输出文本来源、完整性、时间戳状态、外部资料使用状态、主要风险
+- `## 附件` 必须包含原始视频 URL 和转写文本路径
+- 不同 video_type 的差异放在 `## 摘要概述` 内部的三级标题中，不改变顶层结构
+- 默认总结视频不主动扩展背景，不主动搜索新闻
+
 ## 来源支持与扩展边界
 
 1. 当前来源
@@ -140,6 +156,7 @@ description: 用于按用户意图处理视频网站 URL（如 YouTube、Bilibil
 - 直接读取模式：`dryrun|video|audio|subtitle|whisper`
 - 质量档位参数：`--quality auto|fast|accurate`（默认 `auto`）
 - 总结模式：`summary|expand|background-only`
+- 摘要风格：`strict|structured|review|tutorial|action`（默认 `structured`）
 - 新闻范围：`--news off|on`（默认 `off`）
 
 3. 输出

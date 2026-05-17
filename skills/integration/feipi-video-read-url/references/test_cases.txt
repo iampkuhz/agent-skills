@@ -5,6 +5,12 @@
 #
 # kind=summary:
 #   summary|<url>|<instruction>|<expected_profile>|<selection|extract>
+#
+# 摘要输出结构约束（由 lint 脚本验证）：
+#   summary_result.md 必须包含顶层标题：## 摘要概述、## 来源状态、## 附件
+#   ## 摘要概述 第一段必须是总述（先总后分）
+#   ## 来源状态 必须包含文本来源、完整性、时间戳、外部资料、主要风险
+#   ## 附件 必须包含原始视频 URL 和转写文本路径
 
 # 统一下载入口：YouTube dryrun
 download|https://www.youtube.com/watch?v=wyVsPzzC_vo|dryrun||

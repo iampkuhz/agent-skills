@@ -208,4 +208,60 @@ while IFS= read -r sh_file; do
   bash -n "$sh_file"
 done < <(find "$TARGET_DIR/scripts" -type f -name '*.sh' | sort)
 
+# 新增：检查 lint 脚本存在
+for f in lint_prompt_contract.sh lint_summary_result.sh; do
+  if [[ ! -f "$TARGET_DIR/scripts/$f" ]]; then
+    echo "缺少 lint 脚本: $f" >&2
+    exit 1
+  fi
+done
+
+# 新增：检查 mock 文件存在
+for f in valid_structured_summary.md invalid_fake_timestamp.md invalid_background_pollution.md invalid_missing_source_status.md; do
+  if [[ ! -f "$TARGET_DIR/references/mock_outputs/$f" ]]; then
+    echo "缺少 mock 文件: $f" >&2
+    exit 1
+  fi
+done
+
+# 新增：检查 mock transcripts 存在
+for f in with_timestamps.txt no_timestamps.txt long_transcript.txt; do
+  if [[ ! -f "$TARGET_DIR/references/mock_transcripts/$f" ]]; then
+    echo "缺少 mock transcript: $f" >&2
+    exit 1
+  fi
+done
+
+# 新增：检查 render_summary_prompt.sh 包含来源状态规则
+if ! rg -q "来源状态" "$TARGET_DIR/scripts/render_summary_prompt.sh"; then
+  echo "render_summary_prompt.sh 缺少来源状态规则" >&2
+  exit 1
+fi
+
+# 新增：检查 render_summary_prompt.sh 包含时间戳检测
+if ! rg -q "HAS_TIMESTAMPS" "$TARGET_DIR/scripts/render_summary_prompt.sh"; then
+  echo "render_summary_prompt.sh 缺少时间戳检测" >&2
+  exit 1
+fi
+
+# 新增：检查 render_background_prompt.sh 包含证据披露
+if ! rg -q "空泛免责" "$TARGET_DIR/scripts/render_background_prompt.sh"; then
+  echo "render_background_prompt.sh 缺少证据披露规则" >&2
+  exit 1
+fi
+
+# 新增：检查 SKILL.md 包含摘要风格说明
+if ! rg -qi "summary_style|摘要风格" "$TARGET_DIR/SKILL.md"; then
+  echo "SKILL.md 缺少摘要风格说明" >&2
+  exit 1
+fi
+
+# 新增：检查 references 文件存在
+for f in intent_routing.md video_type_templates.md summary_anti_patterns.md; do
+  if [[ ! -f "$TARGET_DIR/references/$f" ]]; then
+    echo "缺少 reference 文件: $f" >&2
+    exit 1
+  fi
+done
+
 echo "校验通过：$TARGET_DIR"

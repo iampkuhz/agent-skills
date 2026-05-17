@@ -1077,6 +1077,141 @@ else
   stub_fail_msg "duration-detect-auto" "extract_video_text.sh 时长探测未覆盖 auto 模式"
 fi
 
+# ============================================================
+# Phase 05：新增 Contract 测试（不依赖真实联网）
+# ============================================================
+
+MOCK_DIR="$SKILL_DIR/references/mock_transcripts"
+MOCK_OUTPUT_DIR="$SKILL_DIR/references/mock_outputs"
+LINT_PROMPT="$SCRIPT_DIR/lint_prompt_contract.sh"
+LINT_RESULT="$SCRIPT_DIR/lint_summary_result.sh"
+
+# --- 测试 13：有时间戳 transcript：prompt 要求使用真实时间锚点 ---
+if [[ -f "$MOCK_DIR/with_timestamps.txt" ]]; then
+  ts_prompt="$(bash "$SUMMARY_SCRIPT" "https://test" "测试" "300" "$MOCK_DIR/with_timestamps.txt" 80000 2>&1)"
+  if echo "$ts_prompt" | grep -q "禁止使用 T+00:00:00"; then
+    stub_pass "has-timestamp-uses-real-anchors"
+  else
+    stub_fail_msg "has-timestamp-uses-real-anchors" "prompt 缺少真实时间锚点要求"
+  fi
+fi
+
+# --- 测试 14：无时间戳 transcript：prompt 禁止伪造时间 ---
+if [[ -f "$MOCK_DIR/no_timestamps.txt" ]]; then
+  no_ts_prompt="$(bash "$SUMMARY_SCRIPT" "https://test" "测试" "300" "$MOCK_DIR/no_timestamps.txt" 80000 2>&1)"
+  if echo "$no_ts_prompt" | grep -qi "禁止编造\|禁止伪造"; then
+    stub_pass "no-timestamp-forbids-fake"
+  else
+    stub_fail_msg "no-timestamp-forbids-fake" "无时间戳 prompt 缺少禁止伪造时间规则"
+  fi
+  if echo "$no_ts_prompt" | grep -qi "不含可靠时间戳\|无时间戳"; then
+    stub_pass "no-timestamp-requires-disclosure"
+  else
+    stub_fail_msg "no-timestamp-requires-disclosure" "无时间戳 prompt 缺少来源状态说明"
+  fi
+fi
+
+# --- 测试 15：summary-style strict 模式 ---
+strict_prompt="$(bash "$SUMMARY_SCRIPT" "https://test" "测试" "300" "$MOCK_DIR/with_timestamps.txt" 80000 --summary-style strict 2>&1)"
+if echo "$strict_prompt" | grep -q "不输出.*背景\|禁止.*背景\|不输出.*外部背景"; then
+  stub_pass "strict-mode-no-background"
+else
+  stub_fail_msg "strict-mode-no-background" "strict 模式 prompt 缺少禁止背景规则"
+fi
+if echo "$strict_prompt" | grep -q "不输出.*评价\|不输出.*模型分析\|不输出模型"; then
+  stub_pass "strict-mode-no-evaluation"
+else
+  stub_fail_msg "strict-mode-no-evaluation" "strict 模式 prompt 缺少禁止评价规则"
+fi
+
+# --- 测试 16：summary-style review 模式 ---
+review_prompt="$(bash "$SUMMARY_SCRIPT" "https://test" "测试" "300" "$MOCK_DIR/with_timestamps.txt" 80000 --summary-style review 2>&1)"
+if echo "$review_prompt" | grep -qi "模型分析\|启发\|局限"; then
+  stub_pass "review-mode-allows-analysis"
+else
+  stub_fail_msg "review-mode-allows-analysis" "review 模式 prompt 缺少模型分析规则"
+fi
+if echo "$review_prompt" | grep -qi "### 模型分析\|标记.*模型分析"; then
+  stub_pass "review-mode-must-mark-analysis"
+else
+  stub_fail_msg "review-mode-must-mark-analysis" "review 模式 prompt 缺少标记要求"
+fi
+
+# --- 测试 17：来源状态契约 ---
+any_prompt="$(bash "$SUMMARY_SCRIPT" "https://test" "测试" "300" "$MOCK_DIR/with_timestamps.txt" 80000 2>&1)"
+if echo "$any_prompt" | grep -q "来源状态"; then
+  stub_pass "source-status-in-prompt"
+else
+  stub_fail_msg "source-status-in-prompt" "prompt 缺少来源状态要求"
+fi
+
+# --- 测试 18：long video segment prompts ---
+if [[ -f "$MOCK_DIR/long_transcript.txt" ]]; then
+  SEGMENT_SCRIPT="$SCRIPT_DIR/render_segment_summary_prompts.sh"
+  FINAL_SCRIPT="$SCRIPT_DIR/render_final_summary_from_segments_prompt.sh"
+  SEG_TEST_DIR="$(mktemp -d)"
+  bash "$SEGMENT_SCRIPT" "https://test" "长视频" "$MOCK_DIR/long_transcript.txt" 5000 "$SEG_TEST_DIR" > /dev/null 2>&1
+  segment_count=$(ls "$SEG_TEST_DIR/segment_prompts/"*.prompt.md 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$segment_count" -ge 2 ]]; then
+    stub_pass "long-video-generates-segment-prompts"
+  else
+    stub_fail_msg "long-video-generates-segment-prompts" "分段 prompt 数量不足：$segment_count < 2"
+  fi
+  # 测试 final summary prompt
+  bash "$FINAL_SCRIPT" "https://test" "长视频" "$SEG_TEST_DIR" > /dev/null 2>&1
+  if [[ -f "$SEG_TEST_DIR/final_summary_request.md" ]]; then
+    stub_pass "long-video-generates-final-summary-prompt"
+    if grep -q "来源状态" "$SEG_TEST_DIR/final_summary_request.md"; then
+      stub_pass "final-summary-includes-source-status"
+    else
+      stub_fail_msg "final-summary-includes-source-status" "final summary prompt 缺少来源状态"
+    fi
+  else
+    stub_fail_msg "long-video-generates-final-summary-prompt" "未生成 final_summary_request.md"
+  fi
+  rm -rf "$SEG_TEST_DIR"
+fi
+
+# --- 测试 19：lint prompt contract 正例 ---
+if [[ -f "$LINT_PROMPT" && -f "$MOCK_DIR/no_timestamps.txt" ]]; then
+  lint_prompt="$(bash "$SUMMARY_SCRIPT" "https://test" "测试" "300" "$MOCK_DIR/no_timestamps.txt" 80000 2>&1)"
+  echo "$lint_prompt" > /tmp/lint-test-prompt.md
+  if bash "$LINT_PROMPT" /tmp/lint-test-prompt.md > /dev/null 2>&1; then
+    stub_pass "lint-prompt-contract-valid"
+  else
+    stub_fail_msg "lint-prompt-contract-valid" "lint 正例失败"
+  fi
+  rm -f /tmp/lint-test-prompt.md
+fi
+
+# --- 测试 20：lint summary result 正例/反例 ---
+if [[ -f "$LINT_RESULT" ]]; then
+  if bash "$LINT_RESULT" "$MOCK_OUTPUT_DIR/valid_structured_summary.md" > /dev/null 2>&1; then
+    stub_pass "lint-summary-result-valid"
+  else
+    stub_fail_msg "lint-summary-result-valid" "lint 正例失败"
+  fi
+  if bash "$LINT_RESULT" "$MOCK_OUTPUT_DIR/invalid_missing_source_status.md" > /dev/null 2>&1; then
+    stub_fail_msg "lint-summary-result-invalid-passed" "lint 反例应失败但通过了"
+  else
+    stub_pass "lint-summary-result-invalid-catches"
+  fi
+fi
+
+# --- 测试 21：evidence disclosure ---
+if echo "$any_prompt" | grep -qi "禁止空泛免责\|必须披露.*证据"; then
+  stub_pass "evidence-disclosure-in-prompt"
+else
+  stub_fail_msg "evidence-disclosure-in-prompt" "prompt 缺少证据披露规则"
+fi
+
+# --- 测试 22：video_type in prompt ---
+if echo "$any_prompt" | grep -qi "video_type\|演讲.*访谈.*教程\|speech.*interview"; then
+  stub_pass "video-type-in-prompt"
+else
+  stub_fail_msg "video-type-in-prompt" "prompt 缺少 video_type 识别规则"
+fi
+
 rm -rf "$STUB_DIR"
 
 echo "测试汇总: total=$TOTAL pass=$PASSED fail=$FAILED"
